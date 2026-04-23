@@ -1,0 +1,17 @@
+# Окружение
+venv/
+.env
+__pycache__/
+*.pyc
+.DS_Store
+
+# Данные — автогенерируются при первом запуске
+data/
+state/
+signals/
+
+# HTML-отчёт — автогенерируется через generate_report.py
+signals_report.html
+
+# Логи
+*.log
