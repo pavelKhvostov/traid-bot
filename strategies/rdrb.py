@@ -26,10 +26,22 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
         c_close = float(c["Close"])
 
         direction: str | None = None
-        if c_high > a_low and m_close < a_low and c_close < a_low:
-            direction = "SHORT"
-        elif c_low < a_high and m_close > a_high and c_close > a_high:
+        zone_bottom: float | None = None
+        zone_top: float | None = None
+
+        # LONG: prev закрылась выше high якоря, текущая пробила его low-ом вниз,
+        # но закрылась снова выше.
+        if m_close > a_high and c_low < a_high and c_close > a_high:
             direction = "LONG"
+            zone_bottom = c_low
+            zone_top = a_high
+        # SHORT: prev закрылась ниже low якоря, текущая пробила его high-ом вверх,
+        # но закрылась снова ниже.
+        elif m_close < a_low and c_high > a_low and c_close < a_low:
+            direction = "SHORT"
+            zone_bottom = a_low
+            zone_top = c_high
+
         if direction is None:
             continue
 
@@ -38,8 +50,8 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
             symbol=symbol,
             source_tf=tf,
             direction=direction,
-            zone_bottom=a_low,
-            zone_top=a_high,
+            zone_bottom=zone_bottom,
+            zone_top=zone_top,
             trigger_time=pd.to_datetime(c["Open time"], utc=True),
             meta={
                 "anchor_time": pd.to_datetime(a["Open time"], utc=True).isoformat(),
@@ -47,6 +59,8 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
                 "anchor_low": a_low,
                 "mid_close": m_close,
                 "trigger_close": c_close,
+                "trigger_high": c_high,
+                "trigger_low": c_low,
             },
         ))
     return zones

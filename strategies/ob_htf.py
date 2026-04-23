@@ -22,10 +22,16 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
         co, cc = float(cur["Open"]), float(cur["Close"])
 
         direction: str | None = None
+        zone_bottom: float | None = None
+        zone_top: float | None = None
         if pc < po and cc > po:
             direction = "LONG"
+            zone_bottom = pl
+            zone_top = po
         elif pc > po and cc < po:
             direction = "SHORT"
+            zone_bottom = po
+            zone_top = ph
         if direction is None:
             continue
 
@@ -34,8 +40,8 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
             symbol=symbol,
             source_tf=tf,
             direction=direction,
-            zone_bottom=pl,
-            zone_top=ph,
+            zone_bottom=zone_bottom,
+            zone_top=zone_top,
             trigger_time=pd.to_datetime(cur["Open time"], utc=True),
             meta={
                 "prev_open": po, "prev_close": pc,

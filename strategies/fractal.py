@@ -39,64 +39,83 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
         frac_row = ref.iloc[i]
         frac_time = pd.to_datetime(frac_row["Open time"], utc=True).isoformat()
 
+        tf_td = pd.Timedelta(tf)
+
         if is_ll:
             frac_price = float(frac_row["Low"])
             for j in range(i + 3, n):
                 jrow = ref.iloc[j]
                 jlow = float(jrow["Low"])
+                # ждём первую свечу, касающуюся уровня low-ом
+                if jlow >= frac_price:
+                    continue
                 jclose = float(jrow["Close"])
-                if jlow < frac_price and jclose > frac_price:
-                    j_open = float(jrow["Open"])
-                    j_high = float(jrow["High"])
-                    body_bottom = min(j_open, jclose)
-                    zones.append(Zone(
-                        strategy="FRACTAL",
-                        symbol=symbol,
-                        source_tf=tf,
-                        direction="LONG",
-                        zone_bottom=jlow,
-                        zone_top=body_bottom,
-                        trigger_time=pd.to_datetime(jrow["Open time"], utc=True),
-                        meta={
-                            "fractal_time": frac_time,
-                            "fractal_price": frac_price,
-                            "fractal_type": "LL",
-                            "sweep_high": j_high,
-                            "sweep_low": jlow,
-                            "sweep_open": j_open,
-                            "sweep_close": jclose,
-                        },
-                    ))
+                # первая касающаяся — если закрылась за уровнем, фрактал пропущен
+                if jclose <= frac_price:
                     break
+                # jlow < frac_price AND jclose > frac_price -> снятие валидно
+                j_open = float(jrow["Open"])
+                j_high = float(jrow["High"])
+                body_bottom = min(j_open, jclose)
+                open_time = pd.to_datetime(jrow["Open time"], utc=True)
+                close_time = open_time + tf_td - pd.Timedelta(milliseconds=1)
+                trigger_time = (close_time - pd.Timedelta(hours=1)).floor("h")
+                zones.append(Zone(
+                    strategy="FRACTAL",
+                    symbol=symbol,
+                    source_tf=tf,
+                    direction="LONG",
+                    zone_bottom=jlow,
+                    zone_top=body_bottom,
+                    trigger_time=trigger_time,
+                    meta={
+                        "fractal_time": frac_time,
+                        "fractal_price": frac_price,
+                        "fractal_type": "LL",
+                        "sweep_high": j_high,
+                        "sweep_low": jlow,
+                        "sweep_open": j_open,
+                        "sweep_close": jclose,
+                        "sweep_close_time": close_time.isoformat(),
+                    },
+                ))
+                break
 
         if is_hh:
             frac_price = float(frac_row["High"])
             for j in range(i + 3, n):
                 jrow = ref.iloc[j]
                 jhigh = float(jrow["High"])
+                if jhigh <= frac_price:
+                    continue
                 jclose = float(jrow["Close"])
-                if jhigh > frac_price and jclose < frac_price:
-                    j_open = float(jrow["Open"])
-                    j_low = float(jrow["Low"])
-                    body_top = max(j_open, jclose)
-                    zones.append(Zone(
-                        strategy="FRACTAL",
-                        symbol=symbol,
-                        source_tf=tf,
-                        direction="SHORT",
-                        zone_bottom=body_top,
-                        zone_top=jhigh,
-                        trigger_time=pd.to_datetime(jrow["Open time"], utc=True),
-                        meta={
-                            "fractal_time": frac_time,
-                            "fractal_price": frac_price,
-                            "fractal_type": "HH",
-                            "sweep_high": jhigh,
-                            "sweep_low": j_low,
-                            "sweep_open": j_open,
-                            "sweep_close": jclose,
-                        },
-                    ))
+                if jclose >= frac_price:
                     break
+                j_open = float(jrow["Open"])
+                j_low = float(jrow["Low"])
+                body_top = max(j_open, jclose)
+                open_time = pd.to_datetime(jrow["Open time"], utc=True)
+                close_time = open_time + tf_td - pd.Timedelta(milliseconds=1)
+                trigger_time = (close_time - pd.Timedelta(hours=1)).floor("h")
+                zones.append(Zone(
+                    strategy="FRACTAL",
+                    symbol=symbol,
+                    source_tf=tf,
+                    direction="SHORT",
+                    zone_bottom=body_top,
+                    zone_top=jhigh,
+                    trigger_time=trigger_time,
+                    meta={
+                        "fractal_time": frac_time,
+                        "fractal_price": frac_price,
+                        "fractal_type": "HH",
+                        "sweep_high": jhigh,
+                        "sweep_low": j_low,
+                        "sweep_open": j_open,
+                        "sweep_close": jclose,
+                        "sweep_close_time": close_time.isoformat(),
+                    },
+                ))
+                break
 
     return zones
