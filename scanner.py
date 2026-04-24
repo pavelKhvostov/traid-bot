@@ -11,8 +11,6 @@ import websockets
 from config import SYMBOLS, TIMEFRAMES_COMPOSED, TIMEFRAMES_NATIVE
 from data_manager import compose_from_base, load_df, save_df, update_df_incrementally
 from state import (
-    add_today_signal,
-    get_today_signals,
     log_event,
     mark_sent,
     save_last_signal,
@@ -87,8 +85,7 @@ class Scanner:
                     save_df(composed, symbol, tf)
         log_event("INFO", "startup: data ready")
 
-        if len(get_today_signals()) == 0:
-            await asyncio.to_thread(self._prefill_today_signals)
+        await asyncio.to_thread(self._prefill_today_signals)
 
     def _build_signal(self, strat_name: str, z, hit: dict, source_tf: str) -> Signal:
         meta = {
@@ -161,15 +158,19 @@ class Scanner:
                             continue
                         sig = self._build_signal(strat_name, z, hit, stf)
                         key = _sig_key(sig)
-                        sig_data = _sig_to_dict(sig)
-                        add_today_signal(key, sig_data)
-                        save_last_signal({
-                            "sig": sig_data,
-                            "sent_at": pd.Timestamp.utcnow().isoformat(),
-                            "source": "prefill_today",
+                        if was_sent(key):
+                            continue
+                        mark_sent(key, {
+                            "source": "prefill_silent",
+                            "strategy": sig.strategy,
+                            "symbol": sig.symbol,
+                            "source_tf": sig.meta["source_tf"],
+                            "direction": sig.direction,
+                            "ob1h_cur_time": sig.meta["ob1h_cur_time"],
+                            "marked_at": datetime.now(timezone.utc).isoformat(),
                         })
                         filled += 1
-        log_event("INFO", f"prefill: {filled} today signals stored (no broadcast)")
+        log_event("INFO", f"prefill: marked {filled} today signals as sent (no broadcast)")
 
     # ---------------- live dispatch ----------------
 
@@ -233,12 +234,16 @@ class Scanner:
             zones = sorted(zones, key=lambda z: pd.to_datetime(z.trigger_time, utc=True))[-1:]
 
         signals = scan_zones_to_signals(zones, df_1h)
+        last_1h_open = pd.to_datetime(df_1h.iloc[-1]["Open time"], utc=True)
         for s in signals:
-            # в re-scan ветке: OB тоже должен быть сегодня (после cutoff)
-            if cutoff is not None:
-                ob_time = pd.to_datetime(s.meta["ob1h_cur_time"], utc=True)
-                if ob_time < cutoff:
-                    continue
+            ob_time = pd.to_datetime(s.meta["ob1h_cur_time"], utc=True)
+            # Главное правило: шлём только если OB на последней закрытой 1h-свече.
+            if ob_time != last_1h_open:
+                continue
+            # re-scan ветка: OB также должен быть сегодня (подстраховка, обычно уже
+            # выполнено предыдущей проверкой).
+            if cutoff is not None and ob_time < cutoff:
+                continue
             k = _sig_key(s)
             if was_sent(k):
                 continue
@@ -252,7 +257,6 @@ class Scanner:
                     "total": result.get("total"),
                 }
                 mark_sent(k, payload)
-                add_today_signal(k, sig_data)
                 save_last_signal(payload)
                 log_event(
                     "SIGNAL",

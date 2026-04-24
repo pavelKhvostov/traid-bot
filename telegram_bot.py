@@ -3,20 +3,17 @@ from __future__ import annotations
 
 import asyncio
 import json
-import time
 from datetime import datetime
 
 import requests
 
 from config import STATE_DIR, TELEGRAM_BOT_TOKEN, is_admin, load_admins, save_admins
 from state import (
-    get_today_signals,
     get_user,
     is_subscribed,
     load_users,
     log_event,
     remove_user,
-    today_utc_str,
     upsert_user,
 )
 from strategies.base import render_signal_from_dict, tradingview_url
@@ -28,8 +25,7 @@ LAST_UPDATE_PATH = STATE_DIR / "last_update_id.json"
 
 USER_KB = {
     "keyboard": [
-        [{"text": "📊 Статус"}, {"text": "📦 Сигналы за сегодня"}],
-        [{"text": "🛑 Отписаться"}],
+        [{"text": "📊 Статус"}, {"text": "🛑 Отписаться"}],
     ],
     "resize_keyboard": True,
     "is_persistent": True,
@@ -173,33 +169,10 @@ WELCOME_UNSUBSCRIBED = (
 )
 
 
-def _replay_today(chat_id: int) -> None:
-    todays = get_today_signals()
-    if not todays:
-        return
-    send_message(
-        f"📦 <b>Сигналы за сегодня ({today_utc_str()}):</b>\n"
-        f"Отправляю {len(todays)} сигналов, которые прилетели до вашей подписки.",
-        chat_id,
-        reply_markup=USER_KB,
-    )
-    for s in todays:
-        sig = s.get("sig")
-        if not sig:
-            continue
-        try:
-            send_signal(sig, chat_id)
-            time.sleep(0.05)
-        except Exception as e:
-            log_event("WARN", f"today signal replay failed id={chat_id}: {e!r}")
-    log_event("INFO", f"replayed {len(todays)} today signals to {_fmt_user(chat_id)}")
-
-
 def _action_subscribe(chat_id: int, username: str | None, first_name: str | None) -> None:
     upsert_user(chat_id, username, first_name)
     log_event("INFO", f"subscribe from {_fmt_user(chat_id)}")
     send_message("Привет! Ты подписан на сигналы.", chat_id, reply_markup=USER_KB)
-    _replay_today(chat_id)
 
 
 def _action_unsubscribe(chat_id: int) -> None:
@@ -228,28 +201,6 @@ def _action_status(chat_id: int) -> None:
     )
 
 
-def _action_today_signals(chat_id: int) -> None:
-    todays = get_today_signals()
-    kb = _kb_for(chat_id)
-    if not todays:
-        send_message("За сегодня ещё не было сигналов.", chat_id, reply_markup=kb)
-        return
-    send_message(
-        f"📦 Сигналы за сегодня ({today_utc_str()}): {len(todays)} шт.",
-        chat_id,
-        reply_markup=kb,
-    )
-    for s in todays:
-        sig = s.get("sig")
-        if not sig:
-            continue
-        try:
-            send_signal(sig, chat_id)
-            time.sleep(0.05)
-        except Exception as e:
-            log_event("WARN", f"today signal send failed id={chat_id}: {e!r}")
-
-
 def _action_whoami(chat_id: int) -> None:
     send_message(
         f"chat_id: <code>{chat_id}</code>\n"
@@ -267,7 +218,6 @@ BUTTON_TO_ACTION = {
     "🛑 отписаться": "unsubscribe",
     "/status": "status",
     "📊 статус": "status",
-    "📦 сигналы за сегодня": "today_signals",
     "/whoami": "whoami",
 }
 
@@ -310,9 +260,6 @@ def _handle_message(msg: dict) -> None:
         return
     if action == "status":
         _action_status(chat_id)
-        return
-    if action == "today_signals":
-        _action_today_signals(chat_id)
         return
     if action == "whoami":
         _action_whoami(chat_id)

@@ -15,15 +15,15 @@ async def main() -> None:
 
     log_event("INFO", "bot starting")
 
-    # Разовая миграция формата signals_today.json (был "text", стал "sig").
+    # Разовая миграция: today-store отменён, файл удаляем если есть.
     try:
-        import state as _state
-        p = _state.SIGNALS_TODAY_PATH
+        from pathlib import Path
+        p = Path("state/signals_today.json")
         if p.exists():
             p.unlink()
-            log_event("INFO", "signals_today.json cleared for new format")
-    except Exception as e:
-        log_event("WARN", f"signals_today cleanup failed: {e!r}")
+            log_event("INFO", "signals_today.json removed (today-store retired)")
+    except Exception:
+        pass
 
     scanner = Scanner()
     await scanner.startup()

@@ -10,7 +10,6 @@ from config import STATE_DIR
 USERS_PATH = STATE_DIR / "users.json"
 SENT_PATH = STATE_DIR / "sent_signals.json"
 LAST_SIGNAL_PATH = STATE_DIR / "last_signal.json"
-SIGNALS_TODAY_PATH = STATE_DIR / "signals_today.json"
 LOG_PATH = STATE_DIR / "bot.log"
 LOG_ROTATE_BYTES = 5 * 1024 * 1024  # 5 MB
 
@@ -142,46 +141,6 @@ def load_last_signal() -> dict:
 
 def save_last_signal(payload: dict) -> None:
     _write_json(LAST_SIGNAL_PATH, payload)
-
-
-# ---- signals_today ----
-
-def today_utc_str() -> str:
-    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
-
-
-def load_signals_today() -> dict:
-    today = today_utc_str()
-    data = _read_json(SIGNALS_TODAY_PATH, None)
-    bad = (
-        not isinstance(data, dict)
-        or data.get("day") != today
-        or not isinstance(data.get("signals"), list)
-        # миграция со старого формата (был "text", теперь "sig")
-        or any(not isinstance(s, dict) or "sig" not in s for s in data.get("signals", []))
-    )
-    if bad:
-        fresh = {"day": today, "signals": []}
-        _write_json(SIGNALS_TODAY_PATH, fresh)
-        return fresh
-    return data
-
-
-def add_today_signal(key: str, sig_data: dict) -> None:
-    data = load_signals_today()
-    for s in data["signals"]:
-        if s.get("key") == key:
-            return
-    data["signals"].append({
-        "key": key,
-        "sig": sig_data,
-        "sent_at": _now_iso(),
-    })
-    _write_json(SIGNALS_TODAY_PATH, data)
-
-
-def get_today_signals() -> list[dict]:
-    return list(load_signals_today().get("signals", []))
 
 
 # ---- bot.log ----
