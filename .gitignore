@@ -12,6 +12,13 @@ signals/
 
 # HTML-отчёт — автогенерируется через generate_report.py
 signals_report.html
+dashboard.html
+
+# state artifacts (на всякий случай, хотя state/ уже игнорится выше)
+state/admins.json
+state/bot.log
+state/bot.log.1
+state/signals_today.json
 
 # Логи
 *.log

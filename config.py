@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -18,7 +19,8 @@ SIGNALS_DIR = Path("./signals")
 HISTORY_START_DATE = "2022-01-01"
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-ADMIN_CHAT_ID = int(os.getenv("ADMIN_CHAT_ID", "0") or 0)
+
+ADMINS_PATH = STATE_DIR / "admins.json"
 
 
 def ensure_dirs():
@@ -27,3 +29,24 @@ def ensure_dirs():
 
 
 ensure_dirs()
+
+
+def load_admins() -> list[int]:
+    if not ADMINS_PATH.exists():
+        ADMINS_PATH.write_text("[]", encoding="utf-8")
+        return []
+    try:
+        return [int(x) for x in json.loads(ADMINS_PATH.read_text(encoding="utf-8"))]
+    except (ValueError, json.JSONDecodeError, OSError):
+        return []
+
+
+def save_admins(admins: list[int]) -> None:
+    ADMINS_PATH.write_text(
+        json.dumps(sorted(set(int(a) for a in admins)), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def is_admin(chat_id: int) -> bool:
+    return int(chat_id) in load_admins()

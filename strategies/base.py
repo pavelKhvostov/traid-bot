@@ -2,20 +2,33 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from datetime import datetime
 
 import pandas as pd
 
+ASSET_ICONS = {
+    "BTCUSDT": "₿",
+    "ETHUSDT": "Ξ",
+    "SOLUSDT": "◎",
+}
+
 STRATEGY_ICONS = {
     "OBX4": "⚡",
-    "OB_HTF": "🟣",
-    "FVG": "🎯",
-    "FRACTAL": "🔱",
-    "RDRB": "⚪",
+    "FVG": "〰️",
+    "OB_HTF": "📦",
+    "RDRB": "↩️",
+    "FRACTAL": "❄️",
 }
 
 DIRECTION_EMOJI = {
-    "LONG": "🟢",
-    "SHORT": "🔴",
+    "LONG": "📈",
+    "SHORT": "📉",
+}
+
+TF_TO_TV = {
+    "1h": "60", "2h": "120", "3h": "180", "4h": "240",
+    "6h": "360", "8h": "480", "12h": "720",
+    "1d": "D", "2d": "2D", "3d": "3D",
 }
 
 
@@ -50,33 +63,85 @@ def zone_key(z: Zone) -> str:
     return f"{z.strategy}|{z.symbol}|{z.source_tf}|{z.direction}|{z.trigger_time.isoformat()}"
 
 
+def tradingview_url(symbol: str, tf: str) -> str:
+    interval = TF_TO_TV.get(tf, "240")
+    return f"https://www.tradingview.com/chart/?symbol=BINANCE:{symbol}&interval={interval}"
+
+
+def _fmt_price(x: float) -> str:
+    v = float(x)
+    s = f"{v:.2f}" if abs(v) >= 1000 else f"{v:.4f}"
+    if "." in s:
+        s = s.rstrip("0").rstrip(".")
+    return s
+
+
+def _fmt_confirm(iso_or_ts) -> str:
+    if isinstance(iso_or_ts, str):
+        try:
+            dt = datetime.fromisoformat(iso_or_ts)
+        except ValueError:
+            return iso_or_ts
+    else:
+        try:
+            dt = pd.to_datetime(iso_or_ts, utc=True).to_pydatetime()
+        except Exception:
+            return str(iso_or_ts)
+    return dt.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _render(
+    strategy: str, symbol: str, direction: str, source_tf: str,
+    price: float, zone_bottom: float, zone_top: float, confirm_iso_or_ts,
+) -> str:
+    asset_icon = ASSET_ICONS.get(symbol, "")
+    strat_icon = STRATEGY_ICONS.get(strategy, "•")
+    dir_icon = DIRECTION_EMOJI.get(direction, "")
+    confirm_str = _fmt_confirm(confirm_iso_or_ts)
+
+    price_s = _fmt_price(price)
+    zb_s = _fmt_price(zone_bottom)
+    zt_s = _fmt_price(zone_top)
+
+    # Выравниваем лейблы "Вход:", "Зона:", "OB 1h:" по самой длинной ("OB 1h:")
+    labels = ["Вход:", "Зона:", "OB 1h:"]
+    width = max(len(lb) for lb in labels)
+    vals = [price_s, f"{zb_s} – {zt_s}", confirm_str]
+    code_lines = [f"{lb:<{width}} {v}" for lb, v in zip(labels, vals)]
+    code_block = "<code>" + "\n".join(code_lines) + "</code>"
+
+    head1_left = f"{asset_icon} <b>{symbol}</b>".lstrip()
+    head1 = f"{head1_left} · {strat_icon} <b>{strategy}</b>"
+    head2 = f"{dir_icon} <b>{direction}</b> · зона {source_tf}"
+
+    return "\n".join([head1, head2, "", code_block])
+
+
 def format_signal_telegram(s: Signal) -> str:
-    icon = STRATEGY_ICONS.get(s.strategy, "•")
-    demoji = DIRECTION_EMOJI.get(s.direction, "")
-    confirm_str = s.confirm_time.strftime("%Y-%m-%d %H:%M UTC")
     m = s.meta or {}
+    source_tf = m.get("source_tf") or s.timeframe
+    zb = m.get("zone_bottom")
+    zt = m.get("zone_top")
+    return _render(
+        strategy=s.strategy,
+        symbol=s.symbol,
+        direction=s.direction,
+        source_tf=source_tf,
+        price=float(s.price),
+        zone_bottom=float(zb) if zb is not None else float(s.price),
+        zone_top=float(zt) if zt is not None else float(s.price),
+        confirm_iso_or_ts=s.confirm_time,
+    )
 
-    # Общий формат для сигналов, прошедших через ob1h-ядро
-    # (meta содержит source_tf + zone_bottom + zone_top).
-    if "zone_bottom" in m and "zone_top" in m and "source_tf" in m:
-        return "\n".join([
-            f"{icon} <b>{s.strategy}</b> — <b>{s.symbol}</b> (зона {m['source_tf']})",
-            f"{demoji} <b>{s.direction}</b>",
-            f"Зона: {float(m['zone_bottom']):.4f} – {float(m['zone_top']):.4f}",
-            f"OB 1h закрылся: {confirm_str}",
-            f"Цена входа: {s.price}",
-        ])
 
-    # Fallback (старый формат / OBX4-detail на сырой зоне).
-    lines = [
-        f"{icon} <b>{s.strategy}</b> — <b>{s.symbol}</b> ({s.timeframe})",
-        f"{demoji} <b>{s.direction}</b>",
-        f"Время подтверждения: {confirm_str}",
-        f"Цена: {s.price}",
-    ]
-    if s.strategy == "OBX4":
-        if "ob_top" in m and "ob_bottom" in m:
-            lines.append(f"Зона OB: {float(m['ob_bottom']):.4f} – {float(m['ob_top']):.4f}")
-        if "fvg_top" in m and "fvg_bottom" in m:
-            lines.append(f"FVG: {float(m['fvg_bottom']):.4f} – {float(m['fvg_top']):.4f}")
-    return "\n".join(lines)
+def render_signal_from_dict(sig: dict) -> str:
+    return _render(
+        strategy=sig["strategy"],
+        symbol=sig["symbol"],
+        direction=sig["direction"],
+        source_tf=sig.get("source_tf") or sig.get("timeframe", ""),
+        price=float(sig["price"]),
+        zone_bottom=float(sig["zone_bottom"]),
+        zone_top=float(sig["zone_top"]),
+        confirm_iso_or_ts=sig["confirm_time_iso"],
+    )
