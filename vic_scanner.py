@@ -161,21 +161,29 @@ class VicScanner:
         df_15m_full = load_df(symbol, "15m")
         if df_15m_full.empty:
             return
-        df_15m_today = df_15m_full[df_15m_full.index >= today]
-        if len(df_15m_today) < 5:
-            return
 
         last_15m_open_time = pd.Timestamp(last_15m_open_ms, unit="ms", tz="UTC")
+        # Берём window от today−1d, чтобы свечи i-2/i-1 для фрактала в начале
+        # дня D были доступны (cross-midnight: при i+2 = 00:45 нужно 23:45 вчера).
+        # detect_vic_evot сам ограничит «касание в day D» через day_start.
+        window_start = today - pd.Timedelta(days=1)
+        df_15m_window = df_15m_full[
+            (df_15m_full.index >= window_start)
+            & (df_15m_full.index <= last_15m_open_time)
+        ]
+        if len(df_15m_window) < 5:
+            return
+
         # Контракт detect_vic_evot: df_15m.iloc[-1] == last_closed_15m.
-        if pd.to_datetime(df_15m_today.index[-1], utc=True) != last_15m_open_time:
+        if pd.to_datetime(df_15m_window.index[-1], utc=True) != last_15m_open_time:
             log_event(
                 "WARN",
-                f"vic_on_15m: {symbol} csv_last={df_15m_today.index[-1]} "
+                f"vic_on_15m: {symbol} csv_last={df_15m_window.index[-1]} "
                 f"ws_last={last_15m_open_time}",
             )
             return
 
-        sig = detect_vic_evot(df_15m_today, df_1d, vic, symbol, last_15m_open_time)
+        sig = detect_vic_evot(df_15m_window, df_1d, vic, symbol, last_15m_open_time)
         if sig is None:
             return
 

@@ -124,7 +124,7 @@ def collect_signals(
 
         next_day = D + pd.Timedelta(days=1)
         df_15m_day = df_15m[(df_15m.index >= D) & (df_15m.index < next_day)]
-        if len(df_15m_day) < 5:
+        if df_15m_day.empty:
             cur_day += pd.Timedelta(days=1)
             continue
 
@@ -134,10 +134,14 @@ def collect_signals(
             cur_day += pd.Timedelta(days=1)
             continue
 
-        # Свечи дня D, начиная с 5-й (i+2 == текущая, нужны позиции i-2..i+2 в df_15m_day).
-        for i in range(4, len(df_15m_day)):
+        # Все 15m в дне D от i=0. Slice по open_time свечи (включает свечи
+        # предыдущего дня для фрактал-контекста при cross-midnight). detect_vic_evot
+        # сам разберётся через day_start.
+        for i in range(len(df_15m_day)):
             candle_open_time = df_15m_day.index[i]
-            df_15m_truncated = df_15m_day.iloc[: i + 1]
+            df_15m_truncated = df_15m[df_15m.index <= candle_open_time]
+            if len(df_15m_truncated) < 5:
+                continue
 
             sig = detect_vic_evot(
                 df_15m_truncated, df_1d_truncated, vic_level, symbol, candle_open_time,

@@ -16,12 +16,17 @@ def detect_vic_evot(
     """Возвращает Signal, если все 5 условий §3 спеки выполнены, иначе None.
 
     Контракт каллера:
-      - df_15m: 15m свечи дня D; df_15m.iloc[-1] — свеча с open_time
+      - df_15m: 15m свечи с историей; df_15m.iloc[-1] — свеча с open_time
         last_closed_15m_open_time (т.е. i+2 == последняя закрытая 15m).
+        Должно быть минимум 5 свечей назад от i+2. Когда i+2 близко к
+        началу UTC-дня, свечи i-2/i-1 могут быть из ПРЕДЫДУЩЕГО дня —
+        фрактал-проверке это не мешает.
       - df_1d:  1d свечи; df_1d.iloc[-1] — последняя ЗАКРЫТАЯ дневная (D-1).
       - vic_level: maxV(D-1), уже посчитан через calculate_vic_d.
       - Колонки lowercase (формат data_manager): open/high/low/close/volume.
       - DatetimeIndex (UTC).
+
+    День D для условия 1 (касание в day D) выводится из i+2.normalize().
     """
     if vic_level is None:
         return None
@@ -71,8 +76,13 @@ def detect_vic_evot(
         if not (high_i < low_ip2 and low_ip2 > vic_level):
             return None
 
-        # Условие 1: касание уровня (low ≤ maxV) на любой 15m-свече не позже i.
-        if not bool((df_15m.iloc[: pos_i + 1]["low"] <= vic_level).any()):
+        # Условие 1: касание (low ≤ maxV) в день D на/до свечи i.
+        # Фильтруем по day_start чтобы свечи предыдущего дня (i-2 при кросс-полуночи)
+        # НЕ участвовали в условии «касание в день D».
+        day_start = pd.Timestamp(last_closed_15m_open_time).normalize()
+        touch_window = df_15m.iloc[: pos_i + 1]
+        touch_window = touch_window[touch_window.index >= day_start]
+        if touch_window.empty or not bool((touch_window["low"] <= vic_level).any()):
             return None
     else:  # SHORT
         # Условие 2: HH-фрактал в i + high(i) выше уровня.
@@ -91,8 +101,11 @@ def detect_vic_evot(
         if not (low_i > high_ip2 and high_ip2 < vic_level):
             return None
 
-        # Условие 1: касание уровня (high ≥ maxV) не позже i.
-        if not bool((df_15m.iloc[: pos_i + 1]["high"] >= vic_level).any()):
+        # Условие 1: касание (high ≥ maxV) в день D на/до свечи i.
+        day_start = pd.Timestamp(last_closed_15m_open_time).normalize()
+        touch_window = df_15m.iloc[: pos_i + 1]
+        touch_window = touch_window[touch_window.index >= day_start]
+        if touch_window.empty or not bool((touch_window["high"] >= vic_level).any()):
             return None
 
     # Точка входа = close(i+2) — рынок-вход сразу при закрытии 15m
