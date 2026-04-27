@@ -22,3 +22,5 @@ state/signals_today.json
 
 # Логи
 *.log
+# GSD locally-installed config (each developer installs separately)
+.claude/
