@@ -12,14 +12,22 @@ def _intersects_zone(low: float, high: float, zb: float, zt: float) -> bool:
     return not (high < zb or low > zt)
 
 
-def _is_ob1h_long(prev, cur) -> bool:
-    # prev — красная, cur закрылся выше открытия prev
-    return (prev["Close"] < prev["Open"]) and (cur["Close"] > prev["Open"])
+def _is_ob1h_long(prev, cur):
+    """OB-1h LONG. Возвращает (zone_bottom, zone_top) или None."""
+    if (prev["Close"] < prev["Open"]) and (cur["Close"] > prev["Open"]):
+        zb = min(float(prev["Low"]), float(cur["Low"]))
+        zt = float(prev["Open"])
+        return (zb, zt)
+    return None
 
 
-def _is_ob1h_short(prev, cur) -> bool:
-    # prev — зелёная, cur закрылся ниже открытия prev
-    return (prev["Close"] > prev["Open"]) and (cur["Close"] < prev["Open"])
+def _is_ob1h_short(prev, cur):
+    """OB-1h SHORT. Возвращает (zone_bottom, zone_top) или None."""
+    if (prev["Close"] > prev["Open"]) and (cur["Close"] < prev["Open"]):
+        zb = float(prev["Open"])
+        zt = max(float(prev["High"]), float(cur["High"]))
+        return (zb, zt)
+    return None
 
 
 def find_first_ob1h_in_zone(zone: Zone, df_1h: pd.DataFrame) -> Optional[dict]:
@@ -155,3 +163,133 @@ def scan_zones_to_signals(zones: list[Zone], df_1h: pd.DataFrame) -> list[Signal
         f"raw_signals={len(raw_signals)}, after_dedup={len(deduped)}"
     )
     return deduped
+
+
+# ===== Расширенное подтверждение: OB-1h | FVG-1h | RDRB-1h ===========
+
+
+def _detect_fvg1h_long(c2, c1, c0):
+    h2 = float(c2["High"])
+    l0 = float(c0["Low"])
+    if h2 < l0:
+        return (h2, l0)
+    return None
+
+
+def _detect_fvg1h_short(c2, c1, c0):
+    l2 = float(c2["Low"])
+    h0 = float(c0["High"])
+    if l2 > h0:
+        return (h0, l2)
+    return None
+
+
+def _detect_rdrb1h_long(c2, c1, c0):
+    h2 = float(c2["High"])
+    c1c = float(c1["Close"])
+    l0 = float(c0["Low"])
+    c0c = float(c0["Close"])
+    c0o = float(c0["Open"])
+    c2o = float(c2["Open"])
+    c2c = float(c2["Close"])
+    if c1c > h2 and l0 < h2 and c0c > h2:
+        zone_bottom = max(l0, max(c2o, c2c))
+        zone_top = min(h2, min(c0o, c0c))
+        if zone_top > zone_bottom:
+            return (zone_bottom, zone_top)
+    return None
+
+
+def _detect_rdrb1h_short(c2, c1, c0):
+    l2 = float(c2["Low"])
+    c1c = float(c1["Close"])
+    h0 = float(c0["High"])
+    c0c = float(c0["Close"])
+    c0o = float(c0["Open"])
+    c2o = float(c2["Open"])
+    c2c = float(c2["Close"])
+    if c1c < l2 and h0 > l2 and c0c < l2:
+        zone_bottom = max(l2, max(c0o, c0c))
+        zone_top = min(h0, min(c2o, c2c))
+        if zone_top > zone_bottom:
+            return (zone_bottom, zone_top)
+    return None
+
+
+def find_first_confirmation_in_zone(zone: Zone, df_1h: pd.DataFrame) -> Optional[dict]:
+    """Возвращает первое подтверждение зоны старшего ТФ из трёх типов
+    (OB-1h, FVG-1h, RDRB-1h) или None.
+
+    Идём по 1h-свечам после zone.trigger_time. На каждой свече проверяем три
+    паттерна по приоритету: OB-1h → FVG-1h → RDRB-1h. Первый сработавший
+    возвращаем, дальше не ищем. Зона "мертва", если close cur вышел за
+    границы зоны старшего (LONG: close < zb; SHORT: close > zt).
+    """
+    if df_1h is None or df_1h.empty:
+        return None
+
+    trigger = pd.to_datetime(zone.trigger_time, utc=True)
+    mask = pd.to_datetime(df_1h["Open time"], utc=True) > trigger
+    sub = df_1h[mask].reset_index(drop=True)
+    if len(sub) < 3:
+        return None
+
+    zb, zt = float(zone.zone_bottom), float(zone.zone_top)
+    if zb > zt:
+        zb, zt = zt, zb
+
+    is_long = zone.direction == "LONG"
+
+    for i in range(2, len(sub)):
+        c2 = sub.iloc[i - 2]
+        c1 = sub.iloc[i - 1]
+        c0 = sub.iloc[i]
+
+        close_c = float(c0["Close"])
+        if is_long and close_c < zb:
+            return None
+        if (not is_long) and close_c > zt:
+            return None
+
+        cur_time = pd.to_datetime(c0["Open time"], utc=True)
+
+        # ===== OB-1h =====
+        ob_zone = _is_ob1h_long(c1, c0) if is_long else _is_ob1h_short(c1, c0)
+        if ob_zone is not None:
+            ozb, ozt = ob_zone
+            if _intersects_zone(ozb, ozt, zb, zt):
+                return {
+                    "type": "OB-1h",
+                    "confirm_time": cur_time,
+                    "confirm_close": close_c,
+                    "confirm_zone_bottom": ozb,
+                    "confirm_zone_top": ozt,
+                }
+
+        # ===== FVG-1h =====
+        fvg_z = _detect_fvg1h_long(c2, c1, c0) if is_long else _detect_fvg1h_short(c2, c1, c0)
+        if fvg_z is not None:
+            fzb, fzt = fvg_z
+            if _intersects_zone(fzb, fzt, zb, zt):
+                return {
+                    "type": "FVG-1h",
+                    "confirm_time": cur_time,
+                    "confirm_close": close_c,
+                    "confirm_zone_bottom": fzb,
+                    "confirm_zone_top": fzt,
+                }
+
+        # ===== RDRB-1h =====
+        rdrb_z = _detect_rdrb1h_long(c2, c1, c0) if is_long else _detect_rdrb1h_short(c2, c1, c0)
+        if rdrb_z is not None:
+            rzb, rzt = rdrb_z
+            if _intersects_zone(rzb, rzt, zb, zt):
+                return {
+                    "type": "RDRB-1h",
+                    "confirm_time": cur_time,
+                    "confirm_close": close_c,
+                    "confirm_zone_bottom": rzb,
+                    "confirm_zone_top": rzt,
+                }
+
+    return None

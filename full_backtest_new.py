@@ -7,22 +7,23 @@ import pandas as pd
 
 from config import SIGNALS_DIR, SYMBOLS
 from data_manager import compose_from_base, load_df, save_df, update_df_incrementally
-from strategies import fractal, fvg, ob_htf, obx4, rdrb
+from strategies import fractal, fvg, hammer, marubozu, ob_htf, obx4, rdrb
 from strategies.ob1h_core import scan_zones_to_signals
 from strategies.obx4 import to_ref_format
 
-OBX4_TFS = ["1h", "2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]
-HTF_TFS = ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]
+STRATEGY_TFS = ["12h", "1d", "2d", "3d"]
 
 NATIVE = ["1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d"]
 COMPOSED = {"3h": "1h", "2d": "1d"}
 
 STRATEGIES = [
-    ("OBX4",    obx4,    OBX4_TFS),
-    ("FVG",     fvg,     HTF_TFS),
-    ("OB_HTF",  ob_htf,  HTF_TFS),
-    ("RDRB",    rdrb,    HTF_TFS),
-    ("FRACTAL", fractal, HTF_TFS),
+    ("OBX4",     obx4,     STRATEGY_TFS),
+    ("FVG",      fvg,      STRATEGY_TFS),
+    ("OB_HTF",   ob_htf,   STRATEGY_TFS),
+    ("RDRB",     rdrb,     STRATEGY_TFS),
+    ("FRACTAL",  fractal,  STRATEGY_TFS),
+    ("MARUBOZU", marubozu, STRATEGY_TFS),
+    ("HAMMER",   hammer,   STRATEGY_TFS),
 ]
 
 CSV_COLUMNS = [

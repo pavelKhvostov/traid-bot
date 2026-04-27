@@ -249,6 +249,8 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
     if patterns.empty:
         return zones
 
+    tf_td = pd.Timedelta(tf)
+
     for _, row in patterns.iterrows():
         direction = "LONG" if row["direction"] == "bullish" else "SHORT"
         ob_bottom = float(row["ob_bottom"])
@@ -263,7 +265,7 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
             direction=direction,
             zone_bottom=ob_bottom,
             zone_top=ob_top,
-            trigger_time=pd.to_datetime(row["c5_time"], utc=True),
+            trigger_time=pd.to_datetime(row["c5_time"], utc=True) + tf_td,
             meta={
                 "fvg_top": float(row["fvg_top"]),
                 "fvg_bottom": float(row["fvg_bottom"]),

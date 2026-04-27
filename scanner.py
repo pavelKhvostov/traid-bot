@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timezone
 
 import pandas as pd
 import websockets
@@ -16,52 +16,31 @@ from state import (
     save_last_signal,
     was_sent,
 )
-from strategies import fractal, fvg, ob_htf, obx4, rdrb
-from strategies.base import Signal, signal_key
-from strategies.ob1h_core import find_first_ob1h_in_zone, scan_zones_to_signals
+from strategies import fractal, fvg, hammer, marubozu, ob_htf, obx4, rdrb
+from strategies.ob1h_core import find_first_confirmation_in_zone
 from strategies.obx4 import to_ref_format
 from telegram_bot import broadcast_signal
 
 BINANCE_WS_BASE = "wss://stream.binance.com:9443/stream"
 
+# ТФ для поиска зон. Применяется ко ВСЕМ стратегиям без исключения.
+# Если добавишь новую стратегию — НЕ задавай ей собственный список,
+# используй STRATEGY_TFS.
+STRATEGY_TFS = ["12h", "1d", "2d", "3d"]
+
 STRATEGY_MAP = {
-    "OBX4":    (obx4.detect_zones,    ["1h", "2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "FVG":     (fvg.detect_zones,     ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "OB_HTF":  (ob_htf.detect_zones,  ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "RDRB":    (rdrb.detect_zones,    ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "FRACTAL": (fractal.detect_zones, ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
+    "OBX4":     (obx4.detect_zones,     STRATEGY_TFS),
+    "FVG":      (fvg.detect_zones,      STRATEGY_TFS),
+    "OB_HTF":   (ob_htf.detect_zones,   STRATEGY_TFS),
+    "RDRB":     (rdrb.detect_zones,     STRATEGY_TFS),
+    "FRACTAL":  (fractal.detect_zones,  STRATEGY_TFS),
+    "MARUBOZU": (marubozu.detect_zones, STRATEGY_TFS),
+    "HAMMER":   (hammer.detect_zones,   STRATEGY_TFS),
 }
 
 
-def _sig_to_dict(s: Signal) -> dict:
-    return {
-        "strategy": s.strategy,
-        "symbol": s.symbol,
-        "timeframe": s.timeframe,
-        "direction": s.direction,
-        "source_tf": s.meta["source_tf"],
-        "price": float(s.price),
-        "confirm_time_iso": s.confirm_time.isoformat() if hasattr(s.confirm_time, "isoformat") else str(s.confirm_time),
-        "zone_bottom": float(s.meta["zone_bottom"]),
-        "zone_top": float(s.meta["zone_top"]),
-    }
-
-
-def _signal_payload(s: Signal) -> dict:
-    return {
-        "strategy": s.strategy,
-        "symbol": s.symbol,
-        "timeframe": s.timeframe,
-        "direction": s.direction,
-        "confirm_time": s.confirm_time.isoformat() if hasattr(s.confirm_time, "isoformat") else str(s.confirm_time),
-        "price": s.price,
-        "sent_at": datetime.now(timezone.utc).isoformat(),
-        "meta": s.meta,
-    }
-
-
-def _sig_key(s: Signal) -> str:
-    return f"{s.strategy}|{s.symbol}|{s.meta['source_tf']}|{s.direction}|{s.meta['ob1h_cur_time']}"
+def _sig_key_str(strategy: str, symbol: str, source_tf: str, direction: str, confirm_iso: str) -> str:
+    return f"{strategy}|{symbol}|{source_tf}|{direction}|{confirm_iso}"
 
 
 class Scanner:
@@ -86,29 +65,6 @@ class Scanner:
         log_event("INFO", "startup: data ready")
 
         await asyncio.to_thread(self._prefill_today_signals)
-
-    def _build_signal(self, strat_name: str, z, hit: dict, source_tf: str) -> Signal:
-        meta = {
-            "source_tf": source_tf,
-            "zone_bottom": float(z.zone_bottom),
-            "zone_top": float(z.zone_top),
-            "trigger_time": pd.to_datetime(z.trigger_time, utc=True).isoformat(),
-            "first_return_time": hit["first_return_time"].isoformat(),
-            "ob1h_prev_time": hit["ob1h_prev_time"].isoformat(),
-            "ob1h_cur_time": hit["ob1h_cur_time"].isoformat(),
-            "ob1h_cur_close": hit["ob1h_cur_close"],
-        }
-        for k, v in (z.meta or {}).items():
-            meta.setdefault(k, v)
-        return Signal(
-            strategy=strat_name,
-            symbol=z.symbol,
-            timeframe="1h",
-            direction=z.direction,
-            confirm_time=hit["ob1h_cur_time"],
-            price=hit["ob1h_cur_close"],
-            meta=meta,
-        )
 
     def _prefill_today_signals(self) -> None:
         today_start = pd.Timestamp.utcnow().floor("D")
@@ -150,23 +106,24 @@ class Scanner:
                         if pd.to_datetime(z.trigger_time, utc=True) >= today_start
                     ]
                     for z in today_zones:
-                        hit = find_first_ob1h_in_zone(z, df_1h_recent)
-                        if hit is None:
+                        confirmation = find_first_confirmation_in_zone(z, df_1h_recent)
+                        if confirmation is None:
                             continue
-                        ob_time = pd.to_datetime(hit["ob1h_cur_time"], utc=True)
-                        if ob_time < today_start:
+                        confirm_time = confirmation["confirm_time"]
+                        if confirm_time < today_start:
                             continue
-                        sig = self._build_signal(strat_name, z, hit, stf)
-                        key = _sig_key(sig)
+                        confirm_iso = confirm_time.isoformat()
+                        key = _sig_key_str(strat_name, symbol, stf, z.direction, confirm_iso)
                         if was_sent(key):
                             continue
                         mark_sent(key, {
                             "source": "prefill_silent",
-                            "strategy": sig.strategy,
-                            "symbol": sig.symbol,
-                            "source_tf": sig.meta["source_tf"],
-                            "direction": sig.direction,
-                            "ob1h_cur_time": sig.meta["ob1h_cur_time"],
+                            "strategy": strat_name,
+                            "symbol": symbol,
+                            "source_tf": stf,
+                            "direction": z.direction,
+                            "confirm_type": confirmation["type"],
+                            "confirm_time": confirm_iso,
                             "marked_at": datetime.now(timezone.utc).isoformat(),
                         })
                         filled += 1
@@ -233,36 +190,62 @@ class Scanner:
             # по одному tf-событию — хватит только последней зоны
             zones = sorted(zones, key=lambda z: pd.to_datetime(z.trigger_time, utc=True))[-1:]
 
-        signals = scan_zones_to_signals(zones, df_1h)
         last_1h_open = pd.to_datetime(df_1h.iloc[-1]["Open time"], utc=True)
-        for s in signals:
-            ob_time = pd.to_datetime(s.meta["ob1h_cur_time"], utc=True)
-            # Главное правило: шлём только если OB на последней закрытой 1h-свече.
-            if ob_time != last_1h_open:
+        for z in zones:
+            confirmation = find_first_confirmation_in_zone(z, df_1h)
+            if confirmation is None:
                 continue
-            # re-scan ветка: OB также должен быть сегодня (подстраховка, обычно уже
-            # выполнено предыдущей проверкой).
-            if cutoff is not None and ob_time < cutoff:
+
+            confirm_time = confirmation["confirm_time"]
+            # Главное правило: подтверждающая свеча = последняя закрытая 1h.
+            if confirm_time != last_1h_open:
                 continue
-            k = _sig_key(s)
+            if cutoff is not None and confirm_time < cutoff:
+                continue
+
+            confirm_iso = confirm_time.isoformat()
+            sig_data = {
+                "strategy": z.strategy,
+                "symbol": z.symbol,
+                "timeframe": "1h",
+                "direction": z.direction,
+                "source_tf": z.source_tf,
+                "price": float(confirmation["confirm_close"]),
+                "confirm_time_iso": confirm_iso,
+                "zone_bottom": float(z.zone_bottom),
+                "zone_top": float(z.zone_top),
+                "confirm_type": confirmation["type"],
+                "confirm_zone_bottom": float(confirmation["confirm_zone_bottom"]),
+                "confirm_zone_top": float(confirmation["confirm_zone_top"]),
+            }
+
+            k = _sig_key_str(z.strategy, z.symbol, z.source_tf, z.direction, confirm_iso)
             if was_sent(k):
                 continue
             try:
-                sig_data = _sig_to_dict(s)
                 result = broadcast_signal(sig_data)
-                payload = _signal_payload(s)
-                payload["sig"] = sig_data
-                payload["broadcast_result"] = {
-                    "ok": result.get("ok"), "failed": result.get("failed"),
-                    "total": result.get("total"),
+                payload = {
+                    "strategy": z.strategy,
+                    "symbol": z.symbol,
+                    "timeframe": "1h",
+                    "direction": z.direction,
+                    "confirm_time": confirm_iso,
+                    "price": float(confirmation["confirm_close"]),
+                    "sent_at": datetime.now(timezone.utc).isoformat(),
+                    "sig": sig_data,
+                    "broadcast_result": {
+                        "ok": result.get("ok"), "failed": result.get("failed"),
+                        "total": result.get("total"),
+                    },
                 }
                 mark_sent(k, payload)
                 save_last_signal(payload)
                 log_event(
                     "SIGNAL",
-                    f"{s.strategy} {s.symbol} {s.meta['source_tf']} {s.direction} "
+                    f"{z.strategy} {z.symbol} {z.source_tf} {z.direction} "
+                    f"via {confirmation['type']} "
                     f"sent to {result.get('ok', 0)} users "
-                    f"(ob1h_cur_time={s.meta['ob1h_cur_time']})",
+                    f"(confirm_time={confirm_iso})",
                 )
             except Exception as e:
                 log_event("ERROR", f"broadcast failed for {k}: {e!r}")

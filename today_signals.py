@@ -15,22 +15,26 @@ import pandas as pd
 
 from config import SYMBOLS
 from data_manager import load_df
-from strategies import fractal, fvg, ob_htf, obx4, rdrb
+from strategies import fractal, fvg, hammer, marubozu, ob_htf, obx4, rdrb
 from strategies.ob1h_core import find_first_ob1h_in_zone
 from strategies.obx4 import to_ref_format
 
+STRATEGY_TFS = ["12h", "1d", "2d", "3d"]
+
 STRATEGY_MAP = {
-    "OBX4":    (obx4.detect_zones,    ["1h", "2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "FVG":     (fvg.detect_zones,     ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "OB_HTF":  (ob_htf.detect_zones,  ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "RDRB":    (rdrb.detect_zones,    ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
-    "FRACTAL": (fractal.detect_zones, ["2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d"]),
+    "OBX4":     (obx4.detect_zones,     STRATEGY_TFS),
+    "FVG":      (fvg.detect_zones,      STRATEGY_TFS),
+    "OB_HTF":   (ob_htf.detect_zones,   STRATEGY_TFS),
+    "RDRB":     (rdrb.detect_zones,     STRATEGY_TFS),
+    "FRACTAL":  (fractal.detect_zones,  STRATEGY_TFS),
+    "MARUBOZU": (marubozu.detect_zones, STRATEGY_TFS),
+    "HAMMER":   (hammer.detect_zones,   STRATEGY_TFS),
 }
 
 ASSET_ICON = {"BTCUSDT": "₿", "ETHUSDT": "Ξ", "SOLUSDT": "◎"}
 STRAT_ICON = {
     "OBX4": "⚡", "FVG": "〰️", "OB_HTF": "📦",
-    "RDRB": "↩️", "FRACTAL": "❄️",
+    "RDRB": "↩️", "FRACTAL": "❄️", "MARUBOZU": "🟩", "HAMMER": "🔨",
 }
 DIR_ICON = {"LONG": "📈", "SHORT": "📉"}
 
@@ -119,7 +123,7 @@ def main():
     for s in all_signals:
         by_strategy[s["strategy"]] = by_strategy.get(s["strategy"], 0) + 1
     print("По стратегиям:")
-    for k in ["OBX4", "FVG", "OB_HTF", "RDRB", "FRACTAL"]:
+    for k in ["OBX4", "FVG", "OB_HTF", "RDRB", "FRACTAL", "MARUBOZU", "HAMMER"]:
         if k in by_strategy:
             print(f"  {STRAT_ICON.get(k, '?')} {k}: {by_strategy[k]}")
     print()

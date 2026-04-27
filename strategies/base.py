@@ -18,6 +18,8 @@ STRATEGY_ICONS = {
     "OB_HTF": "📦",
     "RDRB": "↩️",
     "FRACTAL": "❄️",
+    "MARUBOZU": "🟩",
+    "HAMMER": "🔨",
 }
 
 DIRECTION_EMOJI = {
@@ -93,6 +95,7 @@ def _fmt_confirm(iso_or_ts) -> str:
 def _render(
     strategy: str, symbol: str, direction: str, source_tf: str,
     price: float, zone_bottom: float, zone_top: float, confirm_iso_or_ts,
+    confirm_type: str = "OB-1h",
 ) -> str:
     asset_icon = ASSET_ICONS.get(symbol, "")
     strat_icon = STRATEGY_ICONS.get(strategy, "•")
@@ -103,8 +106,7 @@ def _render(
     zb_s = _fmt_price(zone_bottom)
     zt_s = _fmt_price(zone_top)
 
-    # Выравниваем лейблы "Вход:", "Зона:", "OB 1h:" по самой длинной ("OB 1h:")
-    labels = ["Вход:", "Зона:", "OB 1h:"]
+    labels = ["Вход:", "Зона:", "Время:"]
     width = max(len(lb) for lb in labels)
     vals = [price_s, f"{zb_s} – {zt_s}", confirm_str]
     code_lines = [f"{lb:<{width}} {v}" for lb, v in zip(labels, vals)]
@@ -113,8 +115,9 @@ def _render(
     head1_left = f"{asset_icon} <b>{symbol}</b>".lstrip()
     head1 = f"{head1_left} · {strat_icon} <b>{strategy}</b>"
     head2 = f"{dir_icon} <b>{direction}</b> · зона {source_tf}"
+    head3 = f"Подтверждение: <b>{confirm_type}</b>"
 
-    return "\n".join([head1, head2, "", code_block])
+    return "\n".join([head1, head2, head3, "", code_block])
 
 
 def format_signal_telegram(s: Signal) -> str:
@@ -131,6 +134,7 @@ def format_signal_telegram(s: Signal) -> str:
         zone_bottom=float(zb) if zb is not None else float(s.price),
         zone_top=float(zt) if zt is not None else float(s.price),
         confirm_iso_or_ts=s.confirm_time,
+        confirm_type=m.get("confirm_type", "OB-1h"),
     )
 
 
@@ -144,4 +148,5 @@ def render_signal_from_dict(sig: dict) -> str:
         zone_bottom=float(sig["zone_bottom"]),
         zone_top=float(sig["zone_top"]),
         confirm_iso_or_ts=sig["confirm_time_iso"],
+        confirm_type=sig.get("confirm_type", "OB-1h"),
     )

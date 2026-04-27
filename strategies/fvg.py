@@ -13,6 +13,7 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
     if ref.empty or len(ref) < 3:
         return []
 
+    tf_td = pd.Timedelta(tf)
     zones: list[Zone] = []
     for i in range(2, len(ref)):
         c0 = ref.iloc[i - 2]
@@ -22,7 +23,7 @@ def detect_zones(df: pd.DataFrame, symbol: str, tf: str) -> list[Zone]:
         l0 = float(c0["Low"])
         h2 = float(c2["High"])
         l2 = float(c2["Low"])
-        trigger = pd.to_datetime(c2["Open time"], utc=True)
+        trigger = pd.to_datetime(c2["Open time"], utc=True) + tf_td
 
         if h0 < l2:  # LONG FVG
             zones.append(Zone(
