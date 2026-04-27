@@ -24,3 +24,11 @@ state/signals_today.json
 *.log
 # GSD locally-installed config (each developer installs separately)
 .claude/
+
+# Obsidian — личные настройки разработчика
+vault/.obsidian/workspace
+vault/.obsidian/workspace.json
+vault/.obsidian/workspace-mobile.json
+vault/.obsidian/cache
+vault/.obsidian/graph.json
+.DS_Store
