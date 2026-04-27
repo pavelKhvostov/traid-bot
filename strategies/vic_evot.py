@@ -5,11 +5,6 @@ import pandas as pd
 
 from strategies.base import Level, Signal
 
-# Окно поиска фрактала: фрактал может быть на 0..FRACTAL_WINDOW-1 позиций
-# раньше FVG-start (i). k=0 — классический случай (фрактал = i), k=3 —
-# фрактал на 3 свечи раньше FVG. Расширение спеки §3 п.2.
-FRACTAL_WINDOW = 4
-
 
 def detect_vic_evot(
     df_15m: pd.DataFrame,
@@ -18,23 +13,25 @@ def detect_vic_evot(
     symbol: str,
     last_closed_15m_open_time: pd.Timestamp,
 ) -> Signal | None:
-    """Возвращает Signal, если все 5 условий §3 спеки выполнены, иначе None.
+    """Возвращает Signal, если все условия §3 спеки выполнены, иначе None.
 
     Контракт каллера:
       - df_15m: 15m свечи; df_15m.iloc[-1] — свеча с open_time
-        last_closed_15m_open_time. Минимум 5 свечей (k=0); для k>0 нужна
-        более глубокая история (n ≥ k+5), иначе соответствующее k пропущено.
-        Cross-midnight: свечи i-2/i-1 могут быть из ПРЕДЫДУЩЕГО дня.
+        last_closed_15m_open_time. Минимум 5 свечей.
+        Cross-midnight: свечи i-2/i-1 могут быть из ПРЕДЫДУЩЕГО дня —
+        фрактал-проверке это не мешает (фрактал ищется среди свечей day D).
       - df_1d:  1d свечи; df_1d.iloc[-1] — последняя ЗАКРЫТАЯ дневная (D-1).
       - vic_level: maxV(D-1), уже посчитан через calculate_vic_d.
       - Колонки lowercase (формат data_manager): open/high/low/close/volume.
       - DatetimeIndex (UTC).
 
-    День D для условия 1 (касание в day D) выводится из i+2.normalize().
-
-    FVG-start i фиксирован на n-3 (i+2 = last_closed = n-1). Фрактал f
-    ищется в окне {n-3, n-4, n-5, n-6} — берётся первый валидный
-    (ближайший к i). k = pos_i - pos_f сохраняется в meta.
+    Логика (§3 уточнённая):
+      • FVG-start i фиксирован на n-3 (i+2 = last_closed = n-1).
+      • Фрактал f ищется в day D от pos_i и назад до начала дня — берётся
+        ближайший к FVG валидный.
+      • Структурная инвалидация: между f и last_closed не должно быть
+        противоходного фрактала (HH для LONG, LL для SHORT). Если есть —
+        разворот уже опровергнут до FVG, сигнал отвергается.
     """
     if vic_level is None:
         return None
@@ -52,7 +49,7 @@ def detect_vic_evot(
         return None
 
     n = len(df_15m)
-    pos_i = n - 3        # FVG-start, фиксировано
+    pos_i = n - 3        # FVG-start
     pos_ip2 = n - 1      # last_closed = i+2
     c_i = df_15m.iloc[pos_i]
     c_ip2 = df_15m.iloc[pos_ip2]
@@ -69,27 +66,25 @@ def detect_vic_evot(
         if not (low_i > high_ip2 and high_ip2 < vic_level):
             return None
 
-    # Условия 1+2 (касание + LL/HH-фрактал) — поиск в окне FRACTAL_WINDOW
-    # позиций, начиная с n-3 (классика, k=0) и глубже до n-6 (k=3).
-    # Берём первый валидный (ближайший к FVG-start).
     day_start = pd.Timestamp(last_closed_15m_open_time).normalize()
+
+    # Условия 1+2 — найти ближайший к FVG валидный фрактал в day D.
+    # Идём от pos_i назад до начала day D. Фрактал должен быть в day D —
+    # иначе касание (которое привязано к day D) не может предшествовать ему.
     found_pos_f: int | None = None
-    for k in range(FRACTAL_WINDOW):
-        pos_f = pos_i - k
+    for pos_f in range(pos_i, -1, -1):
+        if df_15m.index[pos_f] < day_start:
+            break
         if pos_f - 2 < 0 or pos_f + 2 >= n:
             continue
         c_f = df_15m.iloc[pos_f]
-        c_fm2 = df_15m.iloc[pos_f - 2]
-        c_fm1 = df_15m.iloc[pos_f - 1]
-        c_fp1 = df_15m.iloc[pos_f + 1]
-        c_fp2 = df_15m.iloc[pos_f + 2]
 
         if direction == "LONG":
             low_f = float(c_f["low"])
-            if not (low_f < float(c_fm2["low"])
-                    and low_f < float(c_fm1["low"])
-                    and low_f < float(c_fp1["low"])
-                    and low_f < float(c_fp2["low"])):
+            if not (low_f < float(df_15m.iloc[pos_f - 2]["low"])
+                    and low_f < float(df_15m.iloc[pos_f - 1]["low"])
+                    and low_f < float(df_15m.iloc[pos_f + 1]["low"])
+                    and low_f < float(df_15m.iloc[pos_f + 2]["low"])):
                 continue
             if not (low_f < vic_level):
                 continue
@@ -97,12 +92,12 @@ def detect_vic_evot(
             touch_window = touch_window[touch_window.index >= day_start]
             if touch_window.empty or not bool((touch_window["low"] <= vic_level).any()):
                 continue
-        else:  # SHORT
+        else:
             high_f = float(c_f["high"])
-            if not (high_f > float(c_fm2["high"])
-                    and high_f > float(c_fm1["high"])
-                    and high_f > float(c_fp1["high"])
-                    and high_f > float(c_fp2["high"])):
+            if not (high_f > float(df_15m.iloc[pos_f - 2]["high"])
+                    and high_f > float(df_15m.iloc[pos_f - 1]["high"])
+                    and high_f > float(df_15m.iloc[pos_f + 1]["high"])
+                    and high_f > float(df_15m.iloc[pos_f + 2]["high"])):
                 continue
             if not (high_f > vic_level):
                 continue
@@ -116,6 +111,28 @@ def detect_vic_evot(
 
     if found_pos_f is None:
         return None
+
+    # Структурная инвалидация: между f и last_closed не должно быть противохода.
+    # Позиция g фрактала-противохода требует g-2 ≥ 0 и g+2 ≤ n-1, т.е. g ≤ n-3.
+    for pos_g in range(found_pos_f + 1, n - 2):
+        if pos_g - 2 < 0 or pos_g + 2 >= n:
+            continue
+        c_g = df_15m.iloc[pos_g]
+
+        if direction == "LONG":
+            high_g = float(c_g["high"])
+            if (high_g > float(df_15m.iloc[pos_g - 2]["high"])
+                    and high_g > float(df_15m.iloc[pos_g - 1]["high"])
+                    and high_g > float(df_15m.iloc[pos_g + 1]["high"])
+                    and high_g > float(df_15m.iloc[pos_g + 2]["high"])):
+                return None
+        else:
+            low_g = float(c_g["low"])
+            if (low_g < float(df_15m.iloc[pos_g - 2]["low"])
+                    and low_g < float(df_15m.iloc[pos_g - 1]["low"])
+                    and low_g < float(df_15m.iloc[pos_g + 1]["low"])
+                    and low_g < float(df_15m.iloc[pos_g + 2]["low"])):
+                return None
 
     # Точка входа = close(i+2) — рынок-вход сразу при закрытии 15m
     # свечи-сигнала, без ожидания возврата к FVG-границе.
