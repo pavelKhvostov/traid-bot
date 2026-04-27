@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 
+from config import VIC_LTF_MINUTES
 from data_manager import (
     fetch_klines_range,
     load_df,
@@ -112,7 +113,9 @@ def collect_signals(
         D_minus_1 = D - pd.Timedelta(days=1)
 
         if D_minus_1 not in vic_cache:
-            vic_cache[D_minus_1] = calculate_vic_d(df_1m, D_minus_1)
+            vic_cache[D_minus_1] = calculate_vic_d(
+                df_1m, D_minus_1, ltf_minutes=VIC_LTF_MINUTES,
+            )
         vic_level = vic_cache[D_minus_1]
 
         if vic_level is None:

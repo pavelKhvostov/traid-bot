@@ -20,6 +20,10 @@ VIC_TFS = ["1d"]
 VIC_NATIVE_TFS = ["1m", "15m", "1d"]
 VIC_1M_LOOKBACK_DAYS = 3
 VIC_15M_LOOKBACK_DAYS = 7
+# Pine-индикатор 'Volume in Candle' (ASVK ViC) с auto=true и mlt=100 на
+# 1D-чарте даёт LTF = 1440/100 = 14.4m → Pine rounds down → 14m.
+# maxV считается по 14m-агрегатам 1m свечей, не по сырым 1m.
+VIC_LTF_MINUTES = 14
 
 DATA_DIR = Path("./data")
 STATE_DIR = Path("./state")

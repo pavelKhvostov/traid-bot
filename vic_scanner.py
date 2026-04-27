@@ -18,6 +18,7 @@ from config import (
     SYMBOLS,
     VIC_15M_LOOKBACK_DAYS,
     VIC_1M_LOOKBACK_DAYS,
+    VIC_LTF_MINUTES,
     VIC_NATIVE_TFS,
 )
 from data_manager import (
@@ -118,7 +119,7 @@ class VicScanner:
             if df_1m.empty:
                 log_event("WARN", f"vic_prefill: пустой 1m для {symbol}")
                 continue
-            level = calculate_vic_d(df_1m, d_minus_1)
+            level = calculate_vic_d(df_1m, d_minus_1, ltf_minutes=VIC_LTF_MINUTES)
             if level is None:
                 log_event("WARN", f"vic_prefill: maxV=None для {symbol} {d_minus_1.date()}")
                 continue
@@ -134,7 +135,7 @@ class VicScanner:
         if df_1m.empty:
             log_event("WARN", f"vic_on_1d: пустой 1m для {symbol}")
             return
-        level = calculate_vic_d(df_1m, d_minus_1)
+        level = calculate_vic_d(df_1m, d_minus_1, ltf_minutes=VIC_LTF_MINUTES)
         if level is None:
             log_event("WARN", f"vic_on_1d: maxV=None для {symbol} {d_minus_1.date()}")
             return

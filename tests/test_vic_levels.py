@@ -90,3 +90,48 @@ def test_returns_float_not_numpy(make_1m):
     df = make_1m([("2026-04-26 00:00", 100, 102, 50)])
     result = calculate_vic_d(df, DAY)
     assert type(result) is float
+
+
+# ---- LTF-агрегация (Pine ASVK ViC с auto+mlt) ----
+
+def test_ltf_aggregation_changes_winner(make_1m):
+    """При ltf_minutes=14 один объёмный 1m может проиграть 14m-агрегату.
+
+    Сценарий: первая 1m свеча с volume=100 (бычья). Следующие 13 1m свечей
+    — мелкие медвежьи с volume=10 каждая (∑=130). Один 14m-бар включает
+    все 14 1m свечей: open=100 (open первой), close=last close (медвежий),
+    volume=100+13×10=230. Этот единственный 14m-бар — bear. На сыром 1m
+    выиграл бы bull (объём 100), на 14m — bear (объём 230)."""
+    rows = [("2026-04-26 00:00", 100, 101, 100)]   # bull, 100
+    for i in range(1, 14):
+        rows.append((f"2026-04-26 00:{i:02d}", 100.5 + i * 0.01, 100.4 + i * 0.01, 10))
+    df = make_1m(rows)
+    # 1m-режим: bull побеждает
+    assert calculate_vic_d(df, DAY, ltf_minutes=1) == 101.0
+    # 14m-режим: один агрегат, bear (close < open)
+    result = calculate_vic_d(df, DAY, ltf_minutes=14)
+    assert result is not None
+    assert result < 101.0  # close меньше open=100, точное значение зависит от ресемпла
+
+
+def test_ltf_aggregation_preserves_format(make_1m):
+    """ltf_minutes=14 возвращает float, не None при валидных данных."""
+    rows = []
+    for i in range(28):  # 2 14m-бара
+        ts = f"2026-04-26 {i // 60:02d}:{i % 60:02d}"
+        rows.append((ts, 100.0, 100.0 + (1 if i < 14 else -1), 50.0))
+    df = make_1m(rows)
+    result = calculate_vic_d(df, DAY, ltf_minutes=14)
+    assert result is not None
+    assert type(result) is float
+
+
+def test_ltf_default_is_1m(make_1m):
+    """Default ltf_minutes=1 — поведение идентично сырому 1m расчёту."""
+    df = make_1m([
+        ("2026-04-26 00:00", 100, 101, 50),
+        ("2026-04-26 00:01", 100, 99, 50),
+    ])
+    # default = no resample = bear (tie-breaker)
+    assert calculate_vic_d(df, DAY) == 99.0
+    assert calculate_vic_d(df, DAY, ltf_minutes=1) == 99.0

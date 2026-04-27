@@ -24,34 +24,73 @@ implementer: Андрей
 
 ## 2. Расчёт maxV
 
+Источник истины для определения уровня — Pine-индикатор **'ViC ASVK'** на
+TradingView с настройками:
+- `Data from = LTF`
+- `Auto = true`
+- `mlt = 100`
+
+На 1D-чарте Pine считает: `LTF = chart_TF / mlt = 1440 / 100 = 14.4 min`,
+далее `timeframe.from_seconds(864) → "14"` (Pine rounds down). То есть
+maxV ищется по **14m-агрегатам** 1m-свечей дня, не по сырым 1m.
+
+Конфиг: `VIC_LTF_MINUTES = 14` в `config.py`. Если индикатор настраивается
+иначе (другой `mlt`, другой chart_TF) — пересчитать.
+
 ```python
-def calculate_vic_d(df_1m: pd.DataFrame, day: pd.Timestamp) -> Optional[float]:
+def calculate_vic_d(
+    df_1m: pd.DataFrame, day: pd.Timestamp, ltf_minutes: int = 1,
+) -> Optional[float]:
     """
     Возвращает уровень maxV для дня `day` (UTC, normalized).
+
+    Если ltf_minutes > 1, ресемплит 1m свечи дня в LTF-бары через
+    pandas.resample(origin='epoch') — выравнивание по UTC-эпохе.
+    Default 1 (no-op resample) — для тестов и явного 1m-режима.
+
     None — если за день нет данных или нет ни одной bull/bear свечи.
+    Тай-брейкер при равных max_bull == max_bear: bear (else-ветка).
     """
     next_day = day + pd.Timedelta(days=1)
     mask = (df_1m.index >= day) & (df_1m.index < next_day)
-    day_1m = df_1m.loc[mask]
-    if day_1m.empty:
+    day_df = df_1m.loc[mask]
+    if day_df.empty:
         return None
 
-    bull = day_1m[day_1m['close'] > day_1m['open']]
-    bear = day_1m[day_1m['close'] < day_1m['open']]
+    if ltf_minutes > 1:
+        day_df = day_df.resample(
+            f"{ltf_minutes}min", origin="epoch", label="left", closed="left",
+        ).agg({
+            "open": "first", "high": "max", "low": "min",
+            "close": "last", "volume": "sum",
+        }).dropna(subset=["close"])
+        if day_df.empty:
+            return None
 
-    max_bull = bull['volume'].max() if not bull.empty else 0
-    max_bear = bear['volume'].max() if not bear.empty else 0
+    bull = day_df[day_df["close"] > day_df["open"]]
+    bear = day_df[day_df["close"] < day_df["open"]]
+
+    max_bull = bull["volume"].max() if not bull.empty else 0
+    max_bear = bear["volume"].max() if not bear.empty else 0
 
     if max_bull == 0 and max_bear == 0:
         return None
 
     if max_bull > max_bear:
-        return float(bull.loc[bull['volume'].idxmax(), 'close'])
-    else:
-        return float(bear.loc[bear['volume'].idxmax(), 'close'])
+        return float(bull.loc[bull["volume"].idxmax(), "close"])
+    return float(bear.loc[bear["volume"].idxmax(), "close"])
 ```
 
+В рантайме (`vic_scanner.py`, `backtest_vic_evot.py`) функция вызывается
+с явным `ltf_minutes=VIC_LTF_MINUTES`. Тесты в `tests/test_vic_levels.py`
+покрывают оба режима — default (1m) и LTF=14.
+
 Кэшируется в `state/vic_levels.json` с ключом `{symbol}|{YYYY-MM-DD}`.
+
+> **Важно при деплое:** при апгрейде с 1m-режима на LTF=14m существующий
+> `state/vic_levels.json` содержит старые (1m-based) уровни. Их нужно
+> либо удалить (`rm state/vic_levels.json`), либо дождаться следующего
+> close 1d — он перезапишет кэш через `on_closed_1d`.
 
 ## 3. Логика стратегии
 
