@@ -7,6 +7,7 @@ from config import TELEGRAM_BOT_TOKEN, load_admins
 from scanner import Scanner
 from state import load_users, log_event
 from telegram_bot import polling_loop, send_message
+from vic_scanner import VicScanner
 
 
 async def main() -> None:
@@ -26,6 +27,10 @@ async def main() -> None:
         pass
 
     scanner = Scanner()
+    vic_scanner = VicScanner()
+    # VicScanner — первым: bootstrap'ит 1m/15m с ограниченным горизонтом, чтобы
+    # их CSV существовали к моменту, когда Scanner.startup пройдёт по своим TF.
+    await vic_scanner.startup()
     await scanner.startup()
 
     users_count = len(load_users())
@@ -33,7 +38,7 @@ async def main() -> None:
 
     startup_msg = (
         "🤖 <b>Бот запущен</b>\n"
-        "Стратегии: OBX4, FVG, OB_HTF, RDRB, FRACTAL\n"
+        "Стратегии: OBX4, FVG, OB_HTF, RDRB, FRACTAL, MARUBOZU, HAMMER, VIC_EVOT\n"
         "Символы: BTCUSDT, ETHUSDT, SOLUSDT\n"
         f"Подписчиков: <b>{users_count}</b>\n"
         "Шлём только НОВЫЕ сигналы на только что закрывшихся свечах."
@@ -48,6 +53,7 @@ async def main() -> None:
 
     await asyncio.gather(
         scanner.ws_loop(),
+        vic_scanner.ws_loop(),
         polling_loop(),
     )
 

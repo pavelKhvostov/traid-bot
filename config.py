@@ -12,6 +12,15 @@ TIMEFRAMES_NATIVE = ["1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d"]
 TIMEFRAMES_COMPOSED = {"3h": "1h", "2d": "1d"}
 ALL_TIMEFRAMES = TIMEFRAMES_NATIVE + list(TIMEFRAMES_COMPOSED.keys())
 
+# VIC_EVOT (стратегия №8) — отдельная WS-подписка, чтобы существующий
+# Scanner не дёргал 1m/15m REST-обновления (1440+96 closes/сутки на символ).
+# 1d входит в обе подписки; close_1d приходит в оба сканера (раз в сутки —
+# дубликат REST-апдейта тривиален).
+VIC_TFS = ["1d"]
+VIC_NATIVE_TFS = ["1m", "15m", "1d"]
+VIC_1M_LOOKBACK_DAYS = 3
+VIC_15M_LOOKBACK_DAYS = 7
+
 DATA_DIR = Path("./data")
 STATE_DIR = Path("./state")
 SIGNALS_DIR = Path("./signals")

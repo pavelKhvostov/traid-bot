@@ -10,6 +10,7 @@ from config import STATE_DIR
 USERS_PATH = STATE_DIR / "users.json"
 SENT_PATH = STATE_DIR / "sent_signals.json"
 LAST_SIGNAL_PATH = STATE_DIR / "last_signal.json"
+VIC_LEVELS_PATH = STATE_DIR / "vic_levels.json"
 LOG_PATH = STATE_DIR / "bot.log"
 LOG_ROTATE_BYTES = 5 * 1024 * 1024  # 5 MB
 
@@ -141,6 +142,29 @@ def load_last_signal() -> dict:
 
 def save_last_signal(payload: dict) -> None:
     _write_json(LAST_SIGNAL_PATH, payload)
+
+
+# ---- VIC maxV кэш ----
+
+def _vic_key(symbol: str, day) -> str:
+    """Ключ кэша: BTCUSDT|2026-04-26 (день нормализуется до даты UTC)."""
+    if hasattr(day, "strftime"):
+        day_str = day.strftime("%Y-%m-%d")
+    else:
+        day_str = str(day)
+    return f"{symbol}|{day_str}"
+
+
+def load_vic_level(symbol: str, day) -> float | None:
+    data = _read_json(VIC_LEVELS_PATH, {})
+    val = data.get(_vic_key(symbol, day))
+    return float(val) if val is not None else None
+
+
+def save_vic_level(symbol: str, day, price: float) -> None:
+    data = _read_json(VIC_LEVELS_PATH, {})
+    data[_vic_key(symbol, day)] = float(price)
+    _write_json(VIC_LEVELS_PATH, data)
 
 
 # ---- bot.log ----
