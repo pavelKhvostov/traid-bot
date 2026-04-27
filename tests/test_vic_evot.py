@@ -130,17 +130,24 @@ def test_no_fvg_returns_none(make_15m, make_1d):
     assert detect_vic_evot(df, make_1d(101.0), VIC, SYMBOL, LAST_15M) is None
 
 
-def test_fvg_at_or_below_level_returns_none(make_15m, make_1d):
-    """§8 строка 9: FVG есть, но low(i+2) <= vic — FVG не НАД уровнем."""
+def test_fvg_below_level_returns_signal(make_15m, make_1d):
+    """FVG под уровнем — сигнал валиден (FVG-vs-vic проверка убрана).
+
+    Ранее этот сценарий отвергался требованием `low(i+2) > vic`. Теперь
+    достаточно касания (low(0)=99 <= vic) и фрактала под уровнем
+    (low(i)=99.0 < vic=100)."""
     df = make_15m([
-        ("2026-04-27 00:30", 99,    100.5, 99,    100  ),
+        ("2026-04-27 00:30", 99,    100.5, 99,    100  ),  # касание (low=99)
         ("2026-04-27 00:45", 100,   100.2, 99.5,  99.8 ),
         ("2026-04-27 01:00", 99.8,  100.0, 99.6,  99.7 ),
-        ("2026-04-27 01:15", 99.7,  99.8,  99.0,  99.5 ),  # i: high=99.8
+        ("2026-04-27 01:15", 99.7,  99.8,  99.0,  99.5 ),  # i: low=99.0 (LL <vic)
         ("2026-04-27 01:30", 99.5,  99.9,  99.3,  99.6 ),
-        ("2026-04-27 01:45", 99.85, 100.0, 99.85, 99.95),  # i+2: low=99.85 > high(i)=99.8, но 99.85 < vic=100
+        ("2026-04-27 01:45", 99.85, 100.0, 99.85, 99.95),  # i+2: low=99.85 > 99.8 (FVG)
     ])
-    assert detect_vic_evot(df, make_1d(101.0), VIC, SYMBOL, LAST_15M) is None
+    sig = detect_vic_evot(df, make_1d(101.0), VIC, SYMBOL, LAST_15M)
+    assert sig is not None
+    assert sig.direction == "LONG"
+    assert sig.price == 99.95
 
 
 # ---------- §8: happy paths (2 строки) ----------

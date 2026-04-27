@@ -55,15 +55,16 @@ def detect_vic_evot(
     c_ip2 = df_15m.iloc[pos_ip2]
 
     # Условие 3 (FVG между i и i+2). Не зависит от позиции фрактала.
+    # Уровень vic не привязан к FVG — достаточно касания/фрактала по уровню.
     if direction == "LONG":
         high_i = float(c_i["high"])
         low_ip2 = float(c_ip2["low"])
-        if not (high_i < low_ip2 and low_ip2 > vic_level):
+        if not (high_i < low_ip2):
             return None
     else:
         low_i = float(c_i["low"])
         high_ip2 = float(c_ip2["high"])
-        if not (low_i > high_ip2 and high_ip2 < vic_level):
+        if not (low_i > high_ip2):
             return None
 
     day_start = pd.Timestamp(last_closed_15m_open_time).normalize()
