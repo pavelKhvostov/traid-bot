@@ -26,6 +26,10 @@ DAYS_BACK = 90
 SYMBOLS = ["BTCUSDT"]
 CLOSE_EOD = False  # без EOD: ждём фактический SL/TP, иначе "open"
 
+# Фильтр сигналов после collect_signals — только сетапы с
+# fractal_offset_k >= MIN_FRACTAL_OFFSET_K. None = без фильтра.
+MIN_FRACTAL_OFFSET_K: int | None = None
+
 # (RR_RATIO, output_filename) — каждый запуск = отдельный CSV.
 RR_RUNS = [
     (1.0, "signals/vic_evot_backtest_RR1.csv"),
@@ -201,11 +205,14 @@ def simulate_outcome(sig, df_1m: pd.DataFrame, df_15m: pd.DataFrame, rr_ratio: f
             "symbol": sig.symbol,
             "direction": sig.direction,
             "vic_level": float(sig.level.price),
+            "signal_time": signal_time.isoformat(),
             "entry_time": "",
+            "fill_delay_min": "",
             "entry_price": entry,
             "sl": sl,
             "tp": tp,
             "fractal_time": fractal_time.isoformat(),
+            "fractal_offset_k": int(sig.meta.get("fractal_offset_k", 0)),
             "outcome": "not_filled",
             "exit_time": "",
             "exit_price": "",
@@ -258,16 +265,20 @@ def simulate_outcome(sig, df_1m: pd.DataFrame, df_15m: pd.DataFrame, rr_ratio: f
         else:
             outcome = "win" if last_close < entry else "loss"
 
+    fill_delay_min = (entry_time - signal_time).total_seconds() / 60
     return {
         "date": entry_day.strftime("%Y-%m-%d"),
         "symbol": sig.symbol,
         "direction": sig.direction,
         "vic_level": float(sig.level.price),
+        "signal_time": signal_time.isoformat(),
         "entry_time": entry_time.isoformat(),
+        "fill_delay_min": round(fill_delay_min, 2),
         "entry_price": entry,
         "sl": sl,
         "tp": tp,
         "fractal_time": fractal_time.isoformat(),
+        "fractal_offset_k": int(sig.meta.get("fractal_offset_k", 0)),
         "outcome": outcome,
         "exit_time": exit_time.isoformat() if exit_time is not None else "",
         "exit_price": exit_price if exit_price is not None else "",
@@ -348,6 +359,17 @@ def main():
         print()
         print("[WARN] ни одного сигнала за период")
         return
+
+    if MIN_FRACTAL_OFFSET_K is not None:
+        before = len(all_signals)
+        all_signals = [
+            s for s in all_signals
+            if s.meta.get("fractal_offset_k", 0) >= MIN_FRACTAL_OFFSET_K
+        ]
+        print()
+        print(f"[FILTER] k >= {MIN_FRACTAL_OFFSET_K}: {before} -> {len(all_signals)} сигналов")
+        if not all_signals:
+            return
 
     # Симуляция отдельно для каждого RR — отдельный CSV.
     for rr_ratio, output_path_str in RR_RUNS:
