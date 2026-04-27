@@ -1,75 +1,62 @@
 ---
-tags: [strategy, s1]
-date: 2026-04-22
-status: phase-1
-related: [[что такое обx4 цепочка]], [[правило первого OB после возврата]], [[что такое order block]]
+tags: [strategy, s1, obx4]
+date: 2026-04-27
+related: [[что такое обx4 цепочка]], [[три типа подтверждения 1h ob fvg rdrb]], [[главное правило ob только на последней закрытой 1h]]
 ---
 
-# s1 obx4 + ob1h
+# s1 OBx4 + OB1h
 
 ## Триггер старшего ТФ
 
-**OBx4-цепочка** на любом ТФ из диапазона **[1h, 2h, 3h, 4h, 6h, 8h, 12h, 1d, 2d, 3d]**.
+OBx4-цепочка ([[что такое обx4 цепочка]]) на ТФ из `STRATEGY_TFS = ["12h", "1d", "2d", "3d"]`
+([scanner.py:29](../../../scanner.py#L29)).
 
-Определение: 5 последовательных свечей, где:
+Изначально планировалось `[1h, 2h, 3h, 4h, 6h, 8h, 12h, 1d, 2d, 3d]`, но в реальном коде
+все 7 стратегий используют общий список `STRATEGY_TFS` — четыре «крупных» ТФ.
 
-**Bullish:**
-- c1: красная (close < open)
-- c2: зелёная (close > open)
-- c3: красная
-- c4: зелёная, и `c4.close > c1.open`
-- c5: любая, но между c3 и c5 есть bullish FVG: `c5.low > c3.high`
-- `body(c1) > body(c2) OR body(c1) > body(c3)` (хотя бы одно)
-- Пересечение тел c1, c2, c3, c4 не пусто (`common_top > common_bottom`)
-
-**Bearish:** зеркально (green-red-green-red + bearish FVG + `c4.close < c1.open`).
+Bullish и bearish детекторы — [strategies/obx4.py:78-185](../../../strategies/obx4.py#L78).
 
 ## Зона
 
-Границы зоны = общее пересечение тел 4 первых свечей:
+Общее пересечение тел c1-c4:
 - `ob_top = min(body_top(c1..c4))`
 - `ob_bottom = max(body_bottom(c1..c4))`
 
+`trigger_time = c5.open_time + tf` ([[trigger_time равен open_time плюс tf]]).
+
 ## Триггер младшего ТФ
 
-**1h.** Правило — [[правило первого OB после возврата]]. Один источник истины на s1/s2/s3/s5.
+1h, через [[три типа подтверждения 1h ob fvg rdrb]] — единая функция
+`ob1h_core.find_first_confirmation_in_zone`
+([strategies/ob1h_core.py:219](../../../strategies/ob1h_core.py#L219)).
+
+**Главное правило:** подтверждение засчитывается только если
+`confirm_time == последняя_закрытая_1h_свеча`
+([[главное правило ob только на последней закрытой 1h]]).
 
 ## Stop-условие
 
-Закрытие 1h свечи за границей зоны:
-- Bullish: `close_1h < ob_bottom` → INVALID
-- Bearish: `close_1h > ob_top` → INVALID
+Закрытие 1h за границей зоны (LONG: `close < zone_bottom`, SHORT: `close > zone_top`)
+→ зона мертва, поиск подтверждения прекращается
+([ob1h_core.py:248-252](../../../strategies/ob1h_core.py#L248-L252)).
 
 ## Формат сигнала в Telegram
 
-```
-🟢 OBx4 + OB1h | BULLISH | BTCUSDT
-TF зоны: 4h
-Зона: 66500.2 – 67000.5
-OBx4 сформирован: 2025-04-20 16:00 UTC
-Возврат в зону: 2025-04-22 08:00 UTC
-OB1h: свечи 09:00 → 10:00 UTC
-```
+Формирование — `telegram_bot.broadcast_signal`. Детали меты сигнала: `zone_bottom`,
+`zone_top`, `confirm_zone_bottom/top` (1h-зона подтверждения), `confirm_type`
+(`OB-1h | FVG-1h | RDRB-1h`).
 
-## Источник в существующем коде
+## Источник в коде
 
-- `obxxx.py:detect_obx4_bullish` / `detect_obx4_bearish` — детектор.
-- `obxxx.py:find_ob1h_in_obx4_zone` — логика возврата + первого OB1h.
-
-Обе функции переезжают в новый проект с минимальными правками:
-- `detect_obx4_*` → `src/detectors/obx4.py`
-- `find_ob1h_in_obx4_zone` → `src/strategies/_shared/zone_first_ob.py` (общая для s1/s2/s3/s5)
-
-## Известные исторические сетапы (для fixture-тестов)
-
-*(заполнится при работе над Phase 1)*
-
-## Открытые вопросы
-
-*(пока нет)*
+- Детектор зоны: [strategies/obx4.py](../../../strategies/obx4.py)
+- Подтверждение: `ob1h_core.find_first_confirmation_in_zone`
+  ([strategies/ob1h_core.py](../../../strategies/ob1h_core.py))
+- Диспатч: [scanner.py::_dispatch_strategy](../../../scanner.py)
 
 ## Связи
 
-- Детектор зоны: [[что такое обx4 цепочка]]
-- Детектор триггера: [[что такое order block]]
-- Правило: [[правило первого OB после возврата]]
+- [[что такое обx4 цепочка]]
+- [[что такое order block]]
+- [[три типа подтверждения 1h ob fvg rdrb]]
+- [[главное правило ob только на последней закрытой 1h]]
+- [[правило первого OB после возврата]]
