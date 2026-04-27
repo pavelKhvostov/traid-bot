@@ -23,7 +23,7 @@ from vic_levels import calculate_vic_d
 # ---------------- Параметры ----------------
 
 DAYS_BACK = 90
-SYMBOLS = ["BTCUSDT", "ETHUSDT"]
+SYMBOLS = ["BTCUSDT"]
 RR_RATIO = 1.0
 CLOSE_EOD = True
 OUTPUT_PATH = Path("signals/vic_evot_backtest_RR1.csv")
