@@ -23,7 +23,7 @@ from vic_levels import calculate_vic_d
 # ---------------- Параметры ----------------
 
 DAYS_BACK = 90
-SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+SYMBOLS = ["BTCUSDT", "ETHUSDT"]
 RR_RATIO = 1.0
 CLOSE_EOD = True
 OUTPUT_PATH = Path("signals/vic_evot_backtest_RR1.csv")
@@ -148,6 +148,7 @@ def collect_signals(
             )
             if sig is not None:
                 signals.append(sig)
+                break  # один сигнал в день D, последующие 15m в этот день не сканируем
 
         cur_day += pd.Timedelta(days=1)
 
