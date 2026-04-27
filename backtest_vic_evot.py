@@ -24,9 +24,13 @@ from vic_levels import calculate_vic_d
 
 DAYS_BACK = 90
 SYMBOLS = ["BTCUSDT"]
-RR_RATIO = 1.0
 CLOSE_EOD = False  # без EOD: ждём фактический SL/TP, иначе "open"
-OUTPUT_PATH = Path("signals/vic_evot_backtest_RR1.csv")
+
+# (RR_RATIO, output_filename) — каждый запуск = отдельный CSV.
+RR_RUNS = [
+    (1.0, "signals/vic_evot_backtest_RR1.csv"),
+    (2.2, "signals/vic_evot_backtest_RR2.2.csv"),
+]
 
 
 # ---------------- Подготовка данных ----------------
@@ -242,7 +246,7 @@ def simulate_outcome(sig, df_1m: pd.DataFrame, df_15m: pd.DataFrame, rr_ratio: f
 
 # ---------------- Сводная статистика ----------------
 
-def print_stats(df: pd.DataFrame, label: str) -> None:
+def print_stats(df: pd.DataFrame, label: str, rr_ratio: float = 1.0) -> None:
     total = len(df)
     if total == 0:
         print(f"--- {label}: 0 сигналов ---")
@@ -259,7 +263,8 @@ def print_stats(df: pd.DataFrame, label: str) -> None:
 
     print(f"--- {label} ---")
     print(f"  total={total}  wins={wins}  losses={losses}  open={opens}")
-    print(f"  closed={closed}  win_rate={win_rate:.1f}%  PnL@RR{RR_RATIO}={wins-losses:+d}R")
+    pnl_r = wins * rr_ratio - losses
+    print(f"  closed={closed}  win_rate={win_rate:.1f}%  PnL@RR{rr_ratio}={pnl_r:+.1f}R")
     print(f"  hits: tp={tp_hits}  sl={sl_hits}  open={open_hits}")
     print(
         f"  MFE %: mean={df['mfe_pct'].mean():.3f}  "
@@ -274,22 +279,21 @@ def print_stats(df: pd.DataFrame, label: str) -> None:
 # ---------------- Main ----------------
 
 def main():
-    print(f"[INFO] окно: {DAYS_BACK} дней, символы: {SYMBOLS}, RR={RR_RATIO}, CLOSE_EOD={CLOSE_EOD}")
+    print(f"[INFO] окно: {DAYS_BACK} дней, символы: {SYMBOLS}, RR={[r for r,_ in RR_RUNS]}, CLOSE_EOD={CLOSE_EOD}")
     print()
 
     print("[INFO] подготовка данных")
     for symbol in SYMBOLS:
         print(f"  {symbol}:")
-        # 1d уже инкрементирует от HISTORY_START_DATE — миллисекунды
         update_df_incrementally(symbol, "1d")
-        # 15m: запас на день D
         ensure_history(symbol, "15m", DAYS_BACK + 1)
-        # 1m: запас на maxV(D-1) для самого раннего D
         ensure_history(symbol, "1m", DAYS_BACK + 2)
 
+    # Сбор сигналов один раз — не зависит от RR.
     print()
     print("[INFO] сбор сигналов")
-    all_rows = []
+    sym_data: dict[str, tuple] = {}
+    all_signals = []
     for symbol in SYMBOLS:
         df_1m = load_df(symbol, "1m")
         df_15m = load_df(symbol, "15m")
@@ -297,43 +301,45 @@ def main():
         if df_1m.empty or df_15m.empty or df_1d.empty:
             print(f"  {symbol}: данные пустые, пропускаем")
             continue
-
-        # Диагностика покрытия
         cov_1m = (df_1m.index[-1] - df_1m.index[0]).days
         cov_15m = (df_15m.index[-1] - df_15m.index[0]).days
         print(f"  {symbol}: 1m покрытие {cov_1m}d, 15m {cov_15m}d, 1d рядов {len(df_1d)}")
         if cov_1m < DAYS_BACK:
             print(f"  [WARN] {symbol}: 1m покрытие {cov_1m}d < {DAYS_BACK}d")
-
         signals = collect_signals(symbol, df_1m, df_15m, df_1d, DAYS_BACK)
-        print(f"  {symbol}: найдено {len(signals)} сигналов, симулируем исход")
+        print(f"  {symbol}: найдено {len(signals)} сигналов")
+        sym_data[symbol] = (df_1m, df_15m)
+        all_signals.extend(signals)
 
-        for sig in signals:
-            row = simulate_outcome(sig, df_1m, df_15m, RR_RATIO, CLOSE_EOD)
-            all_rows.append(row)
-
-    if not all_rows:
+    if not all_signals:
         print()
         print("[WARN] ни одного сигнала за период")
         return
 
-    df_out = pd.DataFrame(all_rows)
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df_out.to_csv(OUTPUT_PATH, index=False)
-    print()
-    print(f"[INFO] записано в {OUTPUT_PATH}: {len(all_rows)} строк")
+    # Симуляция отдельно для каждого RR — отдельный CSV.
+    for rr_ratio, output_path_str in RR_RUNS:
+        output_path = Path(output_path_str)
+        rows = []
+        for sig in all_signals:
+            df_1m_s, df_15m_s = sym_data[sig.symbol]
+            row = simulate_outcome(sig, df_1m_s, df_15m_s, rr_ratio, CLOSE_EOD)
+            rows.append(row)
 
-    print()
-    print("=" * 60)
-    print(f"СВОДКА  RR={RR_RATIO}  CLOSE_EOD={CLOSE_EOD}  окно={DAYS_BACK}d")
-    print("=" * 60)
-    print_stats(df_out, "Все символы")
-    print()
-    for symbol in SYMBOLS:
-        sub = df_out[df_out["symbol"] == symbol]
-        print_stats(sub, symbol)
+        df_out = pd.DataFrame(rows)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        df_out.to_csv(output_path, index=False)
+
         print()
-    print(f"Сигналов в день (всего): {len(df_out) / DAYS_BACK:.2f}")
+        print("=" * 60)
+        print(f"СВОДКА  RR={rr_ratio}  CLOSE_EOD={CLOSE_EOD}  окно={DAYS_BACK}d  -> {output_path}")
+        print("=" * 60)
+        print_stats(df_out, "Все символы", rr_ratio)
+        print()
+        for symbol in SYMBOLS:
+            sub = df_out[df_out["symbol"] == symbol]
+            print_stats(sub, symbol, rr_ratio)
+            print()
+    print(f"Сигналов в день (всего): {len(all_signals) / DAYS_BACK:.2f}")
 
 
 if __name__ == "__main__":
