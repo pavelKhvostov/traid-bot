@@ -25,7 +25,7 @@ from vic_levels import calculate_vic_d
 DAYS_BACK = 90
 SYMBOLS = ["BTCUSDT"]
 RR_RATIO = 1.0
-CLOSE_EOD = True
+CLOSE_EOD = False  # без EOD: ждём фактический SL/TP, иначе "open"
 OUTPUT_PATH = Path("signals/vic_evot_backtest_RR1.csv")
 
 
@@ -175,9 +175,10 @@ def simulate_outcome(sig, df_1m: pd.DataFrame, df_15m: pd.DataFrame, rr_ratio: f
         tp = entry - (sl - entry) * rr_ratio
 
     entry_day = entry_time.normalize()
-    eod_time = entry_day + pd.Timedelta(days=1)
 
-    sim_window = df_1m[(df_1m.index >= entry_time) & (df_1m.index < eod_time)]
+    # Симуляция до фактического SL/TP — без EOD-cutoff. Если ни SL ни TP
+    # не сработали к концу доступных данных, outcome остаётся "open".
+    sim_window = df_1m[df_1m.index >= entry_time]
 
     outcome = "open"
     exit_time = None
@@ -248,15 +249,18 @@ def print_stats(df: pd.DataFrame, label: str) -> None:
         return
     wins = int((df["outcome"] == "win").sum())
     losses = int((df["outcome"] == "loss").sum())
-    win_rate = wins / total * 100
+    opens = int((df["outcome"] == "open").sum())
+    closed = wins + losses
+    win_rate = wins / closed * 100 if closed > 0 else 0.0
 
     tp_hits = int((df["hit_type"] == "tp").sum())
     sl_hits = int((df["hit_type"] == "sl").sum())
-    eod_hits = int((df["hit_type"] == "eod").sum())
+    open_hits = int((df["hit_type"] == "open").sum())
 
     print(f"--- {label} ---")
-    print(f"  total={total}  wins={wins}  losses={losses}  win_rate={win_rate:.1f}%")
-    print(f"  hits: tp={tp_hits}  sl={sl_hits}  eod={eod_hits}")
+    print(f"  total={total}  wins={wins}  losses={losses}  open={opens}")
+    print(f"  closed={closed}  win_rate={win_rate:.1f}%  PnL@RR{RR_RATIO}={wins-losses:+d}R")
+    print(f"  hits: tp={tp_hits}  sl={sl_hits}  open={open_hits}")
     print(
         f"  MFE %: mean={df['mfe_pct'].mean():.3f}  "
         f"median={df['mfe_pct'].median():.3f}  max={df['mfe_pct'].max():.3f}"
