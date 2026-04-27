@@ -161,7 +161,7 @@ def detect_vic_evot(
       source_tf           = "1d"
       direction           = "LONG" | "SHORT"
       level               = Level(price=vic_level, day=D-1)
-      entry_price         = low(i+2) для LONG / high(i+2) для SHORT
+      entry_price         = close(i+2)  # вход сразу при закрытии 15m свечи-сигнала
       confirmation_time   = last_closed_15m_open_time
       fractal_time        = open_time(i)  # для отладки/верификации
     """

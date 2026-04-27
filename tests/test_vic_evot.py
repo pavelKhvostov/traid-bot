@@ -155,7 +155,7 @@ def test_happy_path_long_returns_signal(make_15m, make_1d):
     assert sig.symbol == SYMBOL
     assert sig.timeframe == "1d"
     assert sig.direction == "LONG"
-    assert sig.price == 100.2  # low(i+2)
+    assert sig.price == 100.8  # close(i+2) — entry на закрытии 15m свечи-сигнала
     assert sig.confirm_time == LAST_15M
 
     # Level заполнен, zone остался None.
@@ -179,7 +179,7 @@ def test_happy_path_short_returns_signal(make_15m, make_1d):
 
     assert sig is not None
     assert sig.direction == "SHORT"
-    assert sig.price == 99.9  # high(i+2)
+    assert sig.price == 99.7  # close(i+2) — entry на закрытии 15m свечи-сигнала
     assert sig.confirm_time == LAST_15M
     assert sig.zone is None
     assert sig.level.price == VIC

@@ -70,7 +70,6 @@ def detect_vic_evot(
         low_ip2 = float(c_ip2["low"])
         if not (high_i < low_ip2 and low_ip2 > vic_level):
             return None
-        entry_price = low_ip2
 
         # Условие 1: касание уровня (low ≤ maxV) на любой 15m-свече не позже i.
         if not bool((df_15m.iloc[: pos_i + 1]["low"] <= vic_level).any()):
@@ -91,11 +90,14 @@ def detect_vic_evot(
         high_ip2 = float(c_ip2["high"])
         if not (low_i > high_ip2 and high_ip2 < vic_level):
             return None
-        entry_price = high_ip2
 
         # Условие 1: касание уровня (high ≥ maxV) не позже i.
         if not bool((df_15m.iloc[: pos_i + 1]["high"] >= vic_level).any()):
             return None
+
+    # Точка входа = close(i+2) — рынок-вход сразу при закрытии 15m
+    # свечи-сигнала, без ожидания возврата к FVG-границе.
+    entry_price = float(c_ip2["close"])
 
     # Условия 4 (live, i+2 == last_closed_15m) и 5 (direction match) — на каллере
     # и на ветке direction соответственно: сюда дошли только если всё совпало.
