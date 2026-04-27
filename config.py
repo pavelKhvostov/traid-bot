@@ -21,9 +21,12 @@ VIC_NATIVE_TFS = ["1m", "15m", "1d"]
 VIC_1M_LOOKBACK_DAYS = 3
 VIC_15M_LOOKBACK_DAYS = 7
 # Pine-индикатор 'Volume in Candle' (ASVK ViC) с auto=true и mlt=100 на
-# 1D-чарте даёт LTF = 1440/100 = 14.4m → Pine rounds down → 14m.
-# maxV считается по 14m-агрегатам 1m свечей, не по сырым 1m.
-VIC_LTF_MINUTES = 14
+# 1D-чарте даёт LTF = 1440/100 = 14.4m. Pine timeframe.from_seconds(864)
+# возвращает ближайший валидный TF из стандартного набора ("closest valid").
+# Из {600s=10m, 900s=15m} ближе 900 (Δ36 vs Δ264) → Pine использует 15m.
+# Сверено вручную с TV-графиком ASVK ViC на BTC 2026-04-26: 78417.41 (мой)
+# ≈ 78416 (TV ±1). На 14m расхождение было +165.
+VIC_LTF_MINUTES = 15
 
 DATA_DIR = Path("./data")
 STATE_DIR = Path("./state")
