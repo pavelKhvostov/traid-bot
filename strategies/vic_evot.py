@@ -135,9 +135,18 @@ def detect_vic_evot(
                     and low_g < float(df_15m.iloc[pos_g + 2]["low"])):
                 return None
 
-    # Точка входа = close(i+2) — рынок-вход сразу при закрытии 15m
-    # свечи-сигнала, без ожидания возврата к FVG-границе.
-    entry_price = float(c_ip2["close"])
+    # Точка входа — limit на 80% FVG, отсчитывая от ближней к рынку границы
+    # к дальней. Малый ретрейс в зону.
+    #   LONG  FVG = [high(i), low(i+2)]; market выше → entry ближе к low(i+2):
+    #     entry = high(i) * 0.2 + low(i+2) * 0.8
+    #     (пример: FVG 70000–71000 → entry 70800)
+    #   SHORT FVG = [high(i+2), low(i)]; market ниже → entry ближе к high(i+2):
+    #     entry = low(i) * 0.2 + high(i+2) * 0.8
+    #     (пример: FVG 70000–71000 → entry 70200)
+    if direction == "LONG":
+        entry_price = float(c_i["high"]) * 0.2 + float(c_ip2["low"]) * 0.8
+    else:
+        entry_price = float(c_i["low"]) * 0.2 + float(c_ip2["high"]) * 0.8
 
     day_d_minus_1 = pd.to_datetime(df_1d.index[-1], utc=True).normalize()
     fractal_time = pd.to_datetime(df_15m.index[found_pos_f], utc=True)

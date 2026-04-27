@@ -162,14 +162,16 @@ def collect_signals(
 # ---------------- Симуляция исхода ----------------
 
 def simulate_outcome(sig, df_1m: pd.DataFrame, df_15m: pd.DataFrame, rr_ratio: float, close_eod: bool) -> dict:
-    """SL/TP/EOD-симуляция через 1m свечи. SL имеет приоритет внутри одной 1m
-    свечи (conservative: если low<=SL и high>=TP в одной свече — считаем
-    что SL пробило первым)."""
+    """SL/TP-симуляция через 1m свечи + ожидание активации limit-входа.
+
+    Entry — limit-ордер 80% FVG. Сначала ждём, пока цена ретрейснется в зону
+    и достигнет entry. Если не достигла к концу данных — outcome='not_filled'.
+    После активации SL/TP проверяются с приоритетом SL внутри одной свечи."""
     fractal_time = pd.to_datetime(sig.meta["fractal_time"], utc=True)
     fractal_candle = df_15m.loc[fractal_time]
 
     entry = float(sig.price)
-    entry_time = sig.confirm_time
+    signal_time = sig.confirm_time  # close(i+2) — момент сигнала
 
     if sig.direction == "LONG":
         sl = float(fractal_candle["low"])
@@ -178,11 +180,42 @@ def simulate_outcome(sig, df_1m: pd.DataFrame, df_15m: pd.DataFrame, rr_ratio: f
         sl = float(fractal_candle["high"])
         tp = entry - (sl - entry) * rr_ratio
 
-    entry_day = entry_time.normalize()
+    entry_day = signal_time.normalize()
 
-    # Симуляция до фактического SL/TP — без EOD-cutoff. Если ни SL ни TP
-    # не сработали к концу доступных данных, outcome остаётся "open".
-    sim_window = df_1m[df_1m.index >= entry_time]
+    # Шаг 1: дождаться активации (цена касается limit entry).
+    forward = df_1m[df_1m.index >= signal_time]
+    activation_time: pd.Timestamp | None = None
+    for ts, candle in forward.iterrows():
+        if sig.direction == "LONG":
+            if float(candle["low"]) <= entry:
+                activation_time = ts
+                break
+        else:
+            if float(candle["high"]) >= entry:
+                activation_time = ts
+                break
+
+    if activation_time is None:
+        return {
+            "date": entry_day.strftime("%Y-%m-%d"),
+            "symbol": sig.symbol,
+            "direction": sig.direction,
+            "vic_level": float(sig.level.price),
+            "entry_time": "",
+            "entry_price": entry,
+            "sl": sl,
+            "tp": tp,
+            "fractal_time": fractal_time.isoformat(),
+            "outcome": "not_filled",
+            "exit_time": "",
+            "exit_price": "",
+            "mfe_pct": 0.0,
+            "mae_pct": 0.0,
+            "hit_type": "not_filled",
+        }
+
+    entry_time = activation_time
+    sim_window = df_1m[df_1m.index >= activation_time]
 
     outcome = "open"
     exit_time = None

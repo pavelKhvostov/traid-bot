@@ -5,6 +5,7 @@ mismatch и пустой df_1d)."""
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
 from strategies.vic_evot import detect_vic_evot
 
@@ -147,7 +148,8 @@ def test_fvg_below_level_returns_signal(make_15m, make_1d):
     sig = detect_vic_evot(df, make_1d(101.0), VIC, SYMBOL, LAST_15M)
     assert sig is not None
     assert sig.direction == "LONG"
-    assert sig.price == 99.95
+    # entry = high(i)*0.2 + low(i+2)*0.8 = 99.8*0.2 + 99.85*0.8 = 99.84
+    assert sig.price == pytest.approx(99.84)
 
 
 # ---------- §8: happy paths (2 строки) ----------
@@ -162,7 +164,8 @@ def test_happy_path_long_returns_signal(make_15m, make_1d):
     assert sig.symbol == SYMBOL
     assert sig.timeframe == "1d"
     assert sig.direction == "LONG"
-    assert sig.price == 100.8  # close(i+2) — entry на закрытии 15m свечи-сигнала
+    # entry = high(i)*0.2 + low(i+2)*0.8 = 99.8*0.2 + 100.2*0.8 = 100.12
+    assert sig.price == pytest.approx(100.12)
     assert sig.confirm_time == LAST_15M
 
     # Level заполнен, zone остался None.
@@ -186,7 +189,8 @@ def test_happy_path_short_returns_signal(make_15m, make_1d):
 
     assert sig is not None
     assert sig.direction == "SHORT"
-    assert sig.price == 99.7  # close(i+2) — entry на закрытии 15m свечи-сигнала
+    # entry = low(i)*0.2 + high(i+2)*0.8 = 100.0*0.2 + 99.9*0.8 = 99.92
+    assert sig.price == pytest.approx(99.92)
     assert sig.confirm_time == LAST_15M
     assert sig.zone is None
     assert sig.level.price == VIC
@@ -228,7 +232,8 @@ def test_cross_midnight_fractal_long(make_15m, make_1d):
     sig = detect_vic_evot(df, make_1d(101.0), VIC, SYMBOL, last_15m)
     assert sig is not None
     assert sig.direction == "LONG"
-    assert sig.price == 101.0  # close(i+2)
+    # entry = high(i)*0.2 + low(i+2)*0.8 = 100.5*0.2 + 100.7*0.8 = 100.66
+    assert sig.price == pytest.approx(100.66)
     assert sig.level.price == VIC
 
 
@@ -252,7 +257,8 @@ def test_fractal_offset_k1_long(make_15m, make_1d):
     sig = detect_vic_evot(df, make_1d(101.0), VIC, SYMBOL, last_15m)
     assert sig is not None
     assert sig.direction == "LONG"
-    assert sig.price == 100.8  # close(i+2)
+    # entry = high(i)*0.2 + low(i+2)*0.8 = 99.9*0.2 + 100.2*0.8 = 100.14
+    assert sig.price == pytest.approx(100.14)
     assert sig.meta["fractal_offset_k"] == 1
     assert sig.meta["fractal_time"] == "2026-04-27T00:45:00+00:00"
 
