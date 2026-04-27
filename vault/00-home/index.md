@@ -57,10 +57,11 @@ date: 2026-04-27
 - [[phase-0-done-2026-04-22]] — каркас Telegram-бота (Phase 0 closed).
 - [[phase-1-planned-2026-04-23]] — план Phase 1 (исторический, реализован иначе).
 - [[2026-04-27-vic-evot-реализация]] — VIC_EVOT (стратегия №8) реализована end-to-end за 5 коммитов.
+- [[2026-04-27-vic-evot-backtest-и-ltf-fix]] — 90d бэктест + двухшаговый fix maxV (1m → 14m → 15m, сверка с TV).
 
 ## Debugging
 
-*(заметки появляются при разборе багов)*
+- [[vic-maxv-расходился-с-pine-индикатором-из-за-1m-вместо-15m]] — VIC maxV считался на сырых 1m, должен на 15m (Pine timeframe.from_seconds rounding).
 
 ## Планы и процесс
 
