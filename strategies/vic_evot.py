@@ -32,6 +32,8 @@ def detect_vic_evot(
       • Структурная инвалидация: между f и last_closed не должно быть
         противоходного фрактала (HH для LONG, LL для SHORT). Если есть —
         разворот уже опровергнут до FVG, сигнал отвергается.
+      • OB-15m фильтр: в окне [f, ..., i+1] хотя бы одна свеча противоположного
+        направления — для LONG медвежья (close<open), для SHORT бычья.
     """
     if vic_level is None:
         return None
@@ -135,6 +137,25 @@ def detect_vic_evot(
                     and low_g < float(df_15m.iloc[pos_g + 2]["low"])):
                 return None
 
+    # OB-15m фильтр: в окне [f, ..., i+1] (от фрактала до свечи перед FVG-completion)
+    # должна быть хотя бы одна свеча противоположного направления — Order Block.
+    #   LONG: хотя бы одна медвежья (close < open) — bullish OB присутствует.
+    #   SHORT: хотя бы одна бычья (close > open) — bearish OB присутствует.
+    ob_window_end = pos_i + 1  # = n - 2 (свеча i+1, перед FVG-completion)
+    ob_found = False
+    for pos_ob in range(found_pos_f, ob_window_end + 1):
+        c_ob = df_15m.iloc[pos_ob]
+        c_open = float(c_ob["open"])
+        c_close = float(c_ob["close"])
+        if direction == "LONG" and c_close < c_open:
+            ob_found = True
+            break
+        if direction == "SHORT" and c_close > c_open:
+            ob_found = True
+            break
+    if not ob_found:
+        return None
+
     # Точка входа — limit на 80% FVG, отсчитывая от ближней к рынку границы
     # к дальней. Малый ретрейс в зону.
     #   LONG  FVG = [high(i), low(i+2)]; market выше → entry ближе к low(i+2):
@@ -161,7 +182,7 @@ def detect_vic_evot(
         level=Level(price=float(vic_level), day=day_d_minus_1),
         meta={
             "source_tf": "1d",
-            "confirm_type": "FVG-15m + LL-фрактал",
+            "confirm_type": "FVG-15m + LL-фрактал + OB-15m",
             "fractal_time": fractal_time.isoformat(),
             "vic_level": float(vic_level),
             "fractal_offset_k": pos_i - found_pos_f,

@@ -22,9 +22,13 @@ from vic_levels import calculate_vic_d
 
 # ---------------- Параметры ----------------
 
-DAYS_BACK = 90
+DAYS_BACK = 1095
 SYMBOLS = ["BTCUSDT"]
 CLOSE_EOD = False  # без EOD: ждём фактический SL/TP, иначе "open"
+
+# Буфер на SL относительно фрактал-low/high. 1.1 = +10% к дистанции
+# entry-фрактал. Защита от случайных проколов на шуме.
+SL_BUFFER_MULT = 1.1
 
 # Фильтр сигналов после collect_signals — только сетапы с
 # fractal_offset_k >= MIN_FRACTAL_OFFSET_K. None = без фильтра.
@@ -32,8 +36,8 @@ MIN_FRACTAL_OFFSET_K: int | None = None
 
 # (RR_RATIO, output_filename) — каждый запуск = отдельный CSV.
 RR_RUNS = [
-    (1.0, "signals/vic_evot_backtest_RR1.csv"),
-    (2.2, "signals/vic_evot_backtest_RR2.2.csv"),
+    (1.0, "signals/vic_evot_backtest_3y_ob_RR1.csv"),
+    (2.2, "signals/vic_evot_backtest_3y_ob_RR2.2.csv"),
 ]
 
 
@@ -177,17 +181,28 @@ def simulate_outcome(sig, df_1m: pd.DataFrame, df_15m: pd.DataFrame, rr_ratio: f
     entry = float(sig.price)
     signal_time = sig.confirm_time  # close(i+2) — момент сигнала
 
+    # SL = на SL_BUFFER_MULT × fractal-distance дальше от entry (буфер на шум).
+    # TP = от raw fractal-distance × rr_ratio (TP не двигается).
+    # Эффективные R-кратные: loss = −SL_BUFFER_MULT R, win = +rr_ratio R.
     if sig.direction == "LONG":
-        sl = float(fractal_candle["low"])
-        tp = entry + (entry - sl) * rr_ratio
+        fractal_sl = float(fractal_candle["low"])
+        raw_risk = entry - fractal_sl
+        sl = entry - raw_risk * SL_BUFFER_MULT
+        tp = entry + raw_risk * rr_ratio
     else:
-        sl = float(fractal_candle["high"])
-        tp = entry - (sl - entry) * rr_ratio
+        fractal_sl = float(fractal_candle["high"])
+        raw_risk = fractal_sl - entry
+        sl = entry + raw_risk * SL_BUFFER_MULT
+        tp = entry - raw_risk * rr_ratio
 
     entry_day = signal_time.normalize()
 
     # Шаг 1: дождаться активации (цена касается limit entry).
-    forward = df_1m[df_1m.index >= signal_time]
+    # Сканируем с close(i+2) = signal_time + 15min, чтобы избежать
+    # lookahead: 1m свечи внутри бара i+2 в live ещё недоступны на
+    # момент срабатывания сигнала.
+    scan_start = signal_time + pd.Timedelta(minutes=15)
+    forward = df_1m[df_1m.index >= scan_start]
     activation_time: pd.Timestamp | None = None
     for ts, candle in forward.iterrows():
         if sig.direction == "LONG":
@@ -307,8 +322,8 @@ def print_stats(df: pd.DataFrame, label: str, rr_ratio: float = 1.0) -> None:
 
     print(f"--- {label} ---")
     print(f"  total={total}  wins={wins}  losses={losses}  open={opens}")
-    pnl_r = wins * rr_ratio - losses
-    print(f"  closed={closed}  win_rate={win_rate:.1f}%  PnL@RR{rr_ratio}={pnl_r:+.1f}R")
+    pnl_r = wins * rr_ratio - losses * SL_BUFFER_MULT
+    print(f"  closed={closed}  win_rate={win_rate:.1f}%  PnL@RR{rr_ratio}={pnl_r:+.1f}R (loss=-{SL_BUFFER_MULT}R, win=+{rr_ratio}R)")
     print(f"  hits: tp={tp_hits}  sl={sl_hits}  open={open_hits}")
     print(
         f"  MFE %: mean={df['mfe_pct'].mean():.3f}  "

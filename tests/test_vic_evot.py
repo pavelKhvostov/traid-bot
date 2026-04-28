@@ -176,7 +176,7 @@ def test_happy_path_long_returns_signal(make_15m, make_1d):
     assert sig.level.source == "VIC"
 
     # Meta поля для рендера и отладки.
-    assert sig.meta["confirm_type"] == "FVG-15m + LL-фрактал"
+    assert sig.meta["confirm_type"] == "FVG-15m + LL-фрактал + OB-15m"
     assert sig.meta["source_tf"] == "1d"
     assert sig.meta["vic_level"] == VIC
     assert sig.meta["fractal_time"] == "2026-04-27T01:15:00+00:00"
