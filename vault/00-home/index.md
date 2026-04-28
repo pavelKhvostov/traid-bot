@@ -1,6 +1,6 @@
 ---
 tags: [home, index]
-date: 2026-04-27
+date: 2026-04-28
 ---
 
 # ASVK Power Zone — Knowledge Vault
@@ -25,8 +25,14 @@ date: 2026-04-27
 - [[marubozu тело 95 процентов]] — одна свеча с телом ≥ 95% диапазона.
 - [[vic_evot]] — уровень maxV(D-1) + LL/HH-фрактал + FVG, подтверждение **на 15m** (а не 1h).
 
+## Backtest-only стратегии (не в live)
+
+- [[vic_bos]] — VIC уровень + BOS на 3m (quadruple H-L-H-L). 3y +37R на BTC.
+- [[strategy_1_1_1]] — OB-D + FVG-4h → OB-1h + FVG-15m (multi-TF nested).
+
 ## SMC-примитивы
 
+- [[универсальные определения OB и FVG]] — **canon формулы** зон, применимы во всех стратегиях.
 - [[что такое order block]] — пара (prev, cur), формула зоны для LONG/SHORT.
 - [[что такое fvg]] — Fair Value Gap, тройка свечей.
 - [[что такое rdrb]] — ложный пробой с возвратом, 3 свечи.
@@ -58,10 +64,13 @@ date: 2026-04-27
 - [[phase-1-planned-2026-04-23]] — план Phase 1 (исторический, реализован иначе).
 - [[2026-04-27-vic-evot-реализация]] — VIC_EVOT (стратегия №8) реализована end-to-end за 5 коммитов.
 - [[2026-04-27-vic-evot-backtest-и-ltf-fix]] — 90d бэктест + двухшаговый fix maxV (1m → 14m → 15m, сверка с TV).
+- [[2026-04-28-strategy-1-1-1-vic-bos-research]] — Strategy 1.1.1 + VIC BOS, 3y backtests, lookahead fix, оптимизация VIC_EVOT.
+- [[2026-04-28-strategy-1-1-1-multi-htf-multi-ltf]] — Strategy 1.1.1 расширена: OB-2h + FVG-20m + prev-day FVG-4h, 98 сигналов / WR 56.5% / +12R.
 
 ## Debugging
 
 - [[vic-maxv-расходился-с-pine-индикатором-из-за-1m-вместо-15m]] — VIC maxV считался на сырых 1m, должен на 15m (Pine timeframe.from_seconds rounding).
+- [[lookahead-bug-в-vic-evot-backtest]] — backtest сканировал с open(i+2) вместо close(i+2); «магические» 60%+ WR были артефактами.
 
 ## Планы и процесс
 
