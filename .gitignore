@@ -23,7 +23,14 @@ state/signals_today.json
 # Логи
 *.log
 # GSD locally-installed config (each developer installs separately)
-.claude/
+.claude/*
+# но project-specific агенты шарим через git
+!.claude/agents/
+.claude/agents/*
+!.claude/agents/spec-syncer.md
+!.claude/agents/backtest-auditor.md
+!.claude/agents/pitfall-checker.md
+!.claude/agents/smc-reviewer.md
 
 # Obsidian — личные настройки разработчика
 vault/.obsidian/workspace
