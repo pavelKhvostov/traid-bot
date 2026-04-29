@@ -42,9 +42,12 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
     else:
         tp = entry - risk * rr_ratio
 
-    # Активация: с момента после signal_time (= close FVG-15m свечи).
-    # signal_time — это open_time свечи c2 FVG-15m. Свеча закроется через 15m.
-    fill_scan_start = signal_time + pd.Timedelta(minutes=15)
+    # Активация: с момента close c2 свечи entry-FVG.
+    # signal_time — open_time свечи c2; close = open + tf_minutes.
+    # Хардкод +15min ломал 20m FVG (5-мин look-ahead, см.
+    # strategy-1-1-1-look-ahead-15min-vs-tf_duration.md).
+    tf_minutes = 15 if sig["fvg_tf"] == "15m" else 20
+    fill_scan_start = signal_time + pd.Timedelta(minutes=tf_minutes)
     forward = df_1m[df_1m.index >= fill_scan_start]
 
     activation_time: pd.Timestamp | None = None
