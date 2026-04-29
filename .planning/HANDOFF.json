@@ -1,0 +1,45 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-04-29T14:08:04.108Z",
+  "phase": null,
+  "phase_name": "Strategy 1.1.1 — multi-TF + SL=15% + RR оптимизатор",
+  "phase_dir": null,
+  "plan": null,
+  "task": null,
+  "total_tasks": null,
+  "status": "session-completed",
+  "completed_tasks": [
+    {"id": 1, "name": "vault docs актуализация (CLAUDE.md, known-pitfalls.md, index.md)", "status": "done", "commit": "69d3e64"},
+    {"id": 2, "name": "4 агента в .claude/agents/ + .gitignore whitelist", "status": "done", "commit": "f6a73b3"},
+    {"id": 3, "name": "Strategy 1.1.1 — OB-12h ветка (8 коммитов, squash-merged)", "status": "done", "commit": "21c7e22"},
+    {"id": 4, "name": "Strategy 1.1.1 — SL=15% от края OB", "status": "done", "commit": "69098c7"},
+    {"id": 5, "name": "Strategy 1.1.1 — bucketing dedup tolerance 0.5%", "status": "done", "commit": "e612891"},
+    {"id": 6, "name": "Strategy 1.1.1 — RR оптимизатор + парабола PnL(RR)", "status": "done", "commit": "25d1088"},
+    {"id": 7, "name": "PR #1 merge feat/sl-85-rr-optimizer → main", "status": "done", "commit": "4250826"},
+    {"id": 8, "name": "Session note + 3 заметки + 9-й pitfall + index/приоритеты", "status": "done", "commit": "e2ac507"}
+  ],
+  "remaining_tasks": [
+    {"id": 9, "name": "ETH/SOL прогоны Strategy 1.1.1 — проверка переносимости edge", "status": "not_started"},
+    {"id": 10, "name": "Решение sweet vs peak (RR=1.24 vs RR=5.89)", "status": "not_started"},
+    {"id": 11, "name": "Ручная TV-верификация 14 confluence-сигналов (top_tf=12h,1d, WR 85.7%)", "status": "not_started"},
+    {"id": 12, "name": "Live deployment Strategy 1.1.1 (требует WS на 12h, composed 6h/2h/20m)", "status": "not_started"},
+    {"id": 13, "name": "Техдолг #1: ротация state/sent_signals.json (3.4 МБ, 108k записей)", "status": "not_started"},
+    {"id": 14, "name": "VIC_EVOT — решение про деактивацию live (отрицательный edge на 3y)", "status": "not_started"}
+  ],
+  "blockers": [],
+  "human_actions_pending": [
+    {"action": "Открыть signals/strategy_1_1_1_rr_optimizer_BTCUSDT_3y.png и оценить параболу", "context": "Визуальная sanity-check оптимизатора", "blocking": false},
+    {"action": "Ручная сверка 14 confluence сигналов (top_tf=1d,12h) на TradingView из signals/verify_RR1_24.csv", "context": "Confluence даёт WR 85.7% на 14 сделках — проверить визуально перед any deployment", "blocking": false},
+    {"action": "Решение sweet vs peak", "context": "Выбор зависит от стиля: дискреционный (sweet) или алгоритмический (peak)", "blocking": false}
+  ],
+  "decisions": [
+    {"decision": "SL = 15% inside от края OB (OB_SL_DEPTH=0.15)", "rationale": "Узкий SL → ближний TP при RR=1 → +12R на 3y. См. strategy-1-1-1-sl-15-percent.md", "phase": null},
+    {"decision": "Dedup через bucketing с SL_TOLERANCE=0.005 (не round)", "rationale": "round(., N) = ширина bin, не tolerance — значения с diff<N могут попасть в соседние корзины. См. strategy-1-1-1-dedup-bucketing-tolerance.md", "phase": null},
+    {"decision": "Outcome-aware bucketing (split при разном outcome)", "rationale": "Разные outcome на близких SL = легитимно разные трейды (как 2026-02-06)", "phase": null},
+    {"decision": "OB-12h как параллельная top-ветка к OB-D", "rationale": "Confluence 1d+12h даёт WR 85.7%; 12h-only 61.4% — не мусор", "phase": null},
+    {"decision": "RR оптимизатор через MFE-кэш (vectorized argmax)", "rationale": "501 точек RR за 94s вместо часов полной симуляции", "phase": null}
+  ],
+  "uncommitted_files": [],
+  "next_action": "При возобновлении: прочитать vault/sessions/2026-04-29-strategy-1-1-1-sl-15-rr-optimizer.md и vault/00-home/текущие приоритеты.md §f, затем выбрать одну из remaining_tasks.",
+  "context_notes": "Сессия 2026-04-29 завершена чисто. Working tree clean, main синхронизирован с origin. 14 коммитов в main, 2 ветки смерджены. Все артефакты в signals/ (gitignored) актуальны. Strategy 1.1.1 готова к обсуждению ETH/SOL прогонов или live-интеграции. Стратегия — trend-following: low WR + high R-multiple. Sweet spot RR=1.24, math peak RR=5.89, обе устойчивые по годам."
+}
