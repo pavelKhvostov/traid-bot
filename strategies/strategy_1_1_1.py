@@ -1,4 +1,4 @@
-"""Strategy 1.1.1: OB-D + FVG-4h/6h → OB-1h/2h + FVG-15m/20m в зоне OB-D ∩ FVG-macro.
+"""Strategy 1.1.1: OB-D/12h + FVG-4h/6h → OB-1h/2h + FVG-15m/20m.
 
 Универсальные определения зон (canon, см. vault/.../универсальные определения OB и FVG.md):
 
@@ -10,35 +10,20 @@ FVG (3-свечной, c0=i-2, c2=i):
   LONG FVG:  high(c0) < low(c2).   Zone = [high(c0), low(c2)]
   SHORT FVG: low(c0) > high(c2).   Zone = [high(c2), low(c0)]
 
-Логика:
-  1. OB-D — сканируем дневные пары (LONG или SHORT).
-  2. FVG-macro (4h ИЛИ 6h, независимо) — того же направления, c2 в prev_day или
-     cur_day OB-D. Если c2 в prev_day, дополнительно: цена не перекрыла FVG по wick
-     (low < bottom для LONG / high > top для SHORT) на свечах того же ТФ
-     в окне [c2_close, end_of_cur_day].
-     Зона FVG должна попадать в OB-D (bottom для LONG / top для SHORT внутри OB-D).
-     Каждая валидная FVG-macro = отдельная ситуация (отдельный поиск OB-htf).
-  3. Зона поиска OB-htf (1h и 2h независимо): со СЛЕДУЮЩЕГО UTC-дня после cur OB-D.
-     Стоп-правило: при формировании фрактала ниже FVG-macro (LONG) /
-     выше FVG-macro (SHORT) — OB-htf с `cur ≤ j+2` (внутри фрактала) ещё валидна;
-     OB-htf с `cur > j+2` → FVG невалидна, дальше не ищем.
-     Фрактал по Bill Williams: i±2 (low(i) строго ниже low соседей для down /
-     high(i) строго выше high соседей для up). j+2 = свеча подтверждения.
-  4. OB-htf должен пересекаться с FVG-4h И с OB-D.
-  5. Entry FVG ищется параллельно для каждого OB-htf:
-     - FVG-15m в окне [prev, cur + (htf_minutes - 15)]
-     - FVG-20m в окне [prev, cur + (htf_minutes - 20)]
-     Для 1h: 15m end +45, 20m end +40.
-     Для 2h: 15m end +105, 20m end +100.
-  6. На один (OB-D, FVG-4h) — один сигнал: из всех найденных вариантов
-     (1h+15m, 1h+20m, 2h+15m, 2h+20m) берём с самым РАННИМ c2_time entry FVG.
-  7. Entry = середина выбранной FVG. SL = низ OB-D (LONG) / верх OB-D (SHORT).
+Логика см. в spec: vault/knowledge/strategies/strategy_1_1_1.md.
+
+Entry = середина выбранной FVG. SL = OB_SL_DEPTH * глубина зоны от
+противоположного края (см. константу ниже).
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 
 import pandas as pd
+
+# SL ставится не на самой границе top-OB, а на 15% внутрь от края
+# (= на 85% от противоположной границы). Узкий SL → выше эффективный RR.
+OB_SL_DEPTH = 0.15
 
 
 @dataclass
@@ -393,7 +378,14 @@ def detect_strategy_1_1_1_signals(
                 counters[f"chosen_top_{top_label}"] += 1
 
                 entry = (fvg_entry.bottom + fvg_entry.top) / 2
-                sl = ob_top.bottom if ob_top.direction == "LONG" else ob_top.top
+                # SL внутри top-OB на OB_SL_DEPTH от ближней к рынку границы.
+                #   LONG:  SL = bottom + (top - bottom) * OB_SL_DEPTH
+                #   SHORT: SL = top    - (top - bottom) * OB_SL_DEPTH
+                ob_depth = ob_top.top - ob_top.bottom
+                if ob_top.direction == "LONG":
+                    sl = ob_top.bottom + ob_depth * OB_SL_DEPTH
+                else:
+                    sl = ob_top.top - ob_depth * OB_SL_DEPTH
                 risk = abs(entry - sl)
                 if risk <= 0:
                     continue

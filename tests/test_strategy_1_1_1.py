@@ -80,7 +80,8 @@ def test_happy_path_long_via_1d_4h_1h_15m():
     assert s["fvg_macro_tf"] == "4h"
     assert s["ob_htf_tf"] == "1h"
     assert s["fvg_tf"] == "15m"
-    assert s["sl"] == 92.0  # ob_d.bottom для LONG
+    # SL = ob_d.bottom + depth * OB_SL_DEPTH = 92 + (99-92)*0.15 = 93.05
+    assert s["sl"] == pytest.approx(93.05)
     assert s["entry"] == pytest.approx((94.2 + 94.6) / 2)
 
 

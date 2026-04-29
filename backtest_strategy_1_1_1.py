@@ -22,6 +22,13 @@ RR_RUNS = [
     (2.2, Path("signals/strategy_1_1_1_3y_RR2.2.csv")),
 ]
 
+# Tolerance для bucketing SL внутри одной (signal_time, direction, entry)
+# группы. Сигналы с |sl_i - sl_first| / entry < SL_TOLERANCE объединяются
+# в одну строку (схлопывает дребезг от формулы SL = bottom + 0.15*depth,
+# чувствительной к мелким различиям краёв OB). Сигналы с большим разрывом
+# = легитимные разные трейды (как кейс 2026-02-06 LONG entry=62163).
+SL_TOLERANCE = 0.005  # 0.5% от entry
+
 
 def to_utc3(ts) -> str:
     """UTC timestamp -> 'YYYY-MM-DD HH:MM' в UTC+3 (Москва)."""
@@ -143,42 +150,93 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
 
 
 def dedupe_signals(rows: list[dict]) -> list[dict]:
-    """Группировка по (signal_time, direction, round(entry, 8), round(sl, 8)).
+    """Двухэтапный дедуп.
 
-    На одну (confirm-свеча, направление, цена входа, SL) — одна строка CSV.
-    Метаданные о параллельных macro/htf путях схлопываются в *_count и
-    *_tf через запятую. Разные SL на одной entry = разные трейды (разный
-    risk/TP), остаются как разные строки. См.
-    strategy-1-1-1-разные-sl-на-одном-entry.md.
+    Этап 1: primary group по (signal_time, direction, round(entry, 8)).
+    Этап 2: внутри каждой primary-группы — sub-bucketing по близости SL:
+    сортируем по sl возрастающе, объединяем последовательные пока
+    |sl_i - sl_first_in_subgroup| / entry < SL_TOLERANCE.
+
+    Каждый bucket = одна строка CSV. Outcome обязан совпадать в bucket'е
+    (assert) — если разные, значит SL_TOLERANCE неудачный для этого
+    случая, но мы всё равно фейлим: разные outcome = реально разные
+    трейды, нужно увеличивать SL split, но это уже другой сценарий.
+
+    Числовые поля (sl, tp, risk_pct, exit_price, mfe_pct, mae_pct,
+    fill_delay_min) — берём из первого элемента bucket'а
+    (детерминированно). Meta-поля (top_tf, fvg_macro_tf, ob_htf_tf и
+    их count'ы) — агрегируем по ВСЕМУ bucket'у.
+
+    Кейсы вроде 2026-02-06 (один entry, два OB-D с разрывом ~5% по SL)
+    остаются как 2 строки — SL_TOLERANCE 0.5% сильно меньше 5%.
     """
+    # outcome — определяющее поле, обязано совпадать (если разное —
+    # это легитимно разные трейды, ловится через split). activation_time
+    # зависит только от entry (limit fill) — entry в bucket одинаков.
+    # exit_time / hit_type / exit_price зависят от sl/tp → могут отличаться
+    # на 0.5% дребезг → берём first.
+    # fvg_time/fvg_tf/fvg_top/fvg_bottom — свойства entry FVG, инвариант.
     must_match = [
-        "entry", "sl", "tp", "risk_pct",
-        "outcome", "activation_time", "exit_time", "exit_price",
-        "hit_type", "mfe_pct", "mae_pct", "fill_delay_min",
-        "fvg_time", "fvg_tf",
-        "fvg_top", "fvg_bottom",
+        "outcome", "activation_time",
+        "fvg_time", "fvg_tf", "fvg_top", "fvg_bottom",
     ]
 
-    groups: dict[tuple, list[dict]] = {}
+    # Этап 1: primary grouping без SL.
+    primary: dict[tuple, list[dict]] = {}
     for row in rows:
         key = (
             row["signal_time"],
             row["direction"],
             round(float(row["entry"]), 8),
-            round(float(row["sl"]), 8),
         )
-        groups.setdefault(key, []).append(row)
+        primary.setdefault(key, []).append(row)
+
+    # Этап 2: внутри каждой primary-группы — bucketing по SL.
+    # Объединяем последовательные по sl сигналы пока:
+    #   (а) |sl_i - sl_first| / entry < SL_TOLERANCE
+    #   (б) outcome совпадает с outcome первого в bucket'е
+    # Условие (б) — следствие правила «outcome разные = легитимные разные
+    # трейды, не объединяем». Если SL близкие но outcome разные — split.
+    buckets: list[list[dict]] = []
+    for key, group in primary.items():
+        sorted_group = sorted(group, key=lambda r: float(r["sl"]))
+        entry = float(key[2])
+        cur_bucket: list[dict] = []
+        cur_first_sl: float | None = None
+        cur_outcome: str | None = None
+        for r in sorted_group:
+            sl = float(r["sl"])
+            outc = r["outcome"]
+            if cur_first_sl is None:
+                cur_bucket = [r]
+                cur_first_sl = sl
+                cur_outcome = outc
+                continue
+            close_sl = abs(sl - cur_first_sl) / entry < SL_TOLERANCE
+            same_outcome = outc == cur_outcome
+            if close_sl and same_outcome:
+                cur_bucket.append(r)
+            else:
+                buckets.append(cur_bucket)
+                cur_bucket = [r]
+                cur_first_sl = sl
+                cur_outcome = outc
+        if cur_bucket:
+            buckets.append(cur_bucket)
 
     out: list[dict] = []
-    for key, group in groups.items():
+    for group in buckets:
         first = group[0]
-        # Assert одинаковости outcome-определяющих полей
+        # Assert outcome-определяющие поля совпадают (выявит ситуацию,
+        # когда tolerance объединил сигналы с разным исходом).
         for r in group[1:]:
             for f in must_match:
                 if r.get(f) != first.get(f):
                     raise AssertionError(
-                        f"dedupe mismatch on key={key} field={f!r}: "
-                        f"{first.get(f)!r} vs {r.get(f)!r}"
+                        f"dedupe mismatch in bucket signal_time={first['signal_time']} "
+                        f"dir={first['direction']} entry={first['entry']} "
+                        f"sl_range=[{group[0]['sl']}..{group[-1]['sl']}] "
+                        f"field={f!r}: {first.get(f)!r} vs {r.get(f)!r}"
                     )
 
         macro_times = [r["fvg_macro_time"] for r in group]
