@@ -1,6 +1,6 @@
 ---
 tags: [home, index]
-date: 2026-04-28
+date: 2026-04-29
 ---
 
 # ASVK Power Zone — Knowledge Vault
@@ -28,7 +28,9 @@ date: 2026-04-28
 ## Backtest-only стратегии (не в live)
 
 - [[vic_bos]] — VIC уровень + BOS на 3m (quadruple H-L-H-L). 3y +37R на BTC.
-- [[strategy_1_1_1]] — OB-D + FVG-4h → OB-1h + FVG-15m (multi-TF nested).
+- [[strategy_1_1_1]] — OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} + FVG-{15m,20m},
+  SL=15% от края, dedup bucketing 0.5%. 3y BTC: 144 сделки, sweet spot
+  RR=1.24 (+43R, WR 58%), math peak RR=5.89 (+108R, WR 26%).
 
 ## SMC-примитивы
 
@@ -57,6 +59,9 @@ date: 2026-04-28
 - [[bootstrap-sync-hard-exit]] — D-11 пересмотрено: async без hard-exit.
 - [[технический долг апрель 2026]] — 5 открытых пунктов из CONCERNS.md.
 - [[vic-evot-отдельная-ws-сессия]] — отдельный VicScanner вместо `TIMEFRAMES_NATIVE += [1m,15m]`.
+- [[strategy-1-1-1-dedup-результаты-3y]] — наблюдения после bucketing dedup (до 12h).
+- [[strategy-1-1-1-sl-15-percent]] — SL формула 15% inside от края OB.
+- [[strategy-1-1-1-rr-sweet-spot]] — RR=1.24 sweet vs RR=5.89 math peak.
 
 ## Сессии
 
@@ -66,12 +71,17 @@ date: 2026-04-28
 - [[2026-04-27-vic-evot-backtest-и-ltf-fix]] — 90d бэктест + двухшаговый fix maxV (1m → 14m → 15m, сверка с TV).
 - [[2026-04-28-strategy-1-1-1-vic-bos-research]] — Strategy 1.1.1 + VIC BOS, 3y backtests, lookahead fix, оптимизация VIC_EVOT.
 - [[2026-04-28-strategy-1-1-1-multi-htf-multi-ltf]] — Strategy 1.1.1 расширена: OB-2h + FVG-20m + prev-day FVG-4h, 98 сигналов / WR 56.5% / +12R.
+- [[2026-04-29-strategy-1-1-1-sl-15-rr-optimizer]] — большая сессия: vault, 4 агента, OB-12h, SL=15%, bucketing dedup, RR-оптимизатор. 14 коммитов, 2 ветки смерджены.
 
 ## Debugging
 
 - [[known-pitfalls]] — **входная точка.** Один экран с 7+ грабли проекта и правилами избегания. Читать при старте сессии.
 - [[vic-maxv-расходился-с-pine-индикатором-из-за-1m-вместо-15m]] — VIC maxV считался на сырых 1m, должен на 15m (Pine timeframe.from_seconds rounding).
 - [[lookahead-bug-в-vic-evot-backtest]] — backtest сканировал с open(i+2) вместо close(i+2); «магические» 60%+ WR были артефактами.
+- [[strategy-1-1-1-look-ahead-15min-vs-tf_duration]] — hardcoded +15min для fill-scan ломал 20m.
+- [[strategy-1-1-1-почему-20m-фикс-нулевой-эффект]] — фикс защитный: entry=mid-FVG лежит вне c2.
+- [[strategy-1-1-1-разные-sl-на-одном-entry]] — кейс 2026-02-06: расширили dedup-ключ на SL.
+- [[strategy-1-1-1-dedup-bucketing-tolerance]] — round() ≠ толерантность, нужен bucketing.
 
 ## Планы и процесс
 
