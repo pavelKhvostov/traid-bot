@@ -65,7 +65,10 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
     base_row = {
         # signal_time (raw UTC) — для dedup-ключа. Из CSV убирается перед записью.
         "signal_time": signal_time,
-        # Ключевые времена (UTC+3): когда сформирована соответствующая зона
+        # Top-уровень: 1d или 12h (параллельные top-OB ветки).
+        "top_tf": sig.get("top_tf", "1d"),
+        # Ключевые времена (UTC+3): когда сформирована соответствующая зона.
+        # ob_d_time — cur_time top-OB (1d или 12h), legacy-имя сохранено.
         "ob_d_time": to_utc3(sig["ob_d_cur_time"]),
         "fvg_macro_time": to_utc3(sig["fvg_macro_c2_time"]),
         "fvg_macro_tf": sig["fvg_macro_tf"],  # 4h или 6h
@@ -182,11 +185,15 @@ def dedupe_signals(rows: list[dict]) -> list[dict]:
         macro_tfs = sorted({r["fvg_macro_tf"] for r in group})
         htf_times = [r["ob_htf_time"] for r in group]
         htf_tfs = sorted({r["ob_htf_tf"] for r in group})
+        top_tfs = sorted({r["top_tf"] for r in group})
+        top_times = [r["ob_d_time"] for r in group]
 
         # Реконструируем строку с явным порядком полей: count после tf.
         new = {
             "signal_time": first["signal_time"],
-            "ob_d_time": first["ob_d_time"],
+            "top_tf": ",".join(top_tfs),
+            "top_tf_count": len(top_tfs),
+            "ob_d_time": min(top_times),
             "fvg_macro_time": min(macro_times),
             "fvg_macro_tf": ",".join(macro_tfs),
             "fvg_macro_count": len({t for t in macro_times}),
@@ -230,6 +237,7 @@ def main():
 
     print("[INFO] загрузка данных")
     df_1d = load_df(SYMBOL, "1d")
+    df_12h = load_df(SYMBOL, "12h")
     df_4h = load_df(SYMBOL, "4h")
     df_1h = load_df(SYMBOL, "1h")
     df_6h = compose_from_base(df_1h, "6h")  # 6h из 1h, выравнено по эпохе (00,06,12,18 UTC)
@@ -237,22 +245,25 @@ def main():
     df_15m = load_df(SYMBOL, "15m")
     df_1m = load_df(SYMBOL, "1m")
     df_20m = compose_from_base(df_1m, "20m")  # ресемпл 1m -> 20m, выравнено по эпохе
-    print(f"  1d={len(df_1d)} 4h={len(df_4h)} 6h={len(df_6h)} "
+    print(f"  1d={len(df_1d)} 12h={len(df_12h)} 4h={len(df_4h)} 6h={len(df_6h)} "
           f"1h={len(df_1h)} 2h={len(df_2h)} "
           f"15m={len(df_15m)} 20m={len(df_20m)} 1m={len(df_1m)}")
 
-    # Ограничить df_1d последними DAYS_BACK + lookahead
+    # Ограничить df_1d и df_12h последними DAYS_BACK
     today = pd.Timestamp.utcnow().normalize()
     if today.tz is None:
         today = today.tz_localize("UTC")
     cutoff = today - pd.Timedelta(days=DAYS_BACK)
     df_1d_filtered = df_1d[df_1d.index >= cutoff]
-    print(f"  1d after cutoff ({cutoff.date()}): {len(df_1d_filtered)} candles")
+    df_12h_filtered = df_12h[df_12h.index >= cutoff]
+    print(f"  after cutoff ({cutoff.date()}): "
+          f"1d={len(df_1d_filtered)}  12h={len(df_12h_filtered)}")
 
     print()
     print("[INFO] сбор сигналов (один раз — не зависит от RR)")
     signals = detect_strategy_1_1_1_signals(
-        df_1d_filtered, df_4h, df_6h, df_1h, df_2h, df_15m, df_20m,
+        df_1d_filtered, df_12h_filtered,
+        df_4h, df_6h, df_1h, df_2h, df_15m, df_20m,
         verbose=True,
     )
     print(f"  signals: {len(signals)}")
