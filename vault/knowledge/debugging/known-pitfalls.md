@@ -114,6 +114,10 @@ FVG c2 закрывается через 20 минут, не через 15. Scan
 метаданных сигнала, не из контекста скрипта. Шаблон:
 `fill_scan_start = sig["signal_time"] + pd.Timedelta(minutes=TF_MINUTES[sig["entry_tf"]])`.
 Любой `signal_time + Timedelta(minutes=15|20|...)` хардкод = RED FLAG.
+- Smoke-test 3y показал 0 изменений outcome'ов: look-ahead был
+  теоретическим, не практическим (entry=mid-FVG лежит вне c2). Фикс
+  остаётся защитным — для будущих entry-стратегий look-ahead станет
+  практическим. См. [[strategy-1-1-1-почему-20m-фикс-нулевой-эффект]].
 Источник: [[strategy-1-1-1-look-ahead-15min-vs-tf_duration]]
 
 ### Дубли сигналов при перекрывающихся зонах одной стратегии
