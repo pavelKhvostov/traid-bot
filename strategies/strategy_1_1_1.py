@@ -1,4 +1,4 @@
-"""Strategy 1.1.1: OB-D + FVG-4h → OB-1h/2h + FVG-15m/20m в зоне OB-D ∩ FVG-4h.
+"""Strategy 1.1.1: OB-D + FVG-4h/6h → OB-1h/2h + FVG-15m/20m в зоне OB-D ∩ FVG-macro.
 
 Универсальные определения зон (canon, см. vault/.../универсальные определения OB и FVG.md):
 
@@ -12,16 +12,18 @@ FVG (3-свечной, c0=i-2, c2=i):
 
 Логика:
   1. OB-D — сканируем дневные пары (LONG или SHORT).
-  2. FVG-4h — того же направления, c2 в prev_day или cur_day OB-D.
-     Если c2 в prev_day, дополнительно: цена не закрепилась за FVG-4h
-     до конца cur_day (нет 4h close ниже bottom для LONG / выше top для SHORT
-     в окне [c2_close, end_of_cur_day]).
-     Зона FVG-4h должна попадать в OB-D (bottom для LONG / top для SHORT
-     внутри OB-D).
-  3. Зона поиска OB-htf (1h и 2h независимо): со СЛЕДУЮЩЕГО UTC-дня после cur OB-D,
-     до момента когда:
-     - 2 подряд close на htf-таймфрейме ниже bottom(FVG-4h) для LONG / выше top для SHORT
-     - стоп срабатывает только ПОСЛЕ первого касания зоны
+  2. FVG-macro (4h ИЛИ 6h, независимо) — того же направления, c2 в prev_day или
+     cur_day OB-D. Если c2 в prev_day, дополнительно: цена не перекрыла FVG по wick
+     (low < bottom для LONG / high > top для SHORT) на свечах того же ТФ
+     в окне [c2_close, end_of_cur_day].
+     Зона FVG должна попадать в OB-D (bottom для LONG / top для SHORT внутри OB-D).
+     Каждая валидная FVG-macro = отдельная ситуация (отдельный поиск OB-htf).
+  3. Зона поиска OB-htf (1h и 2h независимо): со СЛЕДУЮЩЕГО UTC-дня после cur OB-D.
+     Стоп-правило: при формировании фрактала ниже FVG-macro (LONG) /
+     выше FVG-macro (SHORT) — OB-htf с `cur ≤ j+2` (внутри фрактала) ещё валидна;
+     OB-htf с `cur > j+2` → FVG невалидна, дальше не ищем.
+     Фрактал по Bill Williams: i±2 (low(i) строго ниже low соседей для down /
+     high(i) строго выше high соседей для up). j+2 = свеча подтверждения.
   4. OB-htf должен пересекаться с FVG-4h И с OB-D.
   5. Entry FVG ищется параллельно для каждого OB-htf:
      - FVG-15m в окне [prev, cur + (htf_minutes - 15)]
@@ -115,49 +117,6 @@ def zones_overlap(b1: float, t1: float, b2: float, t2: float) -> bool:
     return not (t1 < b2 or t2 < b1)
 
 
-def find_search_end_htf(
-    df_htf_window: pd.DataFrame, direction: str, fvg_top: float, fvg_bottom: float,
-) -> int:
-    """Сколько свечей сканировать в окне поиска OB-htf (1h или 2h).
-
-    Стоп срабатывает ТОЛЬКО после первого касания зоны FVG-4h ценой:
-      LONG: первое касание = low <= fvg_top.
-        Стоп: 2 подряд close < fvg_bottom (выход вниз).
-      SHORT: первое касание = high >= fvg_bottom.
-        Стоп: 2 подряд close > fvg_top (выход вверх).
-    До первого касания — search продолжается.
-    """
-    highs = df_htf_window["high"].values
-    lows = df_htf_window["low"].values
-    closes = df_htf_window["close"].values
-    n = len(df_htf_window)
-    entered_zone = False
-    for i in range(n):
-        h = float(highs[i])
-        l = float(lows[i])
-        c = float(closes[i])
-
-        if not entered_zone:
-            if direction == "LONG":
-                if l <= fvg_top:
-                    entered_zone = True
-            else:
-                if h >= fvg_bottom:
-                    entered_zone = True
-            if not entered_zone:
-                continue
-
-        if i >= 1:
-            cprev = float(closes[i - 1])
-            if direction == "LONG":
-                if c < fvg_bottom and cprev < fvg_bottom:
-                    return i
-            else:
-                if c > fvg_top and cprev > fvg_top:
-                    return i
-    return n
-
-
 def find_first_fvg_in_range(
     df_ltf: pd.DataFrame,
     start: pd.Timestamp,
@@ -178,72 +137,152 @@ def find_first_fvg_in_range(
     return None
 
 
+def collect_valid_macro_fvgs(
+    df_macro: pd.DataFrame,
+    ob_d: OBZone,
+    htf_hours: int,
+) -> list[FVGZone]:
+    """Все валидные FVG нужного направления для OB-D на таймфрейме htf_hours (4 или 6).
+
+    Правила:
+      - c2 в [prev_time, cur_time + 1d) OB-D
+      - candle полностью закрывается до конца cur_day → c2_open ≤ cur_time + (24-htf_hours)h
+      - если c2 в prev_day: проверка wick-инвалидации на свечах того же ТФ
+        в окне [c2_close, cur_day_end)
+      - Зона FVG попадает в OB-D
+    """
+    cur_day_end = ob_d.cur_time + pd.Timedelta(days=1)
+    fvg_search_start = ob_d.prev_time
+    fvg_search_end = ob_d.cur_time + pd.Timedelta(hours=24 - htf_hours)
+    df_window = df_macro[
+        (df_macro.index >= fvg_search_start) & (df_macro.index <= fvg_search_end)
+    ]
+    if len(df_window) < 3:
+        return []
+
+    valid: list[FVGZone] = []
+    for j in range(2, len(df_window)):
+        f = detect_fvg(df_window, j)
+        if f is None or f.direction != ob_d.direction:
+            continue
+        if not (ob_d.prev_time <= f.c2_time < cur_day_end):
+            continue
+        # Invalidation для prev_day FVG (на свечах того же ТФ).
+        if f.c2_time < ob_d.cur_time:
+            check_start = f.c2_time + pd.Timedelta(hours=htf_hours)
+            df_inval = df_macro[
+                (df_macro.index >= check_start) & (df_macro.index < cur_day_end)
+            ]
+            invalidated = False
+            for _, row in df_inval.iterrows():
+                if ob_d.direction == "LONG" and float(row["low"]) < f.bottom:
+                    invalidated = True
+                    break
+                if ob_d.direction == "SHORT" and float(row["high"]) > f.top:
+                    invalidated = True
+                    break
+            if invalidated:
+                continue
+        # Зона FVG попадает в OB-D.
+        if ob_d.direction == "LONG":
+            if not (ob_d.bottom <= f.bottom <= ob_d.top):
+                continue
+        else:
+            if not (ob_d.bottom <= f.top <= ob_d.top):
+                continue
+        valid.append(f)
+    return valid
+
+
 def find_signal_in_htf(
     df_htf: pd.DataFrame,
     df_15m: pd.DataFrame,
     df_20m: pd.DataFrame,
     ob_d: OBZone,
-    fvg_4h: FVGZone,
+    fvg_macro: FVGZone,
     search_start: pd.Timestamp,
     htf_minutes: int,
     htf_label: str,
 ) -> dict | None:
     """Найти первый OB-htf с валидной FVG entry (15m или 20m).
 
-    Возвращает dict с {ob_htf, htf_label, fvg_entry, fvg_tf} или None.
+    fvg_macro = FVG-4h или FVG-6h.
+    Стоп: при формировании фрактала ниже FVG-macro (LONG) / выше (SHORT) —
+    OB-htf с `cur` в индексе ≤ j+2 (внутри фрактала) ещё валидна;
+    дальше FVG считается невалидной, поиск прекращается.
     """
-    df_htf_window = df_htf[df_htf.index >= search_start]
-    if df_htf_window.empty:
-        return None
-    end_idx = find_search_end_htf(
-        df_htf_window, ob_d.direction, fvg_4h.top, fvg_4h.bottom,
-    )
-    df_htf_search = df_htf_window.iloc[:end_idx]
-    if len(df_htf_search) < 2:
+    df_window = df_htf[df_htf.index >= search_start]
+    n = len(df_window)
+    if n < 2:
         return None
 
-    for h_idx in range(1, len(df_htf_search)):
-        cand = detect_ob_pair(df_htf_search, h_idx)
-        if cand is None or cand.direction != ob_d.direction:
-            continue
-        # OB-htf должна пересекаться с FVG-4h И с OB-D.
-        if not zones_overlap(cand.bottom, cand.top, fvg_4h.bottom, fvg_4h.top):
-            continue
-        if not zones_overlap(cand.bottom, cand.top, ob_d.bottom, ob_d.top):
-            continue
+    direction = ob_d.direction
+    fvg_top = fvg_macro.top
+    fvg_bottom = fvg_macro.bottom
 
-        fvg_15m = find_first_fvg_in_range(
-            df_15m,
-            cand.prev_time,
-            cand.cur_time + pd.Timedelta(minutes=htf_minutes - 15),
-            ob_d.direction, cand.bottom, cand.top,
-        )
-        fvg_20m = find_first_fvg_in_range(
-            df_20m,
-            cand.prev_time,
-            cand.cur_time + pd.Timedelta(minutes=htf_minutes - 20),
-            ob_d.direction, cand.bottom, cand.top,
-        )
+    highs = df_window["high"].values
+    lows = df_window["low"].values
 
-        if fvg_15m is None and fvg_20m is None:
-            continue
+    fractal_confirm_idx: int | None = None  # j+2 первого фрактала, инвалидирующего FVG
 
-        if fvg_15m is None:
-            fvg_entry, fvg_tf = fvg_20m, "20m"
-        elif fvg_20m is None:
-            fvg_entry, fvg_tf = fvg_15m, "15m"
-        else:
-            if fvg_15m.c2_time <= fvg_20m.c2_time:
-                fvg_entry, fvg_tf = fvg_15m, "15m"
-            else:
-                fvg_entry, fvg_tf = fvg_20m, "20m"
+    for i in range(n):
+        # 1. Проверка фрактала на j = i-2 (подтверждается когда есть свечи до i).
+        if i >= 4 and fractal_confirm_idx is None:
+            j = i - 2
+            f_low = float(lows[j])
+            f_high = float(highs[j])
+            is_ll = (
+                f_low < float(lows[j - 2]) and f_low < float(lows[j - 1])
+                and f_low < float(lows[j + 1]) and f_low < float(lows[j + 2])
+            )
+            is_hh = (
+                f_high > float(highs[j - 2]) and f_high > float(highs[j - 1])
+                and f_high > float(highs[j + 1]) and f_high > float(highs[j + 2])
+            )
+            if direction == "LONG" and is_ll and f_low < fvg_bottom:
+                fractal_confirm_idx = i  # = j+2
+            elif direction == "SHORT" and is_hh and f_high > fvg_top:
+                fractal_confirm_idx = i
 
-        return {
-            "ob_htf": cand,
-            "htf_label": htf_label,
-            "fvg_entry": fvg_entry,
-            "fvg_tf": fvg_tf,
-        }
+        # 2. Дальше окна {j, j+1, j+2} = i > fractal_confirm_idx → FVG невалидна.
+        if fractal_confirm_idx is not None and i > fractal_confirm_idx:
+            return None
+
+        # 3. Попытка детектить валидную OB-htf на (i-1, i).
+        if i >= 1:
+            cand = detect_ob_pair(df_window, i)
+            if cand is not None and cand.direction == direction \
+               and zones_overlap(cand.bottom, cand.top, fvg_bottom, fvg_top) \
+               and zones_overlap(cand.bottom, cand.top, ob_d.bottom, ob_d.top):
+                # Поиск entry FVG (15m + 20m, ранний выигрывает).
+                fvg_15m = find_first_fvg_in_range(
+                    df_15m,
+                    cand.prev_time,
+                    cand.cur_time + pd.Timedelta(minutes=htf_minutes - 15),
+                    direction, cand.bottom, cand.top,
+                )
+                fvg_20m = find_first_fvg_in_range(
+                    df_20m,
+                    cand.prev_time,
+                    cand.cur_time + pd.Timedelta(minutes=htf_minutes - 20),
+                    direction, cand.bottom, cand.top,
+                )
+                if fvg_15m is not None or fvg_20m is not None:
+                    if fvg_15m is None:
+                        fvg_entry, fvg_tf = fvg_20m, "20m"
+                    elif fvg_20m is None:
+                        fvg_entry, fvg_tf = fvg_15m, "15m"
+                    else:
+                        if fvg_15m.c2_time <= fvg_20m.c2_time:
+                            fvg_entry, fvg_tf = fvg_15m, "15m"
+                        else:
+                            fvg_entry, fvg_tf = fvg_20m, "20m"
+                    return {
+                        "ob_htf": cand,
+                        "htf_label": htf_label,
+                        "fvg_entry": fvg_entry,
+                        "fvg_tf": fvg_tf,
+                    }
 
     return None
 
@@ -251,6 +290,7 @@ def find_signal_in_htf(
 def detect_strategy_1_1_1_signals(
     df_1d: pd.DataFrame,
     df_4h: pd.DataFrame,
+    df_6h: pd.DataFrame,
     df_1h: pd.DataFrame,
     df_2h: pd.DataFrame,
     df_15m: pd.DataFrame,
@@ -267,12 +307,14 @@ def detect_strategy_1_1_1_signals(
     signals: list[dict] = []
     # Диагностика воронки
     cnt_ob_d = 0
-    cnt_with_fvg_4h = 0
-    cnt_with_intersection = 0
+    cnt_macro_4h = 0
+    cnt_macro_6h = 0
     cnt_chosen_htf_1h = 0
     cnt_chosen_htf_2h = 0
     cnt_chosen_15m = 0
     cnt_chosen_20m = 0
+    cnt_chosen_macro_4h = 0
+    cnt_chosen_macro_6h = 0
 
     for d_idx in range(1, len(df_1d)):
         ob_d = detect_ob_pair(df_1d, d_idx)
@@ -280,73 +322,30 @@ def detect_strategy_1_1_1_signals(
             continue
         cnt_ob_d += 1
 
-        # --- FVG-4h поиск (собираем ВСЕ валидные) ---
-        # Time range OB-D = [prev_time, cur_time+1d). FVG-4h должна
-        # ПОЛНОСТЬЮ закрыться внутри этого окна, т.е. c2.open_time + 4h
-        # <= cur_time + 1d → c2.open_time <= cur_time + 20h.
-        fvg_search_start = ob_d.prev_time
-        fvg_search_end = ob_d.cur_time + pd.Timedelta(hours=20)
-        df_4h_window = df_4h[
-            (df_4h.index >= fvg_search_start) & (df_4h.index <= fvg_search_end)
-        ]
-        if len(df_4h_window) < 3:
+        # --- Сбор валидных FVG-macro: 4h и 6h независимо ---
+        valid_4h = collect_valid_macro_fvgs(df_4h, ob_d, htf_hours=4)
+        valid_6h = collect_valid_macro_fvgs(df_6h, ob_d, htf_hours=6)
+        cnt_macro_4h += len(valid_4h)
+        cnt_macro_6h += len(valid_6h)
+
+        all_macro = [(f, "4h") for f in valid_4h] + [(f, "6h") for f in valid_6h]
+        if not all_macro:
             continue
 
-        cur_day_end = ob_d.cur_time + pd.Timedelta(days=1)
-        valid_fvg_4h_list: list[FVGZone] = []
-        for j in range(2, len(df_4h_window)):
-            f = detect_fvg(df_4h_window, j)
-            if f is None or f.direction != ob_d.direction:
-                continue
-            # c2 в prev_day или cur_day OB-D (т.е. в [prev_time, cur_time+1d)).
-            if not (ob_d.prev_time <= f.c2_time < cur_day_end):
-                continue
-            # Если c2 в prev_day — FVG не должна быть invalidated до конца cur_day.
-            # Перекрытие по wick: low < bottom для LONG / high > top для SHORT
-            # на любой 4h-свече в окне [c2_close, cur_day_end).
-            if f.c2_time < ob_d.cur_time:
-                check_start = f.c2_time + pd.Timedelta(hours=4)
-                df_inval = df_4h[
-                    (df_4h.index >= check_start) & (df_4h.index < cur_day_end)
-                ]
-                invalidated = False
-                for _, row in df_inval.iterrows():
-                    if ob_d.direction == "LONG" and float(row["low"]) < f.bottom:
-                        invalidated = True
-                        break
-                    if ob_d.direction == "SHORT" and float(row["high"]) > f.top:
-                        invalidated = True
-                        break
-                if invalidated:
-                    continue
-            # Зона FVG должна попадать в OB-D.
-            if ob_d.direction == "LONG":
-                if not (ob_d.bottom <= f.bottom <= ob_d.top):
-                    continue
-            else:
-                if not (ob_d.bottom <= f.top <= ob_d.top):
-                    continue
-            valid_fvg_4h_list.append(f)
-
-        if not valid_fvg_4h_list:
-            continue
-        cnt_with_fvg_4h += len(valid_fvg_4h_list)
-        cnt_with_intersection += len(valid_fvg_4h_list)
-
-        # --- По каждой FVG-4h: параллельно ищем сигнал на 1h и 2h, берём ранний ---
-        for fvg_4h in valid_fvg_4h_list:
-            zone_bottom = max(ob_d.bottom, fvg_4h.bottom)
-            zone_top = min(ob_d.top, fvg_4h.top)
+        # --- Каждая FVG-macro = отдельная ситуация: поиск 1h/2h × 15m/20m ---
+        for fvg_macro, macro_tf in all_macro:
+            zone_bottom = max(ob_d.bottom, fvg_macro.bottom)
+            zone_top = min(ob_d.top, fvg_macro.top)
 
             # Окно поиска OB-htf: со следующего UTC-дня после cur OB-D.
             search_start = (ob_d.cur_time + pd.Timedelta(days=1)).normalize()
 
             sig_1h = find_signal_in_htf(
-                df_1h, df_15m, df_20m, ob_d, fvg_4h,
+                df_1h, df_15m, df_20m, ob_d, fvg_macro,
                 search_start, htf_minutes=60, htf_label="1h",
             )
             sig_2h = find_signal_in_htf(
-                df_2h, df_15m, df_20m, ob_d, fvg_4h,
+                df_2h, df_15m, df_20m, ob_d, fvg_macro,
                 search_start, htf_minutes=120, htf_label="2h",
             )
 
@@ -377,6 +376,10 @@ def detect_strategy_1_1_1_signals(
                 cnt_chosen_15m += 1
             else:
                 cnt_chosen_20m += 1
+            if macro_tf == "4h":
+                cnt_chosen_macro_4h += 1
+            else:
+                cnt_chosen_macro_6h += 1
 
             entry = (fvg_entry.bottom + fvg_entry.top) / 2
             sl = ob_d.bottom if ob_d.direction == "LONG" else ob_d.top
@@ -393,9 +396,10 @@ def detect_strategy_1_1_1_signals(
                 "ob_d_prev_time": ob_d.prev_time,
                 "ob_d_cur_time": ob_d.cur_time,
                 "ob_d_zone": (ob_d.bottom, ob_d.top),
-                "fvg_4h_c0_time": fvg_4h.c0_time,
-                "fvg_4h_c2_time": fvg_4h.c2_time,
-                "fvg_4h_zone": (fvg_4h.bottom, fvg_4h.top),
+                "fvg_macro_tf": macro_tf,
+                "fvg_macro_c0_time": fvg_macro.c0_time,
+                "fvg_macro_c2_time": fvg_macro.c2_time,
+                "fvg_macro_zone": (fvg_macro.bottom, fvg_macro.top),
                 "intersection_zone": (zone_bottom, zone_top),
                 "ob_htf_tf": htf_label,
                 "ob_htf_prev_time": ob_htf.prev_time,
@@ -409,9 +413,11 @@ def detect_strategy_1_1_1_signals(
 
     if verbose:
         print(f"[FUNNEL] OB-D: {cnt_ob_d}")
-        print(f"  + FVG-4h: {cnt_with_fvg_4h}")
-        print(f"  + intersection non-empty: {cnt_with_intersection}")
+        print(f"  + valid FVG-4h: {cnt_macro_4h}")
+        print(f"  + valid FVG-6h: {cnt_macro_6h}")
         print(f"  signals: {len(signals)}")
+        print(f"      chosen macro 4h: {cnt_chosen_macro_4h}")
+        print(f"      chosen macro 6h: {cnt_chosen_macro_6h}")
         print(f"      chosen htf 1h: {cnt_chosen_htf_1h}")
         print(f"      chosen htf 2h: {cnt_chosen_htf_2h}")
         print(f"      chosen entry 15m: {cnt_chosen_15m}")

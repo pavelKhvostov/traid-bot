@@ -17,8 +17,10 @@ from strategies.strategy_1_1_1 import detect_strategy_1_1_1_signals
 
 DAYS_BACK = 1095  # 3 года
 SYMBOL = "BTCUSDT"
-RR_RATIO = 1.0
-OUTPUT_PATH = Path("signals/strategy_1_1_1_3y_RR1.csv")
+RR_RUNS = [
+    (1.0, Path("signals/strategy_1_1_1_3y_RR1.csv")),
+    (2.2, Path("signals/strategy_1_1_1_3y_RR2.2.csv")),
+]
 
 
 def to_utc3(ts) -> str:
@@ -58,9 +60,10 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
                 break
 
     base_row = {
-        # 4 ключевых времени (UTC+3): когда сформирована соответствующая зона
+        # Ключевые времена (UTC+3): когда сформирована соответствующая зона
         "ob_d_time": to_utc3(sig["ob_d_cur_time"]),
-        "fvg_4h_time": to_utc3(sig["fvg_4h_c2_time"]),
+        "fvg_macro_time": to_utc3(sig["fvg_macro_c2_time"]),
+        "fvg_macro_tf": sig["fvg_macro_tf"],  # 4h или 6h
         "ob_htf_time": to_utc3(sig["ob_htf_cur_time"]),
         "ob_htf_tf": sig["ob_htf_tf"],  # 1h или 2h (что сработало раньше)
         "fvg_time": to_utc3(sig["fvg_c2_time"]),
@@ -72,8 +75,8 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
         "risk_pct": round(risk / entry * 100, 4),
         "ob_d_bottom": sig["ob_d_zone"][0],
         "ob_d_top": sig["ob_d_zone"][1],
-        "fvg_4h_top": sig["fvg_4h_zone"][1],
-        "fvg_4h_bottom": sig["fvg_4h_zone"][0],
+        "fvg_macro_top": sig["fvg_macro_zone"][1],
+        "fvg_macro_bottom": sig["fvg_macro_zone"][0],
         "intersection_top": sig["intersection_zone"][1],
         "intersection_bottom": sig["intersection_zone"][0],
         "ob_htf_top": sig["ob_htf_zone"][1],
@@ -132,18 +135,21 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
 
 
 def main():
-    print(f"[INFO] Strategy 1.1.1 backtest, {SYMBOL}, окно {DAYS_BACK}d, RR={RR_RATIO}")
+    rrs = [r for r, _ in RR_RUNS]
+    print(f"[INFO] Strategy 1.1.1 backtest, {SYMBOL}, окно {DAYS_BACK}d, RR={rrs}")
     print()
 
     print("[INFO] загрузка данных")
     df_1d = load_df(SYMBOL, "1d")
     df_4h = load_df(SYMBOL, "4h")
     df_1h = load_df(SYMBOL, "1h")
+    df_6h = compose_from_base(df_1h, "6h")  # 6h из 1h, выравнено по эпохе (00,06,12,18 UTC)
     df_2h = compose_from_base(df_1h, "2h")  # 2h из 1h, выравнено по эпохе (00:00, 02:00...)
     df_15m = load_df(SYMBOL, "15m")
     df_1m = load_df(SYMBOL, "1m")
     df_20m = compose_from_base(df_1m, "20m")  # ресемпл 1m -> 20m, выравнено по эпохе
-    print(f"  1d={len(df_1d)} 4h={len(df_4h)} 1h={len(df_1h)} 2h={len(df_2h)} "
+    print(f"  1d={len(df_1d)} 4h={len(df_4h)} 6h={len(df_6h)} "
+          f"1h={len(df_1h)} 2h={len(df_2h)} "
           f"15m={len(df_15m)} 20m={len(df_20m)} 1m={len(df_1m)}")
 
     # Ограничить df_1d последними DAYS_BACK + lookahead
@@ -155,9 +161,9 @@ def main():
     print(f"  1d after cutoff ({cutoff.date()}): {len(df_1d_filtered)} candles")
 
     print()
-    print("[INFO] сбор сигналов")
+    print("[INFO] сбор сигналов (один раз — не зависит от RR)")
     signals = detect_strategy_1_1_1_signals(
-        df_1d_filtered, df_4h, df_1h, df_2h, df_15m, df_20m,
+        df_1d_filtered, df_4h, df_6h, df_1h, df_2h, df_15m, df_20m,
         verbose=True,
     )
     print(f"  signals: {len(signals)}")
@@ -166,51 +172,52 @@ def main():
         print("[WARN] ни одного сигнала")
         return
 
-    print()
-    print("[INFO] симуляция")
-    rows = [simulate_outcome(s, df_1m, RR_RATIO) for s in signals]
-    df = pd.DataFrame(rows)
-    OUTPUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    df.to_csv(OUTPUT_PATH, index=False)
-    print(f"  записано в {OUTPUT_PATH}: {len(rows)} строк")
+    # Симуляция отдельно для каждого RR — отдельный CSV.
+    for rr_ratio, output_path in RR_RUNS:
+        print()
+        print(f"[INFO] симуляция RR={rr_ratio}")
+        rows = [simulate_outcome(s, df_1m, rr_ratio) for s in signals]
+        df = pd.DataFrame(rows)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(output_path, index=False)
+        print(f"  записано в {output_path}: {len(rows)} строк")
 
-    closed = df[df["outcome"].isin(["win", "loss"])]
-    nf = (df["outcome"] == "not_filled").sum()
-    op = (df["outcome"] == "open").sum()
-    W = int((closed["outcome"] == "win").sum())
-    L = int((closed["outcome"] == "loss").sum())
-    wr = W / (W + L) * 100 if (W + L) else 0.0
-    pnl = W * RR_RATIO - L
-
-    print()
-    print("=" * 60)
-    print(f"СВОДКА  RR={RR_RATIO}  окно={DAYS_BACK}d")
-    print("=" * 60)
-    print(f"  total={len(df)}  closed={W+L}  not_filled={nf}  open={op}")
-    print(f"  W={W} L={L} WR={wr:.1f}%  PnL={pnl:+.1f}R")
-    print()
-
-    if not closed.empty:
-        closed_y = closed.copy()
-        # fvg_time = момент сигнала (UTC+3 'YYYY-MM-DD HH:MM').
-        closed_y["t"] = pd.to_datetime(closed_y["fvg_time"])
-        closed_y["year"] = closed_y["t"].dt.year
-        for y in sorted(closed_y["year"].unique()):
-            sub = closed_y[closed_y["year"] == y]
-            Wy = int((sub["outcome"] == "win").sum())
-            Ly = int((sub["outcome"] == "loss").sum())
-            wry = Wy / (Wy + Ly) * 100 if (Wy + Ly) else 0
-            pnly = Wy * RR_RATIO - Ly
-            print(f"  {y}: n={Wy+Ly} WR={wry:.1f}% PnL={pnly:+.1f}R")
+        closed = df[df["outcome"].isin(["win", "loss"])]
+        nf = (df["outcome"] == "not_filled").sum()
+        op = (df["outcome"] == "open").sum()
+        W = int((closed["outcome"] == "win").sum())
+        L = int((closed["outcome"] == "loss").sum())
+        wr = W / (W + L) * 100 if (W + L) else 0.0
+        pnl = W * rr_ratio - L
 
         print()
-        d = closed.groupby("direction").agg(n=("outcome","size"))
-        d["w"] = closed.groupby("direction")["outcome"].apply(lambda s: (s=="win").sum())
-        d["l"] = d["n"] - d["w"]
-        d["wr%"] = (d["w"]/d["n"]*100).round(1)
-        d["pnl"] = d["w"]*RR_RATIO - d["l"]
-        print("По направлению:")
-        print(d.to_string())
+        print("=" * 60)
+        print(f"СВОДКА  RR={rr_ratio}  окно={DAYS_BACK}d")
+        print("=" * 60)
+        print(f"  total={len(df)}  closed={W+L}  not_filled={nf}  open={op}")
+        print(f"  W={W} L={L} WR={wr:.1f}%  PnL={pnl:+.1f}R")
+
+        if not closed.empty:
+            closed_y = closed.copy()
+            # fvg_time = момент сигнала (UTC+3 'YYYY-MM-DD HH:MM').
+            closed_y["t"] = pd.to_datetime(closed_y["fvg_time"])
+            closed_y["year"] = closed_y["t"].dt.year
+            for y in sorted(closed_y["year"].unique()):
+                sub = closed_y[closed_y["year"] == y]
+                Wy = int((sub["outcome"] == "win").sum())
+                Ly = int((sub["outcome"] == "loss").sum())
+                wry = Wy / (Wy + Ly) * 100 if (Wy + Ly) else 0
+                pnly = Wy * rr_ratio - Ly
+                print(f"  {y}: n={Wy+Ly} WR={wry:.1f}% PnL={pnly:+.1f}R")
+
+            print()
+            d = closed.groupby("direction").agg(n=("outcome","size"))
+            d["w"] = closed.groupby("direction")["outcome"].apply(lambda s: (s=="win").sum())
+            d["l"] = d["n"] - d["w"]
+            d["wr%"] = (d["w"]/d["n"]*100).round(1)
+            d["pnl"] = d["w"]*rr_ratio - d["l"]
+            print("По направлению:")
+            print(d.to_string())
 
 
 if __name__ == "__main__":
