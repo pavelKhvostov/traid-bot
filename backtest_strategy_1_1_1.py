@@ -63,6 +63,8 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
                 break
 
     base_row = {
+        # signal_time (raw UTC) — для dedup-ключа. Из CSV убирается перед записью.
+        "signal_time": signal_time,
         # Ключевые времена (UTC+3): когда сформирована соответствующая зона
         "ob_d_time": to_utc3(sig["ob_d_cur_time"]),
         "fvg_macro_time": to_utc3(sig["fvg_macro_c2_time"]),
@@ -137,6 +139,90 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
     }
 
 
+def dedupe_signals(rows: list[dict]) -> list[dict]:
+    """Группировка по (signal_time, direction, round(entry, 8), round(sl, 8)).
+
+    На одну (confirm-свеча, направление, цена входа, SL) — одна строка CSV.
+    Метаданные о параллельных macro/htf путях схлопываются в *_count и
+    *_tf через запятую. Разные SL на одной entry = разные трейды (разный
+    risk/TP), остаются как разные строки. См.
+    strategy-1-1-1-разные-sl-на-одном-entry.md.
+    """
+    must_match = [
+        "entry", "sl", "tp", "risk_pct",
+        "outcome", "activation_time", "exit_time", "exit_price",
+        "hit_type", "mfe_pct", "mae_pct", "fill_delay_min",
+        "fvg_time", "fvg_tf",
+        "fvg_top", "fvg_bottom",
+    ]
+
+    groups: dict[tuple, list[dict]] = {}
+    for row in rows:
+        key = (
+            row["signal_time"],
+            row["direction"],
+            round(float(row["entry"]), 8),
+            round(float(row["sl"]), 8),
+        )
+        groups.setdefault(key, []).append(row)
+
+    out: list[dict] = []
+    for key, group in groups.items():
+        first = group[0]
+        # Assert одинаковости outcome-определяющих полей
+        for r in group[1:]:
+            for f in must_match:
+                if r.get(f) != first.get(f):
+                    raise AssertionError(
+                        f"dedupe mismatch on key={key} field={f!r}: "
+                        f"{first.get(f)!r} vs {r.get(f)!r}"
+                    )
+
+        macro_times = [r["fvg_macro_time"] for r in group]
+        macro_tfs = sorted({r["fvg_macro_tf"] for r in group})
+        htf_times = [r["ob_htf_time"] for r in group]
+        htf_tfs = sorted({r["ob_htf_tf"] for r in group})
+
+        # Реконструируем строку с явным порядком полей: count после tf.
+        new = {
+            "signal_time": first["signal_time"],
+            "ob_d_time": first["ob_d_time"],
+            "fvg_macro_time": min(macro_times),
+            "fvg_macro_tf": ",".join(macro_tfs),
+            "fvg_macro_count": len({t for t in macro_times}),
+            "ob_htf_time": min(htf_times),
+            "ob_htf_tf": ",".join(htf_tfs),
+            "ob_htf_count": len({t for t in htf_times}),
+            "fvg_time": first["fvg_time"],
+            "fvg_tf": first["fvg_tf"],
+            "direction": first["direction"],
+            "entry": first["entry"],
+            "sl": first["sl"],
+            "tp": first["tp"],
+            "risk_pct": first["risk_pct"],
+            "ob_d_bottom": first["ob_d_bottom"],
+            "ob_d_top": first["ob_d_top"],
+            "fvg_macro_top": first["fvg_macro_top"],
+            "fvg_macro_bottom": first["fvg_macro_bottom"],
+            "intersection_top": first["intersection_top"],
+            "intersection_bottom": first["intersection_bottom"],
+            "ob_htf_top": first["ob_htf_top"],
+            "ob_htf_bottom": first["ob_htf_bottom"],
+            "fvg_top": first["fvg_top"],
+            "fvg_bottom": first["fvg_bottom"],
+            "activation_time": first["activation_time"],
+            "fill_delay_min": first["fill_delay_min"],
+            "outcome": first["outcome"],
+            "exit_time": first["exit_time"],
+            "exit_price": first["exit_price"],
+            "hit_type": first["hit_type"],
+            "mfe_pct": first["mfe_pct"],
+            "mae_pct": first["mae_pct"],
+        }
+        out.append(new)
+    return out
+
+
 def main():
     rrs = [r for r, _ in RR_RUNS]
     print(f"[INFO] Strategy 1.1.1 backtest, {SYMBOL}, окно {DAYS_BACK}d, RR={rrs}")
@@ -180,10 +266,23 @@ def main():
         print()
         print(f"[INFO] симуляция RR={rr_ratio}")
         rows = [simulate_outcome(s, df_1m, rr_ratio) for s in signals]
-        df = pd.DataFrame(rows)
+        deduped = dedupe_signals(rows)
+        n_groups_multi = sum(
+            1 for r in deduped
+            if r["fvg_macro_count"] > 1 or r["ob_htf_count"] > 1
+        )
+        print(f"  raw: {len(rows)}  deduped: {len(deduped)}  "
+              f"схлопнуто: {len(rows) - len(deduped)}  "
+              f"групп с count>1: {n_groups_multi}")
+
+        # signal_time нужен только для dedup-ключа — из CSV убираем.
+        for r in deduped:
+            r.pop("signal_time", None)
+
+        df = pd.DataFrame(deduped)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output_path, index=False)
-        print(f"  записано в {output_path}: {len(rows)} строк")
+        print(f"  записано в {output_path}: {len(deduped)} строк")
 
         closed = df[df["outcome"].isin(["win", "loss"])]
         nf = (df["outcome"] == "not_filled").sum()
