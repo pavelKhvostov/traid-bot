@@ -99,6 +99,27 @@ re-scan (от свежего close 1h) перепутывал prefill_silent vs 
 невидимыми и лавина повторяется.
 Источник: [[prefill silent при старте]]
 
+### Strategy 1.1.1: hardcoded +15min для fill-scan ломает 20m FVG
+
+Что было: в `backtest_strategy_1_1_1.py:simulate_outcome` хардкод
+`fill_scan_start = signal_time + 15min`, применяется ко всем entry FVG
+независимо от их TF.
+Симптом: 3y BTC прогон показал WR 64.2% на 123 closed сделках (RR=1,
++35R) — попадает в красную зону pitfall #1.
+Причина: `signal_time = fvg_entry.c2_time` (open_time c2 свечи). Для 20m
+FVG c2 закрывается через 20 минут, не через 15. Scan стартует за 5 мин
+до фактического закрытия c2 → захватывает 1m свечи, которые в реал-тайме
+ещё являются частью незакрытой 20m c2.
+Правило избегания: длительность бара entry-FVG должна выводиться из
+метаданных сигнала, не из контекста скрипта. Шаблон:
+`fill_scan_start = sig["signal_time"] + pd.Timedelta(minutes=TF_MINUTES[sig["entry_tf"]])`.
+Любой `signal_time + Timedelta(minutes=15|20|...)` хардкод = RED FLAG.
+- Smoke-test 3y показал 0 изменений outcome'ов: look-ahead был
+  теоретическим, не практическим (entry=mid-FVG лежит вне c2). Фикс
+  остаётся защитным — для будущих entry-стратегий look-ahead станет
+  практическим. См. [[strategy-1-1-1-почему-20m-фикс-нулевой-эффект]].
+Источник: [[strategy-1-1-1-look-ahead-15min-vs-tf_duration]]
+
 ### Дубли сигналов при перекрывающихся зонах одной стратегии
 
 Что было: одна 1h confirm-свеча попадала в несколько зон одной стратегии

@@ -141,19 +141,23 @@ def collect_valid_macro_fvgs(
     df_macro: pd.DataFrame,
     ob_d: OBZone,
     htf_hours: int,
+    top_tf_hours: int = 24,
 ) -> list[FVGZone]:
-    """Все валидные FVG нужного направления для OB-D на таймфрейме htf_hours (4 или 6).
+    """Все валидные FVG нужного направления для top-OB на таймфрейме htf_hours (4 или 6).
+
+    `top_tf_hours` — длина top-bar в часах (24 для 1d, 12 для 12h).
 
     Правила:
-      - c2 в [prev_time, cur_time + 1d) OB-D
-      - candle полностью закрывается до конца cur_day → c2_open ≤ cur_time + (24-htf_hours)h
-      - если c2 в prev_day: проверка wick-инвалидации на свечах того же ТФ
-        в окне [c2_close, cur_day_end)
-      - Зона FVG попадает в OB-D
+      - c2 в [prev_time, cur_time + top_tf_hours) top-OB
+      - candle полностью закрывается до конца cur top-bar →
+        c2_open ≤ cur_time + (top_tf_hours - htf_hours)h
+      - если c2 в prev_bar: проверка wick-инвалидации на свечах того же ТФ
+        в окне [c2_close, cur_bar_end)
+      - Зона FVG попадает в top-OB
     """
-    cur_day_end = ob_d.cur_time + pd.Timedelta(days=1)
+    cur_day_end = ob_d.cur_time + pd.Timedelta(hours=top_tf_hours)
     fvg_search_start = ob_d.prev_time
-    fvg_search_end = ob_d.cur_time + pd.Timedelta(hours=24 - htf_hours)
+    fvg_search_end = ob_d.cur_time + pd.Timedelta(hours=top_tf_hours - htf_hours)
     df_window = df_macro[
         (df_macro.index >= fvg_search_start) & (df_macro.index <= fvg_search_end)
     ]
@@ -289,6 +293,7 @@ def find_signal_in_htf(
 
 def detect_strategy_1_1_1_signals(
     df_1d: pd.DataFrame,
+    df_12h: pd.DataFrame,
     df_4h: pd.DataFrame,
     df_6h: pd.DataFrame,
     df_1h: pd.DataFrame,
@@ -297,129 +302,142 @@ def detect_strategy_1_1_1_signals(
     df_20m: pd.DataFrame,
     verbose: bool = False,
 ) -> list[dict]:
-    """Сканирует все OB-D и собирает сигналы по логике Strategy 1.1.1.
+    """Сканирует OB-D И OB-12h как параллельные top-уровни и собирает сигналы.
 
-    FVG-4h должен полностью сформироваться в time range OB-D
-    (= [prev_time, cur_time+1d)). Entry FVG ищется параллельно на 15m и 20m
-    в time range OB-1h; если есть оба — берётся первый по времени.
-    OB-1h ищется без time-limit — до stop conditions (full fill / 2 свечи выше).
+    Под каждым top-OB ищется FVG-macro (4h ИЛИ 6h) → OB-htf (1h ИЛИ 2h)
+    → entry FVG (15m ИЛИ 20m). Сигналы из обеих веток объединяются;
+    дедуп выполняется на уровне backtest_strategy_1_1_1.dedupe_signals.
+
+    Если df_12h пуст — работаем только через 1d (обратная совместимость).
     """
     signals: list[dict] = []
-    # Диагностика воронки
-    cnt_ob_d = 0
-    cnt_macro_4h = 0
-    cnt_macro_6h = 0
-    cnt_chosen_htf_1h = 0
-    cnt_chosen_htf_2h = 0
-    cnt_chosen_15m = 0
-    cnt_chosen_20m = 0
-    cnt_chosen_macro_4h = 0
-    cnt_chosen_macro_6h = 0
+    counters: dict[str, int] = {
+        "ob_top_1d": 0, "ob_top_12h": 0,
+        "macro_4h": 0, "macro_6h": 0,
+        "chosen_htf_1h": 0, "chosen_htf_2h": 0,
+        "chosen_15m": 0, "chosen_20m": 0,
+        "chosen_macro_4h": 0, "chosen_macro_6h": 0,
+        "chosen_top_1d": 0, "chosen_top_12h": 0,
+    }
 
-    for d_idx in range(1, len(df_1d)):
-        ob_d = detect_ob_pair(df_1d, d_idx)
-        if ob_d is None:
-            continue
-        cnt_ob_d += 1
+    def _scan_top(df_top: pd.DataFrame, top_tf_hours: int, top_label: str) -> None:
+        if df_top is None or df_top.empty:
+            return
+        for idx in range(1, len(df_top)):
+            ob_top = detect_ob_pair(df_top, idx)
+            if ob_top is None:
+                continue
+            counters[f"ob_top_{top_label}"] += 1
 
-        # --- Сбор валидных FVG-macro: 4h и 6h независимо ---
-        valid_4h = collect_valid_macro_fvgs(df_4h, ob_d, htf_hours=4)
-        valid_6h = collect_valid_macro_fvgs(df_6h, ob_d, htf_hours=6)
-        cnt_macro_4h += len(valid_4h)
-        cnt_macro_6h += len(valid_6h)
-
-        all_macro = [(f, "4h") for f in valid_4h] + [(f, "6h") for f in valid_6h]
-        if not all_macro:
-            continue
-
-        # --- Каждая FVG-macro = отдельная ситуация: поиск 1h/2h × 15m/20m ---
-        for fvg_macro, macro_tf in all_macro:
-            zone_bottom = max(ob_d.bottom, fvg_macro.bottom)
-            zone_top = min(ob_d.top, fvg_macro.top)
-
-            # Окно поиска OB-htf: со следующего UTC-дня после cur OB-D.
-            search_start = (ob_d.cur_time + pd.Timedelta(days=1)).normalize()
-
-            sig_1h = find_signal_in_htf(
-                df_1h, df_15m, df_20m, ob_d, fvg_macro,
-                search_start, htf_minutes=60, htf_label="1h",
+            # --- Сбор валидных FVG-macro: 4h и 6h независимо ---
+            valid_4h = collect_valid_macro_fvgs(
+                df_4h, ob_top, htf_hours=4, top_tf_hours=top_tf_hours,
             )
-            sig_2h = find_signal_in_htf(
-                df_2h, df_15m, df_20m, ob_d, fvg_macro,
-                search_start, htf_minutes=120, htf_label="2h",
+            valid_6h = collect_valid_macro_fvgs(
+                df_6h, ob_top, htf_hours=6, top_tf_hours=top_tf_hours,
             )
+            counters["macro_4h"] += len(valid_4h)
+            counters["macro_6h"] += len(valid_6h)
 
-            if sig_1h is None and sig_2h is None:
+            all_macro = [(f, "4h") for f in valid_4h] + [(f, "6h") for f in valid_6h]
+            if not all_macro:
                 continue
 
-            if sig_1h is None:
-                chosen = sig_2h
-            elif sig_2h is None:
-                chosen = sig_1h
-            else:
-                # Берём с более ранним c2_time entry FVG.
-                if sig_1h["fvg_entry"].c2_time <= sig_2h["fvg_entry"].c2_time:
+            for fvg_macro, macro_tf in all_macro:
+                zone_bottom = max(ob_top.bottom, fvg_macro.bottom)
+                zone_top = min(ob_top.top, fvg_macro.top)
+
+                # Окно поиска OB-htf: с момента закрытия cur top-bar.
+                # Без .normalize() — для 12h границы 12:00 UTC корректны.
+                search_start = ob_top.cur_time + pd.Timedelta(hours=top_tf_hours)
+
+                sig_1h = find_signal_in_htf(
+                    df_1h, df_15m, df_20m, ob_top, fvg_macro,
+                    search_start, htf_minutes=60, htf_label="1h",
+                )
+                sig_2h = find_signal_in_htf(
+                    df_2h, df_15m, df_20m, ob_top, fvg_macro,
+                    search_start, htf_minutes=120, htf_label="2h",
+                )
+
+                if sig_1h is None and sig_2h is None:
+                    continue
+
+                if sig_1h is None:
+                    chosen = sig_2h
+                elif sig_2h is None:
                     chosen = sig_1h
                 else:
-                    chosen = sig_2h
+                    if sig_1h["fvg_entry"].c2_time <= sig_2h["fvg_entry"].c2_time:
+                        chosen = sig_1h
+                    else:
+                        chosen = sig_2h
 
-            ob_htf = chosen["ob_htf"]
-            fvg_entry = chosen["fvg_entry"]
-            htf_label = chosen["htf_label"]
-            fvg_tf = chosen["fvg_tf"]
+                ob_htf = chosen["ob_htf"]
+                fvg_entry = chosen["fvg_entry"]
+                htf_label = chosen["htf_label"]
+                fvg_tf = chosen["fvg_tf"]
 
-            if htf_label == "1h":
-                cnt_chosen_htf_1h += 1
-            else:
-                cnt_chosen_htf_2h += 1
-            if fvg_tf == "15m":
-                cnt_chosen_15m += 1
-            else:
-                cnt_chosen_20m += 1
-            if macro_tf == "4h":
-                cnt_chosen_macro_4h += 1
-            else:
-                cnt_chosen_macro_6h += 1
+                if htf_label == "1h":
+                    counters["chosen_htf_1h"] += 1
+                else:
+                    counters["chosen_htf_2h"] += 1
+                if fvg_tf == "15m":
+                    counters["chosen_15m"] += 1
+                else:
+                    counters["chosen_20m"] += 1
+                if macro_tf == "4h":
+                    counters["chosen_macro_4h"] += 1
+                else:
+                    counters["chosen_macro_6h"] += 1
+                counters[f"chosen_top_{top_label}"] += 1
 
-            entry = (fvg_entry.bottom + fvg_entry.top) / 2
-            sl = ob_d.bottom if ob_d.direction == "LONG" else ob_d.top
-            risk = abs(entry - sl)
-            if risk <= 0:
-                continue
+                entry = (fvg_entry.bottom + fvg_entry.top) / 2
+                sl = ob_top.bottom if ob_top.direction == "LONG" else ob_top.top
+                risk = abs(entry - sl)
+                if risk <= 0:
+                    continue
 
-            signals.append({
-                "direction": ob_d.direction,
-                "signal_time": fvg_entry.c2_time,
-                "entry": float(entry),
-                "sl": float(sl),
-                "risk": float(risk),
-                "ob_d_prev_time": ob_d.prev_time,
-                "ob_d_cur_time": ob_d.cur_time,
-                "ob_d_zone": (ob_d.bottom, ob_d.top),
-                "fvg_macro_tf": macro_tf,
-                "fvg_macro_c0_time": fvg_macro.c0_time,
-                "fvg_macro_c2_time": fvg_macro.c2_time,
-                "fvg_macro_zone": (fvg_macro.bottom, fvg_macro.top),
-                "intersection_zone": (zone_bottom, zone_top),
-                "ob_htf_tf": htf_label,
-                "ob_htf_prev_time": ob_htf.prev_time,
-                "ob_htf_cur_time": ob_htf.cur_time,
-                "ob_htf_zone": (ob_htf.bottom, ob_htf.top),
-                "fvg_tf": fvg_tf,
-                "fvg_c0_time": fvg_entry.c0_time,
-                "fvg_c2_time": fvg_entry.c2_time,
-                "fvg_zone": (fvg_entry.bottom, fvg_entry.top),
-            })
+                signals.append({
+                    "direction": ob_top.direction,
+                    "signal_time": fvg_entry.c2_time,
+                    "entry": float(entry),
+                    "sl": float(sl),
+                    "risk": float(risk),
+                    "top_tf": top_label,
+                    "top_tf_hours": top_tf_hours,
+                    "ob_d_prev_time": ob_top.prev_time,
+                    "ob_d_cur_time": ob_top.cur_time,
+                    "ob_d_zone": (ob_top.bottom, ob_top.top),
+                    "fvg_macro_tf": macro_tf,
+                    "fvg_macro_c0_time": fvg_macro.c0_time,
+                    "fvg_macro_c2_time": fvg_macro.c2_time,
+                    "fvg_macro_zone": (fvg_macro.bottom, fvg_macro.top),
+                    "intersection_zone": (zone_bottom, zone_top),
+                    "ob_htf_tf": htf_label,
+                    "ob_htf_prev_time": ob_htf.prev_time,
+                    "ob_htf_cur_time": ob_htf.cur_time,
+                    "ob_htf_zone": (ob_htf.bottom, ob_htf.top),
+                    "fvg_tf": fvg_tf,
+                    "fvg_c0_time": fvg_entry.c0_time,
+                    "fvg_c2_time": fvg_entry.c2_time,
+                    "fvg_zone": (fvg_entry.bottom, fvg_entry.top),
+                })
+
+    _scan_top(df_1d, 24, "1d")
+    _scan_top(df_12h, 12, "12h")
 
     if verbose:
-        print(f"[FUNNEL] OB-D: {cnt_ob_d}")
-        print(f"  + valid FVG-4h: {cnt_macro_4h}")
-        print(f"  + valid FVG-6h: {cnt_macro_6h}")
-        print(f"  signals: {len(signals)}")
-        print(f"      chosen macro 4h: {cnt_chosen_macro_4h}")
-        print(f"      chosen macro 6h: {cnt_chosen_macro_6h}")
-        print(f"      chosen htf 1h: {cnt_chosen_htf_1h}")
-        print(f"      chosen htf 2h: {cnt_chosen_htf_2h}")
-        print(f"      chosen entry 15m: {cnt_chosen_15m}")
-        print(f"      chosen entry 20m: {cnt_chosen_20m}")
+        print(f"[FUNNEL] OB-top 1d: {counters['ob_top_1d']}  12h: {counters['ob_top_12h']}")
+        print(f"  + valid FVG-4h: {counters['macro_4h']}")
+        print(f"  + valid FVG-6h: {counters['macro_6h']}")
+        print(f"  signals (raw, до dedup): {len(signals)}")
+        print(f"      chosen top 1d: {counters['chosen_top_1d']}")
+        print(f"      chosen top 12h: {counters['chosen_top_12h']}")
+        print(f"      chosen macro 4h: {counters['chosen_macro_4h']}")
+        print(f"      chosen macro 6h: {counters['chosen_macro_6h']}")
+        print(f"      chosen htf 1h: {counters['chosen_htf_1h']}")
+        print(f"      chosen htf 2h: {counters['chosen_htf_2h']}")
+        print(f"      chosen entry 15m: {counters['chosen_15m']}")
+        print(f"      chosen entry 20m: {counters['chosen_20m']}")
     return signals
