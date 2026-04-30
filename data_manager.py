@@ -78,6 +78,30 @@ def load_df(symbol: str, tf: str) -> pd.DataFrame:
     return df
 
 
+def _get_with_retry(url: str, params: dict, timeout: int = 30,
+                    retries: int = 5) -> requests.Response:
+    """GET с экспоненциальным backoff на network/DNS ошибках.
+
+    DNS на VPS бывает временно недоступен (Errno -3). Без retry первый же
+    провал кладёт bootstrap. Backoff: 2s, 4s, 8s, 16s, 32s.
+    """
+    last_err: Exception | None = None
+    for attempt in range(retries):
+        try:
+            r = requests.get(url, params=params, timeout=timeout)
+            r.raise_for_status()
+            return r
+        except (requests.exceptions.ConnectionError,
+                requests.exceptions.Timeout) as e:
+            last_err = e
+            wait = 2 ** (attempt + 1)
+            print(f"[WARN] network error attempt {attempt + 1}/{retries}: "
+                  f"{type(e).__name__}, retry in {wait}s")
+            time.sleep(wait)
+    assert last_err is not None
+    raise last_err
+
+
 def fetch_klines_range(
     symbol: str,
     tf: str,
@@ -97,8 +121,7 @@ def fetch_klines_range(
         }
         if end_ms is not None:
             params["endTime"] = end_ms
-        r = requests.get(BINANCE_KLINES_URL, params=params, timeout=30)
-        r.raise_for_status()
+        r = _get_with_retry(BINANCE_KLINES_URL, params)
         batch = r.json()
         if not batch:
             break
