@@ -191,11 +191,9 @@ def _action_status(chat_id: int) -> None:
             reply_markup=UNSUBSCRIBED_KB,
         )
         return
-    total = len(load_users())
     send_message(
         "✅ <b>Подписка активна</b>\n"
-        f"С: <code>{_fmt_dt(u.get('joined_at'))}</code>\n"
-        f"Подписчиков всего: {total}",
+        f"С: <code>{_fmt_dt(u.get('joined_at'))}</code>",
         chat_id,
         reply_markup=USER_KB,
     )
