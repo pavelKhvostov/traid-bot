@@ -1,5 +1,15 @@
+# Core deps для main.py (live-бот Strategy 1.1.1)
 pandas==2.2.3
+numpy==2.4.4
 requests==2.32.3
 websockets==13.1
 python-dotenv==1.0.1
+
+# Зависимость tvdatafeed (для fetch_tv_data.py)
+websocket-client==1.9.0
+
+# Тесты
 pytest==9.0.3
+
+# tvdatafeed не на PyPI, ставить отдельно из git:
+#   pip install "git+https://github.com/rongardF/tvdatafeed.git"

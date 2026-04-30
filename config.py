@@ -36,6 +36,14 @@ HISTORY_START_DATE = "2022-01-01"
 
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 
+# TradingView credentials (optional, для fetch_tv_data.py).
+# Без них tvDatafeed работает в анонимном режиме (~5000 баров на запрос).
+TV_USERNAME = os.getenv("TV_USERNAME", "")
+TV_PASSWORD = os.getenv("TV_PASSWORD", "")
+# Альтернатива: sessionid cookie из браузера (когда password-логин сломан).
+# Получить: F12 → Application → Cookies → tradingview.com → sessionid.
+TV_SESSION_ID = os.getenv("TV_SESSION_ID", "")
+
 ADMINS_PATH = STATE_DIR / "admins.json"
 
 

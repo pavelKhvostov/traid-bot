@@ -1,20 +1,23 @@
-"""Точка входа: startup -> ws_loop + polling_loop."""
+"""Точка входа: startup -> ws_loop + polling_loop.
+
+Live-режим: ТОЛЬКО Strategy 1.1.1. Другие стратегии (Scanner с 7 классическими
++ VicScanner) отключены и сохранены в коде, но не запускаются.
+"""
 from __future__ import annotations
 
 import asyncio
 
 from config import TELEGRAM_BOT_TOKEN, load_admins
-from scanner import Scanner
 from state import load_users, log_event
+from strategy_1_1_1_scanner import Strategy111Scanner
 from telegram_bot import polling_loop, send_message
-from vic_scanner import VicScanner
 
 
 async def main() -> None:
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "replace_me_with_real_bot_token":
         raise RuntimeError("TELEGRAM_BOT_TOKEN не задан в .env")
 
-    log_event("INFO", "bot starting")
+    log_event("INFO", "bot starting (Strategy 1.1.1 only)")
 
     # Разовая миграция: today-store отменён, файл удаляем если есть.
     try:
@@ -26,22 +29,18 @@ async def main() -> None:
     except Exception:
         pass
 
-    scanner = Scanner()
-    vic_scanner = VicScanner()
-    # VicScanner — первым: bootstrap'ит 1m/15m с ограниченным горизонтом, чтобы
-    # их CSV существовали к моменту, когда Scanner.startup пройдёт по своим TF.
-    await vic_scanner.startup()
-    await scanner.startup()
+    s111 = Strategy111Scanner()
+    await s111.startup()
 
     users_count = len(load_users())
     admins = load_admins()
 
     startup_msg = (
         "🤖 <b>Бот запущен</b>\n"
-        "Стратегии: OBX4, FVG, OB_HTF, RDRB, FRACTAL, MARUBOZU, HAMMER, VIC_EVOT\n"
+        "Стратегия: <b>Strategy 1.1.1</b>\n"
         "Символы: BTCUSDT, ETHUSDT, SOLUSDT\n"
         f"Подписчиков: <b>{users_count}</b>\n"
-        "Шлём только НОВЫЕ сигналы на только что закрывшихся свечах."
+        "Сигналы: «SYMBOL 1.1.1 LONG/SHORT» при формировании OB-1h/2h + FVG-15m/20m."
     )
     for admin_id in admins:
         try:
@@ -49,11 +48,10 @@ async def main() -> None:
         except Exception as e:
             log_event("WARN", f"admin notify failed ({admin_id}): {e!r}")
 
-    log_event("INFO", f"scanner ready, users={users_count}, admins={len(admins)}")
+    log_event("INFO", f"s111 ready, users={users_count}, admins={len(admins)}")
 
     await asyncio.gather(
-        scanner.ws_loop(),
-        vic_scanner.ws_loop(),
+        s111.ws_loop(),
         polling_loop(),
     )
 
