@@ -127,6 +127,48 @@ def fetch_one(tv: TvDatafeed, tv_symbol: str, exchange: str,
     return len(out)
 
 
+def create_tv_instance() -> TvDatafeed:
+    """Создать TvDatafeed клиент с авторизацией если есть credentials в .env.
+
+    Приоритет: TV_SESSION_ID > TV_USERNAME/TV_PASSWORD > anonymous.
+    Возвращает готовый клиент. Используется и main(), и live-сканером.
+    """
+    if TV_SESSION_ID:
+        tv = TvDatafeed()  # anonymous instance
+        token = auth_token_from_sessionid(TV_SESSION_ID)
+        if token:
+            tv.token = token  # подменяем токен на залогиненный
+        return tv
+    if TV_USERNAME and TV_PASSWORD:
+        return TvDatafeed(username=TV_USERNAME, password=TV_PASSWORD)
+    return TvDatafeed()
+
+
+def refresh_all(tv: TvDatafeed | None = None,
+                symbols: list[tuple[str, str, str]] | None = None) -> dict[str, int]:
+    """Пересохранить CSV для каждого (symbol, tf). Используется live-сканером.
+
+    Возвращает dict: {<file_base>_<tf_label>: rows_written, ...}.
+    rows_written = -1 при ошибке (для фильтрации в логах).
+    """
+    if tv is None:
+        tv = create_tv_instance()
+    if symbols is None:
+        symbols = DEFAULT_SYMBOLS
+    out: dict[str, int] = {}
+    for tv_symbol, exchange, file_base in symbols:
+        for tf_label, interval, n_bars in TFS:
+            key = f"{file_base}_{tf_label}"
+            try:
+                rows = fetch_one(tv, tv_symbol, exchange, file_base,
+                                 tf_label, interval, n_bars)
+                out[key] = rows
+            except Exception as e:
+                print(f"  [ERROR] {tv_symbol} {tf_label}: {e!r}")
+                out[key] = -1
+    return out
+
+
 def main() -> None:
     args = sys.argv[1:]
     if args:

@@ -35,6 +35,12 @@ NATIVE_TFS = ["1m", "15m", "1h", "4h", "1d"]
 # 30 дней покрывает любую top-OB → 4h/6h FVG → 1h/2h OB → 15m/20m FVG воронку.
 HISTORY_DAYS = 30
 
+# Период автообновления CSV из TradingView (USDT.D, TOTALES, BTC1!).
+# 30 минут — компромис между свежестью данных для confluence-проверки
+# и нагрузкой на TV (rate-limit). Binance данные обновляются по WS, для
+# TV нет публичного WS → используем периодический REST-style fetch.
+TV_REFRESH_INTERVAL_SEC = 30 * 60
+
 
 class Strategy111Scanner:
     """Параллельный со Scanner/VicScanner — своя WS-сессия и dispatch."""
@@ -178,6 +184,40 @@ class Strategy111Scanner:
                 )
             except Exception as e:
                 log_event("ERROR", f"s111 broadcast {key}: {e!r}")
+
+    async def tv_refresh_loop(self) -> None:
+        """Фоновое обновление TV-CSV (USDT_D, TOTALES, BTC1) каждые 30 мин.
+
+        Это эквивалент того что Binance даёт через WS — но для TV нет
+        публичного WS, потому делаем периодический pull. При сбое (timeout,
+        rate-limit) логируем warning, бот продолжает работать на прежних CSV.
+        """
+        from fetch_tv_data import create_tv_instance, refresh_all
+
+        tv = None  # ленивая инициализация — токен может быть невалиден на старте
+        # Первый refresh с задержкой 60s после startup, чтобы не толкать
+        # tv-запросы одновременно с Binance bootstrap.
+        await asyncio.sleep(60)
+        while True:
+            try:
+                if tv is None:
+                    tv = await asyncio.to_thread(create_tv_instance)
+                log_event("INFO", "s111_tv_refresh: starting")
+                results = await asyncio.to_thread(refresh_all, tv)
+                ok = sum(1 for v in results.values() if v > 0)
+                fail = sum(1 for v in results.values() if v <= 0)
+                log_event(
+                    "INFO",
+                    f"s111_tv_refresh: {ok}/{len(results)} OK, {fail} failed/empty",
+                )
+                # Если все запросы упали — ресетим TV instance (auth_token мог истечь).
+                if ok == 0:
+                    log_event("WARN", "s111_tv_refresh: all empty, resetting TV instance")
+                    tv = None
+            except Exception as e:
+                log_event("ERROR", f"s111_tv_refresh: {e!r}")
+                tv = None  # ресетим на ошибке — попробуем заново на след итерации
+            await asyncio.sleep(TV_REFRESH_INTERVAL_SEC)
 
     def _stream_names(self) -> list[str]:
         return [f"{sym.lower()}@kline_{tf}" for sym in SYMBOLS for tf in NATIVE_TFS]

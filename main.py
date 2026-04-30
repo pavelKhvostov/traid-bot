@@ -51,8 +51,9 @@ async def main() -> None:
     log_event("INFO", f"s111 ready, users={users_count}, admins={len(admins)}")
 
     await asyncio.gather(
-        s111.ws_loop(),
-        polling_loop(),
+        s111.ws_loop(),         # Binance WS — autoupdate BTC/ETH/SOL свечей
+        s111.tv_refresh_loop(), # TV REST — autoupdate USDT.D/TOTALES/BTC1 каждые 30 мин
+        polling_loop(),         # Telegram bot polling
     )
 
 
