@@ -35,12 +35,13 @@ async def main() -> None:
     users_count = len(load_users())
     admins = load_admins()
 
+    from config import SYMBOLS
     startup_msg = (
         "🤖 <b>Бот запущен</b>\n"
         "Стратегия: <b>Strategy 1.1.1</b>\n"
-        "Символы: BTCUSDT, ETHUSDT, SOLUSDT\n"
+        f"Символы: {', '.join(SYMBOLS)}\n"
         f"Подписчиков: <b>{users_count}</b>\n"
-        "Сигналы: «SYMBOL 1.1.1 LONG/SHORT» при формировании OB-1h/2h + FVG-15m/20m."
+        "Сигналы: формат с confluence (BTC1!/TOTALES/USDT.D)."
     )
     for admin_id in admins:
         try:
