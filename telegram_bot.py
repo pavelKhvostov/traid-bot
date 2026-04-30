@@ -170,7 +170,12 @@ WELCOME_UNSUBSCRIBED = (
 
 
 def _action_subscribe(chat_id: int, username: str | None, first_name: str | None) -> None:
+    already = is_subscribed(chat_id)
     upsert_user(chat_id, username, first_name)
+    if already:
+        # Повторный /start — не спамим ответом, просто обновляем мету
+        log_event("INFO", f"subscribe ping (already subscribed) from {_fmt_user(chat_id)}")
+        return
     log_event("INFO", f"subscribe from {_fmt_user(chat_id)}")
     send_message("Привет! Ты подписан на сигналы.", chat_id, reply_markup=USER_KB)
 
