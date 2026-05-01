@@ -41,6 +41,12 @@ HISTORY_DAYS = 30
 # TV нет публичного WS → используем периодический REST-style fetch.
 TV_REFRESH_INTERVAL_SEC = 30 * 60
 
+# Защита от устаревших сигналов: если signal_time старше N часов от
+# текущего момента — не отправляем, помечаем как stale и кладём в дедуп.
+# Это страхует от случаев когда prefill_silent пропустил часть истории
+# и detector находит её спустя долго (вылезающие старые сигналы по одному).
+MAX_SIGNAL_AGE_HOURS = 2
+
 
 class Strategy111Scanner:
     """Параллельный со Scanner/VicScanner — своя WS-сессия и dispatch."""
@@ -142,6 +148,21 @@ class Strategy111Scanner:
             sig_time = pd.Timestamp(sig["signal_time"])
             if sig_time.tz is None:
                 sig_time = sig_time.tz_localize("UTC")
+
+            # Защита от устаревших сигналов — глушим тихо в дедуп.
+            age = pd.Timestamp.now(tz="UTC") - sig_time
+            if age > pd.Timedelta(hours=MAX_SIGNAL_AGE_HOURS):
+                mark_sent(key, {
+                    "stale": True,
+                    "signal_time": sig_time.isoformat(),
+                    "age_hours": round(age.total_seconds() / 3600, 1),
+                })
+                log_event(
+                    "INFO",
+                    f"S111 {symbol} {sig['direction']} stale (age "
+                    f"{age.total_seconds() / 3600:.1f}h) — silenced",
+                )
+                continue
 
             # Confluence-проверка с BTC1!, TOTALES, USDT.D
             try:
