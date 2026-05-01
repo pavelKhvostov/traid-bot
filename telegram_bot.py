@@ -104,23 +104,69 @@ def broadcast_signal(sig_data: dict) -> dict:
     return {"ok": ok, "failed": failed, "errors": errors, "total": len(ids)}
 
 
+LAST_BROADCAST_PATH = STATE_DIR / "last_broadcast.json"
+
+
+def _save_last_broadcast(text: str, msgs: list[tuple[int, int]]) -> None:
+    """Сохранить (chat_id, message_id) пары последней рассылки.
+
+    msgs = [(chat_id, message_id), ...] для всех успешно доставленных.
+    Файл перезаписывается на каждой рассылке.
+    """
+    LAST_BROADCAST_PATH.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "text": text,
+        "sent_at": datetime.utcnow().isoformat(),
+        "messages": [{"chat_id": cid, "message_id": mid} for cid, mid in msgs],
+    }
+    LAST_BROADCAST_PATH.write_text(
+        json.dumps(payload, indent=2, ensure_ascii=False), encoding="utf-8",
+    )
+
+
+def delete_last_broadcast() -> dict:
+    """Удалить все сообщения из последней рассылки. Telegram разрешает 48h."""
+    if not LAST_BROADCAST_PATH.exists():
+        return {"ok": 0, "failed": 0, "total": 0, "error": "no last_broadcast.json"}
+    payload = json.loads(LAST_BROADCAST_PATH.read_text(encoding="utf-8"))
+    msgs = payload.get("messages", [])
+    ok, failed = 0, 0
+    errors: list[tuple[int, str]] = []
+    for m in msgs:
+        cid = m["chat_id"]
+        mid = m["message_id"]
+        resp = _api("deleteMessage", chat_id=cid, message_id=mid)
+        if resp.get("ok"):
+            ok += 1
+        else:
+            failed += 1
+            errors.append((cid, str(resp.get("description", resp))))
+    log_event("INFO", f"delete_last_broadcast: ok={ok} failed={failed} total={len(msgs)}")
+    return {"ok": ok, "failed": failed, "errors": errors, "total": len(msgs)}
+
+
 def broadcast(text: str) -> dict:
-    """Текстовая рассылка (для админского /broadcast)."""
+    """Текстовая рассылка. Сохраняет (chat_id, message_id) для последующего delete."""
     users = load_users()
     ids = [u["id"] for u in users]
     ok, failed = 0, 0
     errors: list[tuple[int, str]] = []
+    msg_pairs: list[tuple[int, int]] = []
     for uid in ids:
         try:
             resp = send_message(text, uid, reply_markup=USER_KB)
             if resp.get("ok"):
                 ok += 1
+                mid = resp.get("result", {}).get("message_id")
+                if mid is not None:
+                    msg_pairs.append((uid, mid))
             else:
                 failed += 1
                 errors.append((uid, str(resp.get("description", resp))))
         except Exception as e:
             failed += 1
             errors.append((uid, repr(e)))
+    _save_last_broadcast(text, msg_pairs)
     log_event("INFO", f"broadcast: ok={ok} failed={failed} total={len(ids)}")
     return {"ok": ok, "failed": failed, "errors": errors, "total": len(ids)}
 
