@@ -32,37 +32,51 @@ def _empty_ohlc() -> pd.DataFrame:
 
 
 def load_btc_signals_from_csv() -> list[dict]:
-    """Загружаем deduped 129 сигналов из готового бэктест-CSV (RR=1.0)."""
+    """Загружаем deduped сигналы из обоих CSV (RR=1.0 и RR=2.2).
+
+    Каждый сигнал получает ДВА outcome — для каждого RR. На RR=2.2 часть
+    RR=1-побед откатывается в loss (цена прошла +1R и развернулась) —
+    это honest учёт без множителей.
+    """
     from pathlib import Path
-    csv = Path("signals/strategy_1_1_1_3y_RR1.csv")
-    df = pd.read_csv(csv)
-    # fvg_time в UTC+3 формате 'YYYY-MM-DD HH:MM' — это момент сигнала.
-    # Конвертим обратно в UTC: minus 3h.
+    csv1 = Path("signals/strategy_1_1_1_3y_RR1.csv")
+    csv22 = Path("signals/strategy_1_1_1_3y_RR2.2.csv")
+    df1 = pd.read_csv(csv1)
+    df22 = pd.read_csv(csv22) if csv22.exists() else pd.DataFrame()
+
+    def _key(row):
+        return (row["fvg_time"], row["direction"], round(float(row["entry"]), 2))
+
+    map22 = {_key(r): r["outcome"] for _, r in df22.iterrows()} if not df22.empty else {}
+
     out = []
-    for _, row in df.iterrows():
+    for _, row in df1.iterrows():
         t_utc3 = pd.to_datetime(row["fvg_time"])
         t_utc = (t_utc3 - pd.Timedelta(hours=3)).tz_localize("UTC")
         out.append({
             "signal_time": t_utc,
             "direction": row["direction"],
-            "outcome": row["outcome"],
+            "outcome_rr1": row["outcome"],
+            "outcome_rr2.2": map22.get(_key(row)),
         })
     return out
 
 
 def daily_momentum_at(df_1d: pd.DataFrame, ts: pd.Timestamp, lookback_days: int) -> int:
-    """Возвращает sign(close(ts_day) - close(ts_day - lookback_days)).
+    """Возвращает sign(close(D-1) - close(D-1-lookback)) — момент ДО сигнала.
 
     +1 bullish, -1 bearish, 0 если данных не хватает / равно.
+
+    Используем строгое < day (не <=), чтобы не подсматривать в свечу
+    которая ещё не закрылась к моменту сигнала. Свеча с index == day
+    открывается в 00:00 этого дня и закрывается только в 00:00 следующего.
     """
     if df_1d.empty:
         return 0
-    # День сигнала = floor(ts) до даты
     day = ts.normalize()
     prev_day = day - pd.Timedelta(days=lookback_days)
-    # Ближайшая 1d свеча с index <= day
-    close_now = df_1d[df_1d.index <= day]
-    close_prev = df_1d[df_1d.index <= prev_day]
+    close_now = df_1d[df_1d.index < day]      # ← строго до signal day
+    close_prev = df_1d[df_1d.index < prev_day]
     if close_now.empty or close_prev.empty:
         return 0
     delta = float(close_now["close"].iloc[-1]) - float(close_prev["close"].iloc[-1])
@@ -74,17 +88,25 @@ def daily_momentum_at(df_1d: pd.DataFrame, ts: pd.Timestamp, lookback_days: int)
 
 
 def stats(rows: list[dict]) -> dict:
-    closed = [r for r in rows if r["outcome"] in ("win", "loss")]
+    """Считаем pnl ОТДЕЛЬНО для каждого RR с outcomes ИЗ соответствующего CSV.
+    Никаких "wins × 2.2 - losses" — на RR=2.2 wins/losses реально другие."""
     n = len(rows)
-    nc = len(closed)
-    wins = sum(1 for r in closed if r["outcome"] == "win")
-    losses = nc - wins
-    wr = wins / nc * 100 if nc else 0.0
+    # RR=1
+    closed1 = [r for r in rows if r["outcome_rr1"] in ("win", "loss")]
+    w1 = sum(1 for r in closed1 if r["outcome_rr1"] == "win")
+    l1 = len(closed1) - w1
+    wr1 = w1 / len(closed1) * 100 if closed1 else 0
+    # RR=2.2
+    closed22 = [r for r in rows if r["outcome_rr2.2"] in ("win", "loss")]
+    w22 = sum(1 for r in closed22 if r["outcome_rr2.2"] == "win")
+    l22 = len(closed22) - w22
+    wr22 = w22 / len(closed22) * 100 if closed22 else 0
     return {
-        "total": n, "closed": nc, "wins": wins, "losses": losses,
-        "wr_pct": round(wr, 1),
-        "pnl_rr1": round(wins - losses, 1),
-        "pnl_rr2.2": round(wins * 2.2 - losses, 1),
+        "total": n,
+        "rr1_closed": len(closed1), "rr1_wr": round(wr1, 1),
+        "rr1_pnl": round(w1 - l1, 1),
+        "rr22_closed": len(closed22), "rr22_wr": round(wr22, 1),
+        "rr22_pnl": round(w22 * 2.2 - l22, 1),
     }
 
 
@@ -105,7 +127,10 @@ def main() -> None:
     print("=" * 90)
     print("Baseline — все BTC сигналы")
     print("=" * 90)
-    print(stats(btc))
+    bs = stats(btc)
+    print(f"  Total: {bs['total']}")
+    print(f"  RR=1.0: closed={bs['rr1_closed']:3d} WR={bs['rr1_wr']:5.1f}% PnL={bs['rr1_pnl']:+5.1f}R")
+    print(f"  RR=2.2: closed={bs['rr22_closed']:3d} WR={bs['rr22_wr']:5.1f}% PnL={bs['rr22_pnl']:+6.1f}R")
 
     for N in LOOKBACK_DAYS_LIST:
         print()
@@ -137,9 +162,11 @@ def main() -> None:
         for label, group in rows:
             st = stats(group)
             pct_of_total = len(group) / len(btc) * 100 if btc else 0
-            print(f"  {label:32}: n={st['total']:3d} ({pct_of_total:4.1f}%)  "
-                  f"closed={st['closed']:3d}  WR={st['wr_pct']:5.1f}%  "
-                  f"PnL@1={st['pnl_rr1']:+5.1f}R  PnL@2.2={st['pnl_rr2.2']:+5.1f}R")
+            print(f"  {label:30}: n={st['total']:3d} ({pct_of_total:4.1f}%)  "
+                  f"RR=1: {st['rr1_closed']:3d}cl WR={st['rr1_wr']:5.1f}% "
+                  f"PnL={st['rr1_pnl']:+5.1f}R | "
+                  f"RR=2.2: {st['rr22_closed']:3d}cl WR={st['rr22_wr']:5.1f}% "
+                  f"PnL={st['rr22_pnl']:+6.1f}R")
 
 
 if __name__ == "__main__":

@@ -114,7 +114,13 @@ def find_sync(
 
 
 def stats_for(rows: list[dict]) -> dict:
-    """WR/PnL/avg_rr на подмножестве BTC-сигналов с outcome."""
+    """WR/PnL только для RR=1.0 — outcomes здесь это RR=1 симуляция.
+
+    pnl_rr2.2 НЕ считаем: на RR=2.2 часть RR=1-побед откатывается в loss
+    (цена прошла +1R и развернулась). Без отдельной симуляции на RR=2.2
+    мы можем считать только RR=1 honest. Если нужен RR=2.2 — используй
+    analyze_1_1_1_confluence_macro.py с ОБОИМИ CSV.
+    """
     closed = [r for r in rows if r["outcome"] in ("win", "loss")]
     n = len(rows)
     nc = len(closed)
@@ -122,12 +128,10 @@ def stats_for(rows: list[dict]) -> dict:
     losses = nc - wins
     wr = wins / nc * 100 if nc else 0.0
     pnl_rr1 = wins * 1.0 - losses
-    pnl_rr2 = wins * 2.2 - losses
     return {
         "total": n, "closed": nc, "wins": wins, "losses": losses,
         "wr_pct": round(wr, 1),
         "pnl_rr1": round(pnl_rr1, 1),
-        "pnl_rr2.2": round(pnl_rr2, 1),
     }
 
 
@@ -184,11 +188,9 @@ def main() -> None:
         st_match = stats_for(with_match)
         st_no = stats_for(without)
         print(f"  TOTALES match    : n={st_match['total']:3d}  closed={st_match['closed']:3d}  "
-              f"WR={st_match['wr_pct']:5.1f}%  PnL@1={st_match['pnl_rr1']:+5.1f}R  "
-              f"PnL@2.2={st_match['pnl_rr2.2']:+5.1f}R")
+              f"WR={st_match['wr_pct']:5.1f}%  PnL@1={st_match['pnl_rr1']:+5.1f}R")
         print(f"  No TOTALES match : n={st_no['total']:3d}  closed={st_no['closed']:3d}  "
-              f"WR={st_no['wr_pct']:5.1f}%  PnL@1={st_no['pnl_rr1']:+5.1f}R  "
-              f"PnL@2.2={st_no['pnl_rr2.2']:+5.1f}R")
+              f"WR={st_no['wr_pct']:5.1f}%  PnL@1={st_no['pnl_rr1']:+5.1f}R")
 
     # ------------ ANALYSIS 2: full 3-way confluence (17 дней) ------------
     print()
@@ -228,8 +230,7 @@ def main() -> None:
         for label, group in rows:
             st = stats_for(group)
             print(f"  {label:32}: n={st['total']:3d}  closed={st['closed']:3d}  "
-                  f"WR={st['wr_pct']:5.1f}%  PnL@1={st['pnl_rr1']:+5.1f}R  "
-                  f"PnL@2.2={st['pnl_rr2.2']:+5.1f}R")
+                  f"WR={st['wr_pct']:5.1f}%  PnL@1={st['pnl_rr1']:+5.1f}R")
 
 
 if __name__ == "__main__":
