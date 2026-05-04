@@ -2,6 +2,19 @@
 (OB-1h | FVG-1h | RDRB-1h). Окно: последние 365 дней."""
 from __future__ import annotations
 
+
+# --- repo-root injection (Phase 3 refactor) ---
+import sys as _sys
+from pathlib import Path as _Path
+_ROOT = _Path(__file__).resolve()
+while not (_ROOT / "data_manager.py").exists():
+    if _ROOT.parent == _ROOT:
+        raise RuntimeError("repo root not found")
+    _ROOT = _ROOT.parent
+if str(_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_ROOT))
+# --- end repo-root injection ---
+
 from collections import defaultdict
 
 import pandas as pd
