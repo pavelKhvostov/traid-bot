@@ -1,8 +1,17 @@
 ---
-tags: [decision, strategy_1_1_1, rr, optimization]
+tags: [decision, strategy_1_1_1, rr, optimization, superseded]
 date: 2026-04-29
-status: analyzed-not-deployed
+status: superseded-2026-05-04
 ---
+
+> ⚠️ **Устарело — заменено на эталон в [[2026-05-04-рефакторинг-research-1-1-x]]**.
+>
+> Эта decision-заметка от 2026-04-29 описывает RR sweep на raw 1.1.1 без SWEPT-фильтра
+> и no_entry-логики (sweet RR=1.24 vs peak RR=5.89). После 3-stage SWEPT optimize
+> эталон сместился: target **RR=2.2** на SWEPT-сигналах с no_entry → 115 closed,
+> WR 54.8%, +46.8R, R/trade 0.755. См. `research/1_1_1/optimize/optimize_1_1_1_swept_stage3.py`.
+>
+> Историческую информацию ниже оставляем как контекст эволюции стратегии.
 
 # Strategy 1.1.1: RR оптимизация — sweet spot vs math peak
 

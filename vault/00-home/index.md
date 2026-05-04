@@ -28,9 +28,21 @@ date: 2026-04-29
 ## Backtest-only стратегии (не в live)
 
 - [[vic_bos]] — VIC уровень + BOS на 3m (quadruple H-L-H-L). 3y +37R на BTC.
-- [[strategy_1_1_1]] — OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} + FVG-{15m,20m},
-  SL=15% от края, dedup bucketing 0.5%. 3y BTC: 144 сделки, sweet spot
-  RR=1.24 (+43R, WR 58%), math peak RR=5.89 (+108R, WR 26%).
+- [[strategy_1_1_1]] — OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} + FVG-{15m,20m}.
+  3y BTC raw RR=1.0: 144, WR 61.7%, +33R. После 3-stage SWEPT optimize @ RR=2.2:
+  115 closed, WR 54.8%, +46.8R, R/trade 0.755. Файлы: `research/1_1_1/`.
+- **Strategy 1.1.2** — macro-OB вместо macro-FVG. Stage 3 @ RR=2.2: WR 44.4%, +101.4R на 241 closed. Файлы: `research/1_1_2/`.
+- **Strategy 1.1.3** — entry FVG того же ТФ что OB-htf. Слабее 1.1.1: stage3 @ RR=2.2 +11.4R. Файлы: `research/1_1_3/`.
+- **Strategy 1.1.4** — гибрид macro-FVG + entry immediate, **WIP**. Файлы: `research/1_1_4/`.
+- **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning. Файлы: `research/1_2_0/`.
+
+## Research-стенд
+
+- `research/README.md` — обзор всех research-веток.
+- `research/1_1_1/README.md` — эталонная конфигурация Strategy 1.1.1 + список файлов.
+- Также есть `research/rdrb/` (5 кандидатов на расширение live RDRB) и `research/vic/` (out-of-scope).
+- Phase 1 baseline metrics: `vault/baseline/2026-05-04-14-16/metrics.md` + `optimized-baselines.md`.
+- Phase 4 re-baseline diff: `vault/baseline/2026-05-04-16-37-after-refactor/diff.md` (refactor чистый, все 22 CSV хеша совпадают).
 
 ## SMC-примитивы
 

@@ -1,0 +1,14 @@
+>>> backtest_strategy_1_1_1.py
+>>> backtest_1_1_1_sl_on_htf.py
+>>> backtest_strategy_1_1_2.py
+>>> backtest_strategy_1_1_2_extended.py
+>>> backtest_strategy_1_1_3.py
+>>> backtest_strategy_1_1_4.py
+>>> backtest_strategy_1_2_0.py
+>>> backtest_strategy_rdrb.py
+>>> backtest_strategy_rdrb_premium.py
+>>> backtest_strategy_rdrb_trend.py
+>>> backtest_strategy_rdrb_wick.py
+>>> backtest_rdrb_konfetka.py
+>>> backtest_vic_bos.py
+>>> backtest_vic_evot.py

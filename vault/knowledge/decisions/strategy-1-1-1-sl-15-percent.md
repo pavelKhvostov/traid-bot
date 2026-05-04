@@ -1,8 +1,17 @@
 ---
-tags: [decision, strategy_1_1_1, sl, risk-management]
+tags: [decision, strategy_1_1_1, sl, risk-management, superseded]
 date: 2026-04-29
-status: locked
+status: superseded-2026-05-04
 ---
+
+> ⚠️ **Устарело — заменено на эталон в [[2026-05-04-рефакторинг-research-1-1-x]]**.
+>
+> Эта decision-заметка описывает **раннюю версию** SL-формулы (`OB_SL_DEPTH=0.15`,
+> SL внутри top-OB). После 3-stage SWEPT optimize эталон сместился: SL теперь
+> ставится в диапазоне `[ob_htf edge → FVG entry edge]` с `sl_pct=0.35` (35% от
+> ob_htf edge к FVG entry edge). См. `research/1_1_1/optimize/optimize_1_1_1_swept_stage3.py`.
+>
+> Историческую информацию ниже оставляем как контекст эволюции стратегии.
 
 # Strategy 1.1.1: SL = 15% от края OB (вместо границы)
 
