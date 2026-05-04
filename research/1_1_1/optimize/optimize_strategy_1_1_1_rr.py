@@ -16,6 +16,22 @@ MFE-кэш по 1m timeline, чтобы каждый сигнал симулир
 """
 from __future__ import annotations
 
+
+# --- repo-root injection (Phase 3 refactor) ---
+import sys as _sys
+from pathlib import Path as _Path
+_ROOT = _Path(__file__).resolve()
+while not (_ROOT / "data_manager.py").exists():
+    if _ROOT.parent == _ROOT:
+        raise RuntimeError("repo root not found")
+    _ROOT = _ROOT.parent
+if str(_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_ROOT))
+_BT_DIR = _ROOT / "research" / "1_1_1" / "backtest"
+if str(_BT_DIR) not in _sys.path:
+    _sys.path.insert(0, str(_BT_DIR))
+# --- end repo-root injection ---
+
 import sys
 import time
 from pathlib import Path
