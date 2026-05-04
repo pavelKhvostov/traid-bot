@@ -9,6 +9,14 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+# tests/test_strategy_1_1_1.py использует
+# `from backtest_strategy_1_1_1 import dedupe_signals, simulate_outcome` —
+# после Phase 3 рефакторинга файл живёт в research/1_1_1/backtest/.
+RESEARCH_111_BT = ROOT / "research" / "1_1_1" / "backtest"
+if str(RESEARCH_111_BT) not in sys.path:
+    sys.path.insert(0, str(RESEARCH_111_BT))
+
+
 import pandas as pd
 import pytest
 
