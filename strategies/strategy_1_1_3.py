@@ -25,7 +25,7 @@ from strategies.strategy_1_1_1 import (
     detect_ob_pair,
     zones_overlap,
 )
-from strategies.strategy_1_1_2 import collect_valid_macro_obs
+from strategies.strategy_1_1_2 import collect_valid_macro_obs, collect_valid_macro_obs_extended
 
 
 def collect_valid_macro_obs_untouched(
@@ -190,12 +190,18 @@ def detect_strategy_1_1_3_signals(
     df_1h: pd.DataFrame,
     df_2h: pd.DataFrame,
     fvg_variant: str = "v1",
+    macro_mode: str = "untouched",
     verbose: bool = False,
 ) -> list[dict]:
     """OB-{1d,12h} + OB-{4h,6h} → OB-{1h,2h} + immediate FVG того же ТФ.
 
     Раннее по c2_time выигрывает при выборе между 1h и 2h.
     fvg_variant: "v1" (i,i+1,i+2) или "v2" (i-1,i,i+1) — см. find_signal_in_htf_same_tf.
+    macro_mode:
+      "untouched" — collect_valid_macro_obs_untouched (старое 1.1.3 поведение)
+      "extended"  — collect_valid_macro_obs_extended (как 1.1.2 extended,
+                    включает «новые» macro после закрытия cur top-OB)
+      "baseline"  — обычный collect_valid_macro_obs (как 1.1.2 baseline)
     """
     signals: list[dict] = []
     counters: dict[str, int] = {
@@ -215,23 +221,49 @@ def detect_strategy_1_1_3_signals(
                 continue
             counters[f"ob_top_{top_label}"] += 1
 
-            valid_4h = collect_valid_macro_obs_untouched(
-                df_4h, ob_top, htf_hours=4, top_tf_hours=top_tf_hours,
-            )
-            valid_6h = collect_valid_macro_obs_untouched(
-                df_6h, ob_top, htf_hours=6, top_tf_hours=top_tf_hours,
-            )
-            counters["macro_4h"] += len(valid_4h)
-            counters["macro_6h"] += len(valid_6h)
+            cur_day_end = ob_top.cur_time + pd.Timedelta(hours=top_tf_hours)
+            if macro_mode == "extended":
+                valid_4h_pairs = collect_valid_macro_obs_extended(
+                    df_4h, ob_top, df_top, htf_hours=4, top_tf_hours=top_tf_hours,
+                )
+                valid_6h_pairs = collect_valid_macro_obs_extended(
+                    df_6h, ob_top, df_top, htf_hours=6, top_tf_hours=top_tf_hours,
+                )
+            elif macro_mode == "baseline":
+                valid_4h_pairs = [
+                    (ob, cur_day_end) for ob in collect_valid_macro_obs(
+                        df_4h, ob_top, htf_hours=4, top_tf_hours=top_tf_hours,
+                    )
+                ]
+                valid_6h_pairs = [
+                    (ob, cur_day_end) for ob in collect_valid_macro_obs(
+                        df_6h, ob_top, htf_hours=6, top_tf_hours=top_tf_hours,
+                    )
+                ]
+            else:  # untouched (default)
+                valid_4h_pairs = [
+                    (ob, cur_day_end) for ob in collect_valid_macro_obs_untouched(
+                        df_4h, ob_top, htf_hours=4, top_tf_hours=top_tf_hours,
+                    )
+                ]
+                valid_6h_pairs = [
+                    (ob, cur_day_end) for ob in collect_valid_macro_obs_untouched(
+                        df_6h, ob_top, htf_hours=6, top_tf_hours=top_tf_hours,
+                    )
+                ]
+            counters["macro_4h"] += len(valid_4h_pairs)
+            counters["macro_6h"] += len(valid_6h_pairs)
 
-            all_macro = [(ob, "4h") for ob in valid_4h] + [(ob, "6h") for ob in valid_6h]
+            all_macro = (
+                [(ob, ss, "4h") for ob, ss in valid_4h_pairs]
+                + [(ob, ss, "6h") for ob, ss in valid_6h_pairs]
+            )
             if not all_macro:
                 continue
 
-            for ob_macro, macro_tf in all_macro:
+            for ob_macro, search_start, macro_tf in all_macro:
                 zone_bottom = max(ob_top.bottom, ob_macro.bottom)
                 zone_top = min(ob_top.top, ob_macro.top)
-                search_start = ob_top.cur_time + pd.Timedelta(hours=top_tf_hours)
 
                 sig_1h = find_signal_in_htf_same_tf(
                     df_1h, ob_top, ob_macro, search_start, htf_label="1h",

@@ -156,11 +156,13 @@ def collect_valid_macro_obs_extended(
             if not (ob_d.bottom <= ob.top <= ob_d.top):
                 continue
 
-        # search_start: для старых = top close, для новых = macro close.
+        # search_start: для старых = top close.
+        # Для новых = max(macro close, top close), чтобы не было lookahead —
+        # top-OB можно использовать только ПОСЛЕ закрытия его cur-свечи.
         if ob.cur_time < ob_d.cur_time:
             search_start = cur_day_end
         else:
-            search_start = macro_close
+            search_start = max(macro_close, cur_day_end)
 
         valid.append((ob, search_start))
     return valid
