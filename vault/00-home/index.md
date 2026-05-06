@@ -35,6 +35,7 @@ date: 2026-04-29
 - **Strategy 1.1.3** — entry FVG того же ТФ что OB-htf. Слабее 1.1.1: stage3 @ RR=2.2 +11.4R. Файлы: `research/1_1_3/`.
 - **Strategy 1.1.4** — гибрид macro-FVG + entry immediate, **WIP**. Файлы: `research/1_1_4/`.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning. Файлы: `research/1_2_0/`.
+- [[strategy_1_1_6]] — параллельная ветка с инвертированным каскадом FVG-OB-FVG (top-FVG+macro-OB+htf-FVG). 3y BTC raw RR=1: WR 33%, −5R на 15 closed (после lookahead-fix). В live НЕ добавлена. Файлы: `research/1_1_6/`.
 
 ## Research-стенд
 
@@ -85,6 +86,7 @@ date: 2026-04-29
 - [[2026-04-28-strategy-1-1-1-multi-htf-multi-ltf]] — Strategy 1.1.1 расширена: OB-2h + FVG-20m + prev-day FVG-4h, 98 сигналов / WR 56.5% / +12R.
 - [[2026-04-29-strategy-1-1-1-sl-15-rr-optimizer]] — большая сессия: vault, 4 агента, OB-12h, SL=15%, bucketing dedup, RR-оптимизатор. 14 коммитов, 2 ветки смерджены.
 - [[2026-05-01-confluence-bugs-swept-noentry]] — найдены 2 бага в confluence-анализаторах (lookahead + wrong RR=2.2 multiplier), edge от confluence исчез. Новый рабочий фильтр — SWEPT liquidity на OB-htf. 3-stage оптимизация на SWEPT с no_entry: entry=0.80, sl=0.85 → +59.78R на 49 сделках.
+- [[2026-05-06-strategy-1-1-6-первый-прогон]] — реализована 1.1.6 (FVG-top + OB-macro + FVG-htf). Найден lookahead в `find_first_fvg_htf_in_zone` (htf-search стартовал до закрытия cur macro-OB). После fix'а: WR 33%, −5R на 15 closed. В live не добавлена.
 
 ## Debugging
 
@@ -96,6 +98,7 @@ date: 2026-04-29
 - [[strategy-1-1-1-разные-sl-на-одном-entry]] — кейс 2026-02-06: расширили dedup-ключ на SL.
 - [[strategy-1-1-1-dedup-bucketing-tolerance]] — round() ≠ толерантность, нужен bucketing.
 - [[confluence-lookahead-and-rr22-bugs]] — 2 бага в analyze-скриптах создавали иллюзию edge от Triple confluence (WR 71% → реальные 41%).
+- [[strategy-1-1-6-look-ahead-macro-htf]] — 1.1.6 htf-search стартовал с `+htf_hours` вместо `+macro_hours`. Брат-близнец 1.1.1 +15min bug, тот же класс ошибки на другом уровне каскада.
 
 ## Планы и процесс
 
