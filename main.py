@@ -1,15 +1,18 @@
 """Точка входа: startup -> ws_loop + polling_loop.
 
-Live-режим: ТОЛЬКО Strategy 1.1.1. Другие стратегии (Scanner с 7 классическими
-+ VicScanner) отключены и сохранены в коде, но не запускаются.
+Live-режим: 6 стратегий 1.1.x параллельно через MultiStrategyScanner.
+  S111_SWEPT, S112, S113_V1, S113_V2, S114_V1, S114_V2
+
+См. multi_strategy_scanner.py для конфига и логики.
+Confluence/TV-refresh убраны 2026-05-06 (кружки декоративные, edge нет).
 """
 from __future__ import annotations
 
 import asyncio
 
 from config import TELEGRAM_BOT_TOKEN, load_admins
+from multi_strategy_scanner import STRATEGIES, MultiStrategyScanner
 from state import load_users, log_event
-from strategy_1_1_1_scanner import Strategy111Scanner
 from telegram_bot import polling_loop, send_message
 
 
@@ -17,7 +20,7 @@ async def main() -> None:
     if not TELEGRAM_BOT_TOKEN or TELEGRAM_BOT_TOKEN == "replace_me_with_real_bot_token":
         raise RuntimeError("TELEGRAM_BOT_TOKEN не задан в .env")
 
-    log_event("INFO", "bot starting (Strategy 1.1.1 only)")
+    log_event("INFO", "bot starting (6 strategies via MultiStrategyScanner)")
 
     # Разовая миграция: today-store отменён, файл удаляем если есть.
     try:
@@ -29,19 +32,19 @@ async def main() -> None:
     except Exception:
         pass
 
-    s111 = Strategy111Scanner()
-    await s111.startup()
+    scanner = MultiStrategyScanner()
+    await scanner.startup()
 
     users_count = len(load_users())
     admins = load_admins()
 
     from config import SYMBOLS
+    strategy_names = ", ".join(s.name for s in STRATEGIES)
     startup_msg = (
         "🤖 <b>Бот запущен</b>\n"
-        "Стратегия: <b>Strategy 1.1.1</b>\n"
+        f"Стратегии: <b>{len(STRATEGIES)}</b> ({strategy_names})\n"
         f"Символы: {', '.join(SYMBOLS)}\n"
-        f"Подписчиков: <b>{users_count}</b>\n"
-        "Сигналы: формат с confluence (BTC1!/TOTALES/USDT.D)."
+        f"Подписчиков: <b>{users_count}</b>"
     )
     for admin_id in admins:
         try:
@@ -49,12 +52,12 @@ async def main() -> None:
         except Exception as e:
             log_event("WARN", f"admin notify failed ({admin_id}): {e!r}")
 
-    log_event("INFO", f"s111 ready, users={users_count}, admins={len(admins)}")
+    log_event("INFO", f"multi_scanner ready, users={users_count}, "
+                      f"admins={len(admins)}, strategies={len(STRATEGIES)}")
 
     await asyncio.gather(
-        s111.ws_loop(),         # Binance WS — autoupdate BTC/ETH/SOL свечей
-        s111.tv_refresh_loop(), # TV REST — autoupdate USDT.D/TOTALES/BTC1 каждые 30 мин
-        polling_loop(),         # Telegram bot polling
+        scanner.ws_loop(),  # Binance WS — autoupdate BTC свечей + 1h trigger
+        polling_loop(),     # Telegram bot polling
     )
 
 
