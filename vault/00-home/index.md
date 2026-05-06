@@ -89,6 +89,7 @@ date: 2026-04-29
 - [[2026-05-01-confluence-bugs-swept-noentry]] — найдены 2 бага в confluence-анализаторах (lookahead + wrong RR=2.2 multiplier), edge от confluence исчез. Новый рабочий фильтр — SWEPT liquidity на OB-htf. 3-stage оптимизация на SWEPT с no_entry: entry=0.80, sl=0.85 → +59.78R на 49 сделках.
 - [[2026-05-06-strategy-1-1-6-первый-прогон]] — реализована 1.1.6 (FVG-top + OB-macro + FVG-htf). Найден lookahead в `find_first_fvg_htf_in_zone` (htf-search стартовал до закрытия cur macro-OB). После fix'а: WR 33%, −5R на 15 closed. В live не добавлена.
 - [[2026-05-06-swept-cross-strategy-test]] — проверили применимость SWEPT-фильтра к 1.1.2/1.1.3/1.1.4. Вердикт: SWEPT работает только для 1.1.1. Для 1.1.2/1.1.3 NOT-SWEPT даёт в 3× лучший R/trade на RR=2.2. Готовы к live-integration с минимальными фильтрами.
+- [[2026-05-06-live-integration-6-strategies]] — DONE: 6 версий 1.1.x в live через MultiStrategyScanner. Усилена защита от старых сигналов (MAX_AGE 2h→1h). Удалён confluence (кружки). 73 теста зелёные.
 
 ## Debugging
 
