@@ -35,6 +35,8 @@ date: 2026-04-29
 - **Strategy 1.1.3** — entry FVG того же ТФ что OB-htf. Слабее 1.1.1: stage3 @ RR=2.2 +11.4R. Файлы: `research/1_1_3/`.
 - **Strategy 1.1.4** — гибрид macro-FVG + entry immediate, **WIP**. Файлы: `research/1_1_4/`.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning. Файлы: `research/1_2_0/`.
+- [[strategy_1_1_5]] — OB-{1d,12h} + FVG-{4h,6h} → **RDRB4-{1h,2h}** (новый htf-примитив, 4 свечи).
+  3y BTC raw RR=1.0: 140 deduped, 91 closed, WR 58.2%, +15R, R/tr +0.165. 2026 провал. Файлы: `research/1_1_5/`.
 - [[strategy_1_1_6]] — параллельная ветка с инвертированным каскадом FVG-OB-FVG (top-FVG+macro-OB+htf-FVG). 3y BTC raw RR=1: WR 33%, −5R на 15 closed (после lookahead-fix). В live НЕ добавлена. Файлы: `research/1_1_6/`.
 
 ## Research-стенд
@@ -90,6 +92,7 @@ date: 2026-04-29
 - [[2026-05-06-strategy-1-1-6-первый-прогон]] — реализована 1.1.6 (FVG-top + OB-macro + FVG-htf). Найден lookahead в `find_first_fvg_htf_in_zone` (htf-search стартовал до закрытия cur macro-OB). После fix'а: WR 33%, −5R на 15 closed. В live не добавлена.
 - [[2026-05-06-swept-cross-strategy-test]] — проверили применимость SWEPT-фильтра к 1.1.2/1.1.3/1.1.4. Вердикт: SWEPT работает только для 1.1.1. Для 1.1.2/1.1.3 NOT-SWEPT даёт в 3× лучший R/trade на RR=2.2. Готовы к live-integration с минимальными фильтрами.
 - [[2026-05-06-live-integration-6-strategies]] — DONE: 6 версий 1.1.x в live через MultiStrategyScanner. Усилена защита от старых сигналов (MAX_AGE 2h→1h). Удалён confluence (кружки). 73 теста зелёные.
+- [[2026-05-06-strategy-1-1-5-rdrb4]] — новая стратегия 1.1.5 с 4-свечным RDRB как htf. Расширенная зона = пересечение фитилей c2/c4 + растяжка до c1. 3y raw RR=1: 91 closed, WR 58.2%, +15R. 2026 провал. Research-only.
 
 ## Debugging
 
