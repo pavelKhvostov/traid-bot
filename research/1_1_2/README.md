@@ -45,6 +45,21 @@ Best PnL @ RR=4.7: +156.5R, R/trade 0.477.
 ### export/
 - `export_1_1_2_extended_positions.py` — экспорт сделок extended-варианта
 
+## SWEPT split на default config (2026-05-06)
+
+`analyze/analyze_1_1_2_ob_swept.py` на default (entry=mid FVG, SL=15% inside top-OB, no_entry=on):
+
+```text
+deduped=429  SWEPT=332 (77%)  NOT-SWEPT=97 (23%)
+
+RR=1.0:  ALL +49R / R-tr 0.20   SWEPT +40R / 0.22    NOT-SWEPT  +9R / 0.15
+RR=2.2:  ALL +23.8R / 0.077     SWEPT +7.2R / 0.031  NOT-SWEPT +16.6R / 0.227
+```
+
+**Вывод:** SWEPT-фильтр для 1.1.2 НЕ работает на default config (на RR=2.2
+NOT-SWEPT даёт R/trade в 3× выше SWEPT). В live применять не надо. См.
+[[swept-фильтр-применим-только-к-1-1-1]] и [[2026-05-06-swept-cross-strategy-test]].
+
 ## Известные кандидаты на объединение
 
 - `analyze_1_1_2_extended_final.py` + `_extended_sensitivity.py` → можно слить с argparse `--mode={final,sensitivity}`.

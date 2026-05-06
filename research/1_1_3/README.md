@@ -44,6 +44,25 @@ OB-{1d, 12h}         ← top
 ### compare/
 - `compare_1_1_3_fvg_variants.py` — сравнение FVG-вариантов
 
+### analyze/
+
+- `analyze_1_1_3_ob_swept.py` (2026-05-06) — split SWEPT для cross-strategy теста
+
+## SWEPT split на default config (2026-05-06)
+
+`analyze/analyze_1_1_3_ob_swept.py` на default (fvg_variant=v1, macro_mode=untouched, no_entry=on):
+
+```text
+deduped=117  SWEPT=75 (64%)  NOT-SWEPT=42 (36%)
+
+RR=1.0:  ALL +10R / R-tr 0.139   SWEPT +5R / 0.106   NOT-SWEPT  +5R / 0.200
+RR=2.2:  ALL +18.2R / 0.188      SWEPT +6.2R / 0.102 NOT-SWEPT +12.0R / 0.333
+```
+
+**Вывод:** SWEPT-фильтр для 1.1.3 НЕ работает (на RR=2.2 NOT-SWEPT даёт R/trade
+в 3× выше SWEPT). В live применять не надо. См.
+[[swept-фильтр-применим-только-к-1-1-1]] и [[2026-05-06-swept-cross-strategy-test]].
+
 ## Кандидат на объединение
 
 4 файла `optimize_1_1_3_v1_*.py` — серия экспериментов с одной геометрией v1, могут быть слиты в `optimize_1_1_3_v1_stages.py` с argparse.

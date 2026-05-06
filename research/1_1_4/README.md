@@ -27,6 +27,27 @@ OB-{1d, 12h}         ← top
 ## Файлы
 
 ### backtest/
+
 - `backtest_strategy_1_1_4.py`
 
-Optimize/analyze не написаны — Pavel: «WIP, не успел».
+### analyze/
+
+- `analyze_1_1_4_ob_swept.py` (2026-05-06) — split SWEPT для cross-strategy теста
+
+Optimize не написаны — Pavel: «WIP, не успел».
+
+## SWEPT split на default config (2026-05-06)
+
+`analyze/analyze_1_1_4_ob_swept.py` на default (fvg_variant=v1, no_entry=on):
+
+```text
+deduped=53  SWEPT=43 (81%)  NOT-SWEPT=10 (19%)
+
+RR=1.0:  ALL +7R / R-tr 0.226   SWEPT +4R / 0.143   NOT-SWEPT +3R / 1.000 (n=3, шум)
+RR=2.2:  ALL +14.8R / 0.322     SWEPT +13.2R / 0.347 (≈ALL)   NOT-SWEPT +1.6R / 0.200
+```
+
+**Вывод:** SWEPT-фильтр для 1.1.4 на RR=2.2 нейтрален (Δ R/tr +0.025 в шуме),
+на RR=1.0 хуже ALL. Выборка маленькая (53 deduped, 10 NOT-SWEPT). В live
+применять не надо. См. [[swept-фильтр-применим-только-к-1-1-1]] и
+[[2026-05-06-swept-cross-strategy-test]].
