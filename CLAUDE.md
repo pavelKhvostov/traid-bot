@@ -34,8 +34,13 @@ Telegram-бот, который параллельно прогоняет нес
                        См. `research/1_1_3/`.
 - **Strategy 1.1.4** — гибрид macro-FVG (1.1.1) + entry immediate (1.1.3). **WIP**, только raw backtest.
                        См. `research/1_1_4/`.
+- **Strategy 1.1.5** — 1d-фрактал → 4h/6h failed-sweep → 4h/6h OB в окне `cur ∈ [sweep, sweep+k]`
+                       → 1h/2h OB + 15m/20m FVG (canon как в 1.1.1). Только детектор зон, entry/SL/TP — TBD.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning, текущие показатели отрицательные.
                        См. `research/1_2_0/`.
+- **Strategy 3.2**   — FVG-4h → first failed-touch (2 свечи rejection) → FVG-1h в 8h окне.
+                       Entry=mid FVG-1h, SL=low/high(c0), RR=1. 3y BTC: 245 closed, WR 55.1%, +25R.
+                       См. `research/3_2/`.
 
 ## Символы
 
@@ -73,7 +78,7 @@ traid-bot/
 │   ├── ob1h_core.py, obx4.py, fvg.py, ob_htf.py, rdrb.py, fractal.py
 │   ├── hammer.py, marubozu.py, vic_evot.py
 │   ├── strategy_1_1_1.py            # backtest-only детектор для 1.1.1
-│   ├── strategy_1_1_2.py / 1_1_3.py / 1_1_4.py / 1_2_0.py  # research-детекторы
+│   ├── strategy_1_1_2.py / 1_1_3.py / 1_1_4.py / 1_1_5.py / 1_2_0.py / 3_2.py  # research-детекторы
 ├── research/             # research-стенд (см. research/README.md)
 │   ├── 1_1_1/{backtest,optimize,analyze}/   # эталон, 13 файлов
 │   ├── 1_1_2/{backtest,optimize,analyze,export}/   # 14 файлов

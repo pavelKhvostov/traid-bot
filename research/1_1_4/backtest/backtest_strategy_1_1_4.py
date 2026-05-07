@@ -1,9 +1,12 @@
 """Бэктест Strategy 1.1.4 на BTCUSDT.
 
-1.1.4 = 1.1.1 с заменой entry FVG-15m/20m на immediate FVG того же ТФ что и
-OB-htf (1h или 2h, как в 1.1.3 v1).
+1.1.4 = 1.1.1 с заменой top-OB-1d/12h на top-FVG-1d/12h. Macro/htf/entry —
+без изменений (FVG-4h/6h, OB-1h/2h, FVG-15m/20m). SL = ob_htf.bottom (LONG)
+/ ob_htf.top (SHORT) — без буфера.
 
-Симуляция: limit-вход = середина FVG-htf. SL = OB_SL_DEPTH inside top-OB.
+В CSV колонки `ob_d_*` (legacy-имена) заполняются от top-FVG зоны:
+ob_d_bottom = top_fvg.bottom, ob_d_top = top_fvg.top, ob_d_time = top_fvg.c2_time.
+Это сохраняет совместимость со схемой 1.1.1 и переиспользует dedupe.
 """
 from __future__ import annotations
 
@@ -22,21 +25,29 @@ if str(_ROOT) not in _sys.path:
 
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 
 from data_manager import compose_from_base, load_df
 from strategies.strategy_1_1_4 import detect_strategy_1_1_4_signals
 
-DAYS_BACK = 1095
+DAYS_BACK = 1095  # 3 года
 SYMBOL = "BTCUSDT"
 RR_RUNS = [
     (1.0, Path("signals/strategy_1_1_4_3y_RR1.csv")),
     (2.2, Path("signals/strategy_1_1_4_3y_RR2.2.csv")),
 ]
-SL_TOLERANCE = 0.005
+
+# Tolerance для bucketing SL внутри одной (signal_time, direction, entry)
+# группы. Сигналы с |sl_i - sl_first| / entry < SL_TOLERANCE объединяются
+# в одну строку (схлопывает дребезг от формулы SL = bottom + 0.15*depth,
+# чувствительной к мелким различиям краёв OB). Сигналы с большим разрывом
+# = легитимные разные трейды (как кейс 2026-02-06 LONG entry=62163).
+SL_TOLERANCE = 0.005  # 0.5% от entry
 
 
 def to_utc3(ts) -> str:
+    """UTC timestamp -> 'YYYY-MM-DD HH:MM' в UTC+3 (Москва)."""
     if ts is None or ts == "":
         return ""
     return (pd.Timestamp(ts) + pd.Timedelta(hours=3)).strftime("%Y-%m-%d %H:%M")
@@ -54,8 +65,11 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
     else:
         tp = entry - risk * rr_ratio
 
-    # FVG того же ТФ что OB-htf: 1h -> 60min, 2h -> 120min
-    tf_minutes = 60 if sig["fvg_tf"] == "1h" else 120
+    # Активация: с момента close c2 свечи entry-FVG.
+    # signal_time — open_time свечи c2; close = open + tf_minutes.
+    # Хардкод +15min ломал 20m FVG (5-мин look-ahead, см.
+    # strategy-1-1-1-look-ahead-15min-vs-tf_duration.md).
+    tf_minutes = 15 if sig["fvg_tf"] == "15m" else 20
     fill_scan_start = signal_time + pd.Timedelta(minutes=tf_minutes)
     forward = df_1m[df_1m.index >= fill_scan_start]
 
@@ -72,22 +86,26 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
                 break
 
     base_row = {
+        # signal_time (raw UTC) — для dedup-ключа. Из CSV убирается перед записью.
         "signal_time": signal_time,
+        # Top-уровень: 1d или 12h (параллельные top-OB ветки).
         "top_tf": sig.get("top_tf", "1d"),
-        "ob_d_time": to_utc3(sig["ob_d_cur_time"]),
+        # Ключевые времена (UTC+3): когда сформирована соответствующая зона.
+        # ob_d_time — top-FVG c2_time (1d или 12h), legacy-имя для совместимости.
+        "ob_d_time": to_utc3(sig["top_fvg_c2_time"]),
         "fvg_macro_time": to_utc3(sig["fvg_macro_c2_time"]),
-        "fvg_macro_tf": sig["fvg_macro_tf"],
+        "fvg_macro_tf": sig["fvg_macro_tf"],  # 4h или 6h
         "ob_htf_time": to_utc3(sig["ob_htf_cur_time"]),
-        "ob_htf_tf": sig["ob_htf_tf"],
+        "ob_htf_tf": sig["ob_htf_tf"],  # 1h или 2h (что сработало раньше)
         "fvg_time": to_utc3(sig["fvg_c2_time"]),
-        "fvg_tf": sig["fvg_tf"],
+        "fvg_tf": sig["fvg_tf"],  # 15m или 20m (что сработало раньше)
         "direction": direction,
         "entry": entry,
         "sl": sl,
         "tp": tp,
         "risk_pct": round(risk / entry * 100, 4),
-        "ob_d_bottom": sig["ob_d_zone"][0],
-        "ob_d_top": sig["ob_d_zone"][1],
+        "ob_d_bottom": sig["top_fvg_zone"][0],
+        "ob_d_top": sig["top_fvg_zone"][1],
         "fvg_macro_top": sig["fvg_macro_zone"][1],
         "fvg_macro_bottom": sig["fvg_macro_zone"][0],
         "intersection_top": sig["intersection_zone"][1],
@@ -148,16 +166,53 @@ def simulate_outcome(sig: dict, df_1m: pd.DataFrame, rr_ratio: float) -> dict:
 
 
 def dedupe_signals(rows: list[dict]) -> list[dict]:
+    """Двухэтапный дедуп.
+
+    Этап 1: primary group по (signal_time, direction, round(entry, 8)).
+    Этап 2: внутри каждой primary-группы — sub-bucketing по близости SL:
+    сортируем по sl возрастающе, объединяем последовательные пока
+    |sl_i - sl_first_in_subgroup| / entry < SL_TOLERANCE.
+
+    Каждый bucket = одна строка CSV. Outcome обязан совпадать в bucket'е
+    (assert) — если разные, значит SL_TOLERANCE неудачный для этого
+    случая, но мы всё равно фейлим: разные outcome = реально разные
+    трейды, нужно увеличивать SL split, но это уже другой сценарий.
+
+    Числовые поля (sl, tp, risk_pct, exit_price, mfe_pct, mae_pct,
+    fill_delay_min) — берём из первого элемента bucket'а
+    (детерминированно). Meta-поля (top_tf, fvg_macro_tf, ob_htf_tf и
+    их count'ы) — агрегируем по ВСЕМУ bucket'у.
+
+    Кейсы вроде 2026-02-06 (один entry, два OB-D с разрывом ~5% по SL)
+    остаются как 2 строки — SL_TOLERANCE 0.5% сильно меньше 5%.
+    """
+    # outcome — определяющее поле, обязано совпадать (если разное —
+    # это легитимно разные трейды, ловится через split). activation_time
+    # зависит только от entry (limit fill) — entry в bucket одинаков.
+    # exit_time / hit_type / exit_price зависят от sl/tp → могут отличаться
+    # на 0.5% дребезг → берём first.
+    # fvg_time/fvg_tf/fvg_top/fvg_bottom — свойства entry FVG, инвариант.
     must_match = [
         "outcome", "activation_time",
         "fvg_time", "fvg_tf", "fvg_top", "fvg_bottom",
     ]
 
+    # Этап 1: primary grouping без SL.
     primary: dict[tuple, list[dict]] = {}
     for row in rows:
-        key = (row["signal_time"], row["direction"], round(float(row["entry"]), 8))
+        key = (
+            row["signal_time"],
+            row["direction"],
+            round(float(row["entry"]), 8),
+        )
         primary.setdefault(key, []).append(row)
 
+    # Этап 2: внутри каждой primary-группы — bucketing по SL.
+    # Объединяем последовательные по sl сигналы пока:
+    #   (а) |sl_i - sl_first| / entry < SL_TOLERANCE
+    #   (б) outcome совпадает с outcome первого в bucket'е
+    # Условие (б) — следствие правила «outcome разные = легитимные разные
+    # трейды, не объединяем». Если SL близкие но outcome разные — split.
     buckets: list[list[dict]] = []
     for key, group in primary.items():
         sorted_group = sorted(group, key=lambda r: float(r["sl"]))
@@ -188,6 +243,8 @@ def dedupe_signals(rows: list[dict]) -> list[dict]:
     out: list[dict] = []
     for group in buckets:
         first = group[0]
+        # Assert outcome-определяющие поля совпадают (выявит ситуацию,
+        # когда tolerance объединил сигналы с разным исходом).
         for r in group[1:]:
             for f in must_match:
                 if r.get(f) != first.get(f):
@@ -205,6 +262,7 @@ def dedupe_signals(rows: list[dict]) -> list[dict]:
         top_tfs = sorted({r["top_tf"] for r in group})
         top_times = [r["ob_d_time"] for r in group]
 
+        # Реконструируем строку с явным порядком полей: count после tf.
         new = {
             "signal_time": first["signal_time"],
             "top_tf": ",".join(top_tfs),
@@ -251,43 +309,65 @@ def main():
     print(f"[INFO] Strategy 1.1.4 backtest, {SYMBOL}, окно {DAYS_BACK}d, RR={rrs}")
     print()
 
+    print("[INFO] загрузка данных")
     df_1d = load_df(SYMBOL, "1d")
     df_12h = load_df(SYMBOL, "12h")
     df_4h = load_df(SYMBOL, "4h")
     df_1h = load_df(SYMBOL, "1h")
-    df_6h = compose_from_base(df_1h, "6h")
-    df_2h = compose_from_base(df_1h, "2h")
+    df_6h = compose_from_base(df_1h, "6h")  # 6h из 1h, выравнено по эпохе (00,06,12,18 UTC)
+    df_2h = compose_from_base(df_1h, "2h")  # 2h из 1h, выравнено по эпохе (00:00, 02:00...)
+    df_15m = load_df(SYMBOL, "15m")
     df_1m = load_df(SYMBOL, "1m")
+    df_20m = compose_from_base(df_1m, "20m")  # ресемпл 1m -> 20m, выравнено по эпохе
     print(f"  1d={len(df_1d)} 12h={len(df_12h)} 4h={len(df_4h)} 6h={len(df_6h)} "
-          f"1h={len(df_1h)} 2h={len(df_2h)} 1m={len(df_1m)}")
+          f"1h={len(df_1h)} 2h={len(df_2h)} "
+          f"15m={len(df_15m)} 20m={len(df_20m)} 1m={len(df_1m)}")
 
+    # Ограничить df_1d и df_12h последними DAYS_BACK
     today = pd.Timestamp.utcnow().normalize()
     if today.tz is None:
         today = today.tz_localize("UTC")
     cutoff = today - pd.Timedelta(days=DAYS_BACK)
-    df_1d_f = df_1d[df_1d.index >= cutoff]
-    df_12h_f = df_12h[df_12h.index >= cutoff]
+    df_1d_filtered = df_1d[df_1d.index >= cutoff]
+    df_12h_filtered = df_12h[df_12h.index >= cutoff]
+    print(f"  after cutoff ({cutoff.date()}): "
+          f"1d={len(df_1d_filtered)}  12h={len(df_12h_filtered)}")
 
     print()
+    print("[INFO] сбор сигналов (один раз — не зависит от RR)")
     signals = detect_strategy_1_1_4_signals(
-        df_1d_f, df_12h_f, df_4h, df_6h, df_1h, df_2h, verbose=True,
+        df_1d_filtered, df_12h_filtered,
+        df_4h, df_6h, df_1h, df_2h, df_15m, df_20m,
+        verbose=True,
     )
     print(f"  signals: {len(signals)}")
+
     if not signals:
+        print("[WARN] ни одного сигнала")
         return
 
+    # Симуляция отдельно для каждого RR — отдельный CSV.
     for rr_ratio, output_path in RR_RUNS:
         print()
         print(f"[INFO] симуляция RR={rr_ratio}")
         rows = [simulate_outcome(s, df_1m, rr_ratio) for s in signals]
         deduped = dedupe_signals(rows)
-        print(f"  raw: {len(rows)}  deduped: {len(deduped)}")
+        n_groups_multi = sum(
+            1 for r in deduped
+            if r["fvg_macro_count"] > 1 or r["ob_htf_count"] > 1
+        )
+        print(f"  raw: {len(rows)}  deduped: {len(deduped)}  "
+              f"схлопнуто: {len(rows) - len(deduped)}  "
+              f"групп с count>1: {n_groups_multi}")
 
+        # signal_time нужен только для dedup-ключа — из CSV убираем.
         for r in deduped:
             r.pop("signal_time", None)
+
         df = pd.DataFrame(deduped)
         output_path.parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(output_path, index=False)
+        print(f"  записано в {output_path}: {len(deduped)} строк")
 
         closed = df[df["outcome"].isin(["win", "loss"])]
         nf = (df["outcome"] == "not_filled").sum()
@@ -305,23 +385,24 @@ def main():
         print(f"  W={W} L={L} WR={wr:.1f}%  PnL={pnl:+.1f}R")
 
         if not closed.empty:
-            cy = closed.copy()
-            cy["t"] = pd.to_datetime(cy["fvg_time"])
-            cy["year"] = cy["t"].dt.year
-            for y in sorted(cy["year"].unique()):
-                sub = cy[cy["year"] == y]
+            closed_y = closed.copy()
+            # fvg_time = момент сигнала (UTC+3 'YYYY-MM-DD HH:MM').
+            closed_y["t"] = pd.to_datetime(closed_y["fvg_time"])
+            closed_y["year"] = closed_y["t"].dt.year
+            for y in sorted(closed_y["year"].unique()):
+                sub = closed_y[closed_y["year"] == y]
                 Wy = int((sub["outcome"] == "win").sum())
                 Ly = int((sub["outcome"] == "loss").sum())
                 wry = Wy / (Wy + Ly) * 100 if (Wy + Ly) else 0
                 pnly = Wy * rr_ratio - Ly
                 print(f"  {y}: n={Wy+Ly} WR={wry:.1f}% PnL={pnly:+.1f}R")
 
-            d = closed.groupby("direction").agg(n=("outcome", "size"))
-            d["w"] = closed.groupby("direction")["outcome"].apply(lambda s: (s == "win").sum())
-            d["l"] = d["n"] - d["w"]
-            d["wr%"] = (d["w"] / d["n"] * 100).round(1)
-            d["pnl"] = d["w"] * rr_ratio - d["l"]
             print()
+            d = closed.groupby("direction").agg(n=("outcome","size"))
+            d["w"] = closed.groupby("direction")["outcome"].apply(lambda s: (s=="win").sum())
+            d["l"] = d["n"] - d["w"]
+            d["wr%"] = (d["w"]/d["n"]*100).round(1)
+            d["pnl"] = d["w"]*rr_ratio - d["l"]
             print("По направлению:")
             print(d.to_string())
 

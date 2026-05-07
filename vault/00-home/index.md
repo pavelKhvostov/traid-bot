@@ -34,7 +34,9 @@ date: 2026-04-29
 - **Strategy 1.1.2** — macro-OB вместо macro-FVG. Stage 3 @ RR=2.2: WR 44.4%, +101.4R на 241 closed. Файлы: `research/1_1_2/`.
 - **Strategy 1.1.3** — entry FVG того же ТФ что OB-htf. Слабее 1.1.1: stage3 @ RR=2.2 +11.4R. Файлы: `research/1_1_3/`.
 - **Strategy 1.1.4** — гибрид macro-FVG + entry immediate, **WIP**. Файлы: `research/1_1_4/`.
+- **Strategy 1.1.5** — 1d-фрактал → 4h/6h sweep+OB в окне `[sweep, sweep+k]` → 1h/2h OB + 15m/20m FVG. Только детектор зон, бэктест-обвязка TBD.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning. Файлы: `research/1_2_0/`.
+- **Strategy 3.2** — FVG-4h → 2 свечи rejection → FVG-1h в 8h окне. Entry=mid FVG-1h, SL=c0(low/high), RR=1. 3y BTC: 245 closed, WR 55.1%, +25R.
 
 ## Research-стенд
 
@@ -43,6 +45,11 @@ date: 2026-04-29
 - Также есть `research/rdrb/` (5 кандидатов на расширение live RDRB) и `research/vic/` (out-of-scope).
 - Phase 1 baseline metrics: `vault/baseline/2026-05-04-14-16/metrics.md` + `optimized-baselines.md`.
 - Phase 4 re-baseline diff: `vault/baseline/2026-05-04-16-37-after-refactor/diff.md` (refactor чистый, все 22 CSV хеша совпадают).
+
+## Индикаторы
+
+- [[asvk-custom-rsi]] — авторский Pine: amplified RSI + адаптивные OB/OS + NWE-канал + 4 типа дивергенций. Python-реализация в `research/asvk_rsi/`.
+- [[money-hands-asvk]] — авторский Pine: WaveTrend bw2 + цветовая state machine + HA Money Flow + двойной Stochastic + дивергенции. Python-реализация в `research/money_hands/`.
 
 ## SMC-примитивы
 
