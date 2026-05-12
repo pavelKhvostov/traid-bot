@@ -37,6 +37,8 @@ date: 2026-04-29
 - **Strategy 1.1.5** — 1d-фрактал → 4h/6h sweep+OB в окне `[sweep, sweep+k]` → 1h/2h OB + 15m/20m FVG. Только детектор зон, бэктест-обвязка TBD.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning. Файлы: `research/1_2_0/`.
 - **Strategy 3.2** — FVG-4h → 2 свечи rejection → FVG-1h в 8h окне. Entry=mid FVG-1h, SL=c0(low/high), RR=1. 3y BTC: 245 closed, WR 55.1%, +25R.
+- [[strategy_1_1_6]] — параллельная ветка с инвертированным каскадом FVG-OB-FVG (top-FVG+macro-OB+htf-FVG). 3y BTC raw RR=1: WR 33%, −5R на 15 closed (после lookahead-fix). В live НЕ добавлена. Файлы: `research/1_1_6/`.
+- [[strategy_1_1_7]] — **fractal-sweep**: 4h FL/FH-фрактал → sweep → 8h окно stayed_fractal → 1h confirmation → OB-{1h,2h} внутри POI до invalidation → FVG-{15m,20m}. 3y BTC raw RR=1.0: 220 deduped, 76 closed, WR 52.6%, +4R, R/tr +0.053. LONG +5R / SHORT −1R. Research-only. Файлы: `research/1_1_7/`.
 
 ## Research-стенд
 
@@ -112,6 +114,8 @@ date: 2026-04-29
 - [[2026-05-08-validation-data-gap-fix-c2-winner]] — большая validation-сессия. 480-day data gap fix (2022 пропадал!), C2 новый #1 winner (+70R, 0 bad years), Strategy 1.1.1 не оправдалась в honest audit (+20R / RR≥1.5 отрицательный). 2 новых pitfall.
 - [[2026-05-08-strategy-111-forensic-indicator-filters]] — forensic 262 trades 1.1.1 × 14 features. Топ-edges: Hull-4h (+13.6pp), HA-MF sign (+9.8pp), DO-discount (+7.3pp). Filter спасает RR=1.5 в +R, но frequency 0.29/wk остаётся ниже C2.
 - [[2026-05-11-strategy-114-bfjk-portfolio-bug-audit]] — большая ресёрч-сессия по 1.1.4. 10 этапов (etap_66..75). Survey 18 цепочек, allow_multi, портфельные комбо, forensic audit. Найден критический баг [[l3-не-фильтровался-против-l1-invalidation]] (13% сетапов на мёртвой L1, WR 21%). Финал: portfolio B+F+J+K — WR 64.3%, +107R, +0.93R/trade.
+- [[2026-05-06-strategy-1-1-6-первый-прогон]] — реализована 1.1.6 (FVG-top + OB-macro + FVG-htf). Найден lookahead в `find_first_fvg_htf_in_zone` (htf-search стартовал до закрытия cur macro-OB). После fix'а: WR 33%, −5R на 15 closed. В live не добавлена.
+- [[2026-05-12-strategy-1-1-7-fractal-sweep]] — новая 1.1.7 с fractal-sweep top. Discovery process v1-v5 закрепа/инвалидации (закреп и инвалидация на ПРОТИВОПОЛОЖНЫХ границах POI). 3y raw RR=1: 220 deduped, 76 closed, WR 52.6%, +4R. Research-only.
 
 ## Debugging
 
@@ -129,6 +133,8 @@ date: 2026-04-29
 - [[lookahead-anchor-confirm-окно-cur_open-cur_close]] — anchor зона использовалась с `cur_open` вместо `cur_close + tf`. Edge испарился после fix (WR 67-77% → 26-49%).
 - [[htf-lookup-must-use-last-closed-bar-not-forming]] — HTF lookup в LTF-стратегии читал FORMING bar's close (etap_36 hull_1d filter). Inflation +35R/53%. Правильно: использовать `idx - 1` (last closed bar).
 - [[l3-не-фильтровался-против-l1-invalidation]] — в каскаде 1.1.4 проверка инвалидации макрозоны была только на L2; L3/L4 могли формироваться после смерти L1. 13% сетапов на «мёртвых» зонах с WR 21.1%, total -7R. Правило: при многоуровневом каскаде с TTL — проверка валидности на КАЖДОМ уровне.
+- [[strategy-1-1-6-look-ahead-macro-htf]] — 1.1.6 htf-search стартовал с `+htf_hours` вместо `+macro_hours`. Брат-близнец 1.1.1 +15min bug, тот же класс ошибки на другом уровне каскада.
+- [[fractal-sweep-confirmation-vs-invalidation-borders]] — 1.1.7: confirmation и invalidation POI ОБЯЗАНЫ быть на противоположных границах зоны. Иначе детектор отсекает 99% валидных цепочек.
 
 ## Планы и процесс
 
