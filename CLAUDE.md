@@ -3,40 +3,23 @@
 ## Что это
 
 Telegram-бот, который параллельно прогоняет несколько алгоритмических
-стратегий по BTC на Binance Spot и шлёт сигналы подписчикам в ЛС.
-В live с 2026-05-06: `MultiStrategyScanner` запускает **6 версий 1.1.x**
-параллельно (один WS, на каждом 1h close прогоняются все 6 детекторов).
-Старые `Scanner` (7 классических) и `VicScanner` отключены в main.py,
-код сохранён.
+стратегий по криптовалютам на Binance Spot и шлёт сигналы подписчикам в ЛС.
+Запускаются ДВА сканера через `asyncio.gather`: `Scanner` (1h-движок для
+7 стратегий, `TIMEFRAMES_NATIVE`) и `VicScanner` (`VIC_NATIVE_TFS = [1m, 15m, 1d]`
+для VIC_EVOT).
 
-## Стратегии в live (6 версий 1.1.x)
+## Стратегии
 
-`multi_strategy_scanner.py:STRATEGIES`:
+### Live (8) — все используют `STRATEGY_TFS = ["12h","1d","2d","3d"]`, confirm 1h
 
-- **S111_SWEPT**  — 1.1.1 со SWEPT-фильтром на OB-htf (отсекает 20% NOT-SWEPT мусора)
-- **S112**        — 1.1.2 (macro=OB вместо FVG, без SWEPT)
-- **S113_V1**     — 1.1.3 fvg_variant=v1, macro_mode=untouched (immediate FVG)
-- **S113_V2**     — 1.1.3 fvg_variant=v2 (FVG охватывает OB-pair)
-- **S114_V1**     — 1.1.4 fvg_variant=v1 (гибрид: macro=FVG + entry-FVG того же ТФ)
-- **S114_V2**     — 1.1.4 fvg_variant=v2
-
-Формат сигнала (без кружков confluence):
-
-```text
-BTC - LONG
-POI: Daily OB + 4h FVG
-Volume confirmation: 1h OB + 15m FVG
-```
-
-Защита от старых сигналов: `MAX_SIGNAL_AGE_HOURS=1` + `prefill_silent`
-на startup. См. [[swept-фильтр-применим-только-к-1-1-1]] для решения
-про SWEPT.
-
-### Старые live-стратегии (отключены в main.py, код сохранён)
-
-- **OBX4** ⚡, **FVG** 〰️, **OB_HTF** 📦, **RDRB** ↩️, **FRACTAL** ❄️,
-  **HAMMER** 🔨, **MARUBOZU** 🟩 — `scanner.py`
-- **VIC_EVOT** 🎯 — `vic_scanner.py`
+- **OBX4** ⚡        — 5-свечная цепочка с FVG на c3-c5
+- **FVG** 〰️         — сырая FVG как зона старшего ТФ
+- **OB_HTF** 📦      — OB старшего ТФ + обязательный фильтр FVG-4h
+- **RDRB** ↩️        — пересечение фитилей с ограничением телами
+- **FRACTAL** ❄️     — LL/HH фрактал → свеча-снятие
+- **HAMMER** 🔨      — молот + LL/HH-фрактал + OB-связка
+- **MARUBOZU** 🟩    — тело ≥ 95% диапазона
+- **VIC_EVOT** 🎯    — отдельный сканер VicScanner, см. [[архитектура vic-evot]]
 
 ### Backtest-only — в live не интегрированы
 
@@ -51,8 +34,13 @@ Volume confirmation: 1h OB + 15m FVG
                        См. `research/1_1_3/`.
 - **Strategy 1.1.4** — гибрид macro-FVG (1.1.1) + entry immediate (1.1.3). **WIP**, только raw backtest.
                        См. `research/1_1_4/`.
+- **Strategy 1.1.5** — 1d-фрактал → 4h/6h failed-sweep → 4h/6h OB в окне `cur ∈ [sweep, sweep+k]`
+                       → 1h/2h OB + 15m/20m FVG (canon как в 1.1.1). Только детектор зон, entry/SL/TP — TBD.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning, текущие показатели отрицательные.
                        См. `research/1_2_0/`.
+- **Strategy 3.2**   — FVG-4h → first failed-touch (2 свечи rejection) → FVG-1h в 8h окне.
+                       Entry=mid FVG-1h, SL=low/high(c0), RR=1. 3y BTC: 245 closed, WR 55.1%, +25R.
+                       См. `research/3_2/`.
 
 ## Символы
 
@@ -79,29 +67,29 @@ traid-bot/
 ├── data_manager.py       # скачивание+хранение свечей (REST+WS), CSV
 ├── state.py              # users.json, sent_signals.json, vic_levels.json, bot.log (5MB rotate)
 ├── telegram_bot.py       # отправка сообщений, команды /start /stop /status
-├── multi_strategy_scanner.py  # Live-сканер 6 стратегий 1.1.x (с 2026-05-06)
-├── scanner.py            # Старый Scanner с 7 классическими (отключён в main.py)
-├── vic_scanner.py        # VicScanner для VIC_EVOT (отключён в main.py)
+├── scanner.py            # Scanner: WS на TIMEFRAMES_NATIVE → диспатч 7 стратегий
+├── vic_scanner.py        # VicScanner: WS на VIC_NATIVE_TFS → VIC_EVOT
 ├── vic_levels.py         # calculate_vic_d (чистая функция, maxV(D-1))
+├── strategy_1_1_1_confluence.py    # live-обвязка для Strategy 1.1.1
+├── strategy_1_1_1_scanner.py       # live-сканер для Strategy 1.1.1
 ├── strategies/
 │   ├── __init__.py
 │   ├── base.py
 │   ├── ob1h_core.py, obx4.py, fvg.py, ob_htf.py, rdrb.py, fractal.py
 │   ├── hammer.py, marubozu.py, vic_evot.py
-│   ├── strategy_1_1_1.py / 1_1_2.py / 1_1_3.py / 1_1_4.py  # все 4 в live (multi_scanner)
-│   ├── strategy_1_1_6.py / 1_2_0.py    # research-only
+│   ├── strategy_1_1_1.py            # backtest-only детектор для 1.1.1
+│   ├── strategy_1_1_2.py / 1_1_3.py / 1_1_4.py / 1_1_5.py / 1_2_0.py / 3_2.py  # research-детекторы
 ├── research/             # research-стенд (см. research/README.md)
-│   ├── 1_1_1/{backtest,optimize,analyze}/   # эталон 1.1.1
-│   ├── 1_1_2/{backtest,optimize,analyze,export}/
-│   ├── 1_1_3/{backtest,optimize,analyze,compare}/
-│   ├── 1_1_4/{backtest,analyze}/   # SWEPT-split добавлен 2026-05-06
-│   ├── 1_1_6/{backtest,optimize,analyze}/   # параллельная ветка FVG-OB-FVG
-│   ├── 1_2_0/{backtest,tune}/
-│   ├── rdrb/{backtest,optimize,analyze}/
-│   ├── vic/{backtest,optimize}/
-│   └── preview_strategies_monthly.py   # diagnostic preview live-сигналов
-├── tests/                # pytest (73 tests)
-└── main.py               # точка входа: asyncio.gather(scanner, polling)
+│   ├── 1_1_1/{backtest,optimize,analyze}/   # эталон, 13 файлов
+│   ├── 1_1_2/{backtest,optimize,analyze,export}/   # 14 файлов
+│   ├── 1_1_3/{backtest,optimize,compare}/    # 9 файлов
+│   ├── 1_1_4/backtest/   # WIP, 1 файл
+│   ├── 1_2_0/{backtest,tune}/   # новая ветка, 2 файла
+│   ├── rdrb/{backtest,optimize,analyze}/    # 8 файлов
+│   ├── vic/{backtest,optimize}/    # 4 файла (out-of-scope)
+│   └── _shared/backtest_year.py   # обёртка для прогона по году
+├── tests/                # pytest (39 tests)
+└── main.py               # точка входа: asyncio.gather(scanner, vic_scanner, polling)
 ```
 
 ## Ключевые решения

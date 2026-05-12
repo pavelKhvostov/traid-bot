@@ -138,34 +138,120 @@ FVG c2 закрывается через 20 минут, не через 15. Scan
 second-level дедуп.
 Источник: [[три типа подтверждения 1h ob fvg rdrb]]
 
-### Multi-TF cascade: длительность бара родителя, не «потомка», задаёт search_start
+### bounce_1x в zone-units ≠ realistic WR при RR-стратегии
 
-Что было: в `find_first_fvg_htf_in_zone` (Strategy 1.1.6) поиск
-htf-FVG (1h или 2h) стартовал с `ob_macro.cur_time + htf_hours`,
-т.е. `+ 1h` для 1h-FVG. Должно было быть `+ macro_hours` (4 или 6).
-Симптом: на 6h-macro+1h-htf htf-FVG могла найтись за 3 часа ДО
-закрытия cur 6h-свечи — структурный анкер ещё не существует, а мы
-уже ищем реакцию на него. Конкретный кейс 2026-02-14 пользователь
-заметил при ручной TV-сверке.
-Причина: длительность бара выводилась из ТФ поиска (1h/2h), а
-должна — из ТФ candidate-структуры (4h/6h). Идентичный класс
-ошибки что pitfall #7 (1.1.1 +15min/tf_duration), только на другом
-уровне каскада.
-Правило избегания: в любой multi-TF cascade при переходе
-A → B (где B быстрее A): `search_start_for_B = candidate_A.cur_time
-+ A_duration`. Длительность всегда от родителя, который должен
-быть полностью сформирован. **НЕ** от поиска, **НЕ** из контекста
-скрипта. Pattern:
+Что было: считал `bounce_1x` (% случаев когда цена дошла до `entry + 1×zone_size`
+хоть когда-то в окне 50 баров) как прокси WR. На RDRB-1h было 99%, а на
+realistic backtest с фьючерсным SL и RR=2 — WR 33%.
+Симптом: edge ушёл с обещанных 99% до математического break-even.
+Причина: `bounce_1x` не учитывает порядок (если SL выбит до bounce —
+True всё равно). При фьючерсном SL (1% от entry ≈ 10×zone_size для RDRB)
+TP при RR=2 уезжает на 20×zone_size — намного дальше чем 1×zone, и цена
+обычно успевает выбить SL раньше.
+Правило избегания: `bounce_X%` в zone-units нельзя использовать как прокси
+WR. Перед оптимизацией формулы — обязательный realistic backtest с
+RR-симуляцией на 1m. Если bounce_X = 99% а realistic_WR = 33% — значит
+zone_size << RR×SL_distance. Использовать ATR-units или absolute-%
+для сопоставимых метрик.
+Источник: [[bounce-1x-не-равно-wr-при-rr]]
+
+### Anchor zone использовался до cur_close → масштабный lookahead в HTF×LTF setup'ах
+
+Что было: в `etap_14_full_grid.py` окно поиска LTF-триггера в зоне анкора
+стартовало с `a["time"]` = ob.cur_time = open свечи cur. Но OB подтверждается
+только ПОСЛЕ закрытия cur, в `cur_time + tf_anchor`.
+Симптом: grid search на BTCUSDT 6 лет показал «топ-3» с WR 67-77% и +285…+559R.
+После фикса: WR 26-49%, total −6 … −119R. Edge испарился полностью.
+Причина: триггеры в окне (cur_open, cur_close) использовали ещё-не-сформированный
+анкор. На FVG-15m триггере с OB-12h окно было 12h × 48 баров — массовое
+включение «нелегальных» setups. Внутри окна формирования OB цена систематически
+идёт В сторону зоны → искусственно завышенный WR.
+Правило избегания: **RED FLAG в любом backtest-коде** — `a_start = ...["time"]`
+без добавления `+ tf_anchor`. Эталон — `etap_13_ob_size_sweep.py:99-100`:
+`ob_start = ob["ob_time"] + pd.Timedelta(hours=4)`. То же самое для всех
+HTF×LTF setup'ов в research/. После любого нового pipeline — обязательная
+sanity-проверка: WR > 60% на сотнях сделок крипто-стратегии = lookahead suspect.
+Источник: [[lookahead-anchor-confirm-окно-cur_open-cur_close]]
+
+### Год отсутствует в year-by-year breakdown — это data gap, не «нет setups»
+
+Что было: в `data/BTCUSDT_1m.csv` отсутствовали 480 дней (2022-01-01 .. 2023-04-26).
+Симптом: year-by-year breakdown показывал 2020, 2021, 2023, 2024, 2025 — без 2022.
+Все backtests интерпретировали это как «не было setups в bear market».
+Причина: bootstrap CSV прервался; pd.read_csv не fail'ит, groupby не выдаёт
+строки для пустых годов. Одновременно 2022 — самый тяжёлый bear (LUNA + FTX),
+которого больше всего нужно тестировать.
+Правило избегания: при backtest на 2+ года — обязательная sanity-проверка
+полноты данных (`set(years_in_data) == set(expected_years)` + gap detection
+через `df.index.diff().max()`). **Если год отсутствует в year-by-year — это
+RED FLAG**, не «strategy doesn't fire there». После fix C2 получил +22R
+благодаря 2022 (стал 0 минусовых лет за 7), D2 потерял корону (2022 был −6.25R).
+Источник: [[2022-1m-data-gap-symptom-year-missing]]
+
+### HTF lookup в backtest читает FORMING bar — lookahead
+
+Что было: в etap_36 фильтр на Hull MA(78) на 1d поверх C2 (LTF strategy
+на FVG-2h trigger). `hull_trend_label(close_1d, hull_1d, ts)` использовал
+`close_1d.iloc[idx]` где idx — бар содержащий ts. Этот бар на момент ts
+ЕЩЁ ФОРМИРУЕТСЯ.
+Симптом: BTC C2v2 RR=1.5 показывал WR 49.0% / **+101R** / 0 минусовых
+лет — выглядело как breakthrough; OOS на ETH провалился (-30R / 4/4 bad
+years), что раскрыло аномалию. После audit fix (использовать last closed
+1d bar `idx-1`): WR 46.6% / +66R / 1 bad year на BTC. Inflation +35R / 53%.
+Причина: в pandas df.index содержит OPEN times. `searchsorted(ts, "right") - 1`
+возвращает индекс бара ВНУТРИ которого ts (он формируется). Его close
+известен только в момент next bar's open — это будущая информация
+относительно ts. Pine `request.security(_, "1d", close)` non-repaint
+возвращает close last CLOSED 1d bar, что соответствует `close[idx - 1]`
+в backtest.
+Правило избегания: для любого HTF lookup в backtest LTF-стратегии:
+**стартовать с `last_closed = idx - 1`**. Все Pine `[N]` shifts применять
+от last_closed (`hull[last_closed - shift]`). Любой `htf_series.asof(ts)`
+без поправки на закрытость бара — RED FLAG. Helper `htf_safe_value(series, ts)`
+для централизованного использования.
+Источник: [[htf-lookup-must-use-last-closed-bar-not-forming]]
+
+### Multi-bar pattern: detect at trigger, но entry должен быть на confirm_idx
+
+Что было: RDRB+ MMXM фильтр (etap_31-32) — entry на FVG c2.close, фильтрация
+по «есть ли RDRB+ потом в окне 10 баров».
+Симптом: WR +10-15pp на всех ТФ (1h, 4h, 12h, 1d) vs baseline. «Идеальный
+фильтр». На LTF особенно силный: 1h +14pp, R/tr с −0.05 на +0.21.
+Причина: на момент c2.close мы ЕЩЁ НЕ ЗНАЕМ сформируется ли RDRB+ в
+следующие 10 баров. Это будущая информация. Условие «не вернулась в FVG»
+автоматически удаляет «плохие» trades, которые быстро вернулись в FVG в
+первые 5-10 баров → искусственная inflation.
+Правило избегания: для стратегий с структурным confirmation из N баров —
+backtest entry **обязательно** на close confirm_idx (после waiting period),
+SL/TP отсчитываются от него. Сравнение `lookahead vs honest` обязательно
+для multi-bar patterns. На LTF (1h-4h) edge таких фильтров обычно
+полностью пропадает; real edge остаётся только на HTF (12h-1d).
+Источник: [[multi-bar-pattern-confirm-vs-trigger-lookahead]]
+
+### Каскад продолжается на мёртвой родительской зоне — invalidation проверяется только на L2
+
+Что было: в `detect_with_funnel` (etap_69) и `detect_4stage` (etap_66)
+стратегии 1.1.4 проверка `l2_close > L1_active_end` стояла только на L2
+(OB-4h). L3 (OB-1h/2h) и L4 (FVG-15m/20m) могли формироваться **уже после
+инвалидации макрозоны L1** (FVG-d/12h).
+Симптом: 24 из 186 raw-сетапов (~13%) портфеля B+F+J+K имели L3.close
+после смерти L1. Эти сетапы показывали WR 21.1%, total -7R, avg -0.37R/trade —
+системно проигрывали, но скрывались в общей статистике. До фикса портфель
+показывал WR 59.9% / +133R, после фикса WR 64.3% / +107R / +0.93R/trade.
+Причина: `l3_search_end = l2_close + l3_life` без clamp по `L1_active_end`.
+Если l3_life > (L1_dead - L2_close), окно поиска L3 простирается за пределы
+жизни макрозоны. При `allow_multi=5` это особенно опасно — квота
+«5 сетапов на одну L1» добивается мёртвыми кандидатами.
+Правило избегания: при многоуровневом каскаде с TTL/инвалидацией родительской
+зоны проверка валидности должна быть на **КАЖДОМ уровне**, не только на L2.
+Шаблон:
 ```python
-# Любой multi-TF переход A → B:
-search_start = candidate_A.cur_time + Timedelta(hours=A_hours)
-                                       # ^^^^^ ТФ A, не B
+if l2_close > L1_active_end: continue   # level 2
+if l3_close > L1_active_end: continue   # level 3 — НЕ забыть
+if l4_c2_close > L1_active_end: continue   # level 4
 ```
-Также: автотесты могут скрывать тот же bug что в продакшене (фикстуры
-строились на ошибочной логике). При fix'е продакшена ожидай падения
-тестов — пересматривай фикстуры, не подгоняй tolerance. Минимум одна
-независимая визуальная сверка с TV для новой стратегии.
-Источник: [[strategy-1-1-6-look-ahead-macro-htf]]
+Дополнительно: clamp поискового окна сверху — `min(search_end, L1_active_end)`.
+Источник: [[l3-не-фильтровался-против-l1-invalidation]]
 
 ### round(x, N) ≠ толерантность — для tolerance нужен bucketing
 

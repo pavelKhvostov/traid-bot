@@ -1,22 +1,24 @@
-"""Unit-тесты для Strategy 1.1.5 — OB-top + FVG-macro + RDRB4-htf.
+"""Unit-тесты для Strategy 1.1.5 — полная воронка
+1d-фрактал → 4h/6h sweep+OB → 1h/2h OB + 15m/20m FVG.
 
 Покрытие:
-- detect_rdrb4: happy LONG/SHORT, edge cases (нарушение каждого из 5 условий)
-- detect_strategy_1_1_5_signals: happy SHORT (полный каскад), lookahead-prevention,
-  RR=1 геометрия, no-overlap пропуск.
+  - happy SHORT через HH-1d → 4h sweep+OB → 1h OB + 15m FVG
+  - happy LONG  через LL-1d → 6h sweep+OB → 2h OB + 20m FVG
+  - edge: первая касающаяся 4h-свеча пробивает уровень → 0 сигналов
+  - edge: «особый случай» macro_ob_cur_is_sweep + полная воронка под ним
+  - edge: после snipe не нашлось macro OB в окне k_after → 0 сигналов
+  - edge: macro OB найден, но нет 1h/2h OB+FVG entry → 0 сигналов
+  - edge: 1d без фрактала i±2 → 0 сигналов
 """
 from __future__ import annotations
 
 import pandas as pd
 
-from strategies.strategy_1_1_5 import (
-    RR,
-    detect_rdrb4,
-    detect_strategy_1_1_5_signals,
-)
+from strategies.strategy_1_1_5 import detect_strategy_1_1_5_signals
 
 
 def make_df(candles: list[tuple]) -> pd.DataFrame:
+    """[(ts_str, open, high, low, close, volume), ...] -> DataFrame с UTC index."""
     idx = pd.DatetimeIndex(
         [pd.Timestamp(c[0], tz="UTC") for c in candles],
         tz="UTC", name="open_time",
@@ -37,272 +39,234 @@ def empty_df() -> pd.DataFrame:
     )
 
 
-# ============================================================
-# detect_rdrb4 — атомарный детектор
-# ============================================================
-
-# Каноничный SHORT RDRB-4 (по формулам пользователя):
-#   c1.low > c2.low        (c2 уходит ниже c1)
-#   c1.low < c2.close      (c2 закрытие выше c1.low)
-#   c2.low < c4.high       (c4 хай зашёл в фитиль c2)
-#   c3.close < c2.low      (c3 закрытие ниже c2.low — поглощение)
-#   c1.low > c4.high       (c4 не пробил c1.low)
-# Зона: [c4.high, c1.low]
-
-def test_detect_rdrb4_happy_short():
-    # c1: o=110, h=111, l=100, c=109   (нижний фитиль)
-    # c2: o=108, h=109, l=95,  c=107   (low ниже c1.low=100, close=107 > c1.low=100)
-    # c3: o=107, h=108, l=85,  c=90    (close=90 < c2.low=95)
-    # c4: o=91,  h=98,  l=89,  c=93    (high=98: c2.low=95 < 98 < c1.low=100)
-    df = make_df([
-        ("2026-01-01 00:00:00", 110, 111, 100, 109, 1),
-        ("2026-01-01 01:00:00", 108, 109,  95, 107, 1),
-        ("2026-01-01 02:00:00", 107, 108,  85,  90, 1),
-        ("2026-01-01 03:00:00",  91,  98,  89,  93, 1),
+# Стандартный 1d с HH=110 на 2026-01-03 (для SHORT-кейсов).
+def _df_1d_hh() -> pd.DataFrame:
+    return make_df([
+        ("2026-01-01", 95,  100, 95, 98,  100),
+        ("2026-01-02", 98,  105, 92, 100, 100),
+        ("2026-01-03", 100, 110, 96, 105, 100),  # HH high=110, low=96 не LL
+        ("2026-01-04", 105, 108, 91, 95,  100),
+        ("2026-01-05", 95,  104, 90, 100, 100),
     ])
-    z = detect_rdrb4(df, 3)
-    assert z is not None
-    assert z.direction == "SHORT"
-    # bottom = max(c2.low=95, c4_body_high=max(91,93)=93) = 95
-    assert z.bottom == 95
-    assert z.top == 100  # c1.low
-    assert z.c1_high == 111
-    assert z.c2_high == 109
-    assert z.c4_body_high == 93
 
 
-def test_detect_rdrb4_happy_long():
-    # mirror: c1.high < c2.high, c1.high > c2.close, c2.high > c4.low,
-    #         c3.close > c2.high, c1.high < c4.low
-    # c1: o=90, h=100, l=89, c=91     (верхний фитиль)
-    # c2: o=92, h=105, l=91, c=93     (high=105 > c1.high=100, close=93 < c1.high=100)
-    # c3: o=93, h=115, l=92, c=110    (close=110 > c2.high=105)
-    # c4: o=109, h=111, l=102, c=107  (low=102: c2.high=105 > 102 > c1.high=100)
-    df = make_df([
-        ("2026-01-01 00:00:00", 90, 100,  89,  91, 1),
-        ("2026-01-01 01:00:00", 92, 105,  91,  93, 1),
-        ("2026-01-01 02:00:00", 93, 115,  92, 110, 1),
-        ("2026-01-01 03:00:00", 109, 111, 102, 107, 1),
+# Стандартный 1d с LL=80 на 2026-02-03 (для LONG-кейсов).
+def _df_1d_ll() -> pd.DataFrame:
+    return make_df([
+        ("2026-02-01", 100, 105, 90, 95, 100),
+        ("2026-02-02", 95,  100, 88, 92, 100),
+        ("2026-02-03", 92,  95,  80, 85, 100),  # LL low=80, high=95 не HH
+        ("2026-02-04", 85,  90,  82, 88, 100),
+        ("2026-02-05", 88,  95,  84, 90, 100),
     ])
-    z = detect_rdrb4(df, 3)
-    assert z is not None
-    assert z.direction == "LONG"
-    # top = min(c2.high=105, c4_body_low=min(109,107)=107) = 105
-    assert z.bottom == 100  # c1.high
-    assert z.top == 105
-    assert z.c4_body_low == 107
 
 
-def test_detect_rdrb4_short_fails_c4_breaks_c1_low():
-    """c4.high == c1.low → нарушает c1.low > c4.high (строгое неравенство)."""
-    df = make_df([
-        ("2026-01-01 00:00:00", 110, 111, 100, 109, 1),
-        ("2026-01-01 01:00:00", 108, 109,  95, 107, 1),
-        ("2026-01-01 02:00:00", 107, 108,  85,  90, 1),
-        ("2026-01-01 03:00:00",  91, 100,  89,  93, 1),  # c4.high=100 == c1.low
+# ---------- Test 1: happy SHORT — HH 1d → 4h sweep+OB → 1h OB + 15m FVG ----------
+
+def test_happy_short_full_funnel_4h_1h_15m():
+    df_1d = _df_1d_hh()
+    df_4h = make_df([
+        ("2026-01-06 00:00", 100, 105,   99,    102, 10),
+        ("2026-01-06 04:00", 102, 112,   107,   109, 10),  # SWEEP (high=112>110, close=109<110)
+        ("2026-01-06 08:00", 109, 110,   109,   110, 10),  # OB-macro prev — bullish
+        ("2026-01-06 12:00", 110, 110.5, 107.5, 108, 10),  # OB-macro cur  — bearish, close<prev.open
+        ("2026-01-06 16:00", 108, 109,   107,   108, 10),  # filler
     ])
-    assert detect_rdrb4(df, 3) is None
-
-
-def test_detect_rdrb4_short_fails_c4_doesnt_enter_c2_wick():
-    """c4.high == c2.low → нарушает c2.low < c4.high."""
-    df = make_df([
-        ("2026-01-01 00:00:00", 110, 111, 100, 109, 1),
-        ("2026-01-01 01:00:00", 108, 109,  95, 107, 1),
-        ("2026-01-01 02:00:00", 107, 108,  85,  90, 1),
-        ("2026-01-01 03:00:00",  91,  95,  89,  93, 1),  # c4.high=95 == c2.low
+    # OB-macro SHORT zone = [109, 110.5], cur=12:00, search_start_htf=16:00
+    df_1h = make_df([
+        ("2026-01-06 16:00", 109.5, 110.2, 109.3, 110.0, 10),  # OB-htf prev — bullish
+        ("2026-01-06 17:00", 110.0, 110.4, 108.8, 109.4, 10),  # OB-htf cur  — bearish, close=109.4<prev.open=109.5
     ])
-    assert detect_rdrb4(df, 3) is None
-
-
-def test_detect_rdrb4_short_fails_c3_doesnt_close_below_c2_low():
-    """c3.close == c2.low → нарушает c3.close < c2.low."""
-    df = make_df([
-        ("2026-01-01 00:00:00", 110, 111, 100, 109, 1),
-        ("2026-01-01 01:00:00", 108, 109,  95, 107, 1),
-        ("2026-01-01 02:00:00", 107, 108,  85,  95, 1),  # c3.close=95 == c2.low
-        ("2026-01-01 03:00:00",  91,  98,  89,  93, 1),
+    # OB-1h SHORT zone = [109.5, max(110.2, 110.4)] = [109.5, 110.4], overlap с [109, 110.5] ✓
+    # FVG-15m окно: [16:00, 17:00 + 45min = 17:45]
+    df_15m = make_df([
+        ("2026-01-06 16:00", 110.5, 110.5, 110.0, 110.2, 1),  # c0: low=110.0
+        ("2026-01-06 16:15", 110.2, 110.2, 109.7, 109.8, 1),  # c1
+        ("2026-01-06 16:30", 109.8, 109.8, 109.4, 109.5, 1),  # c2: high=109.8
     ])
-    assert detect_rdrb4(df, 3) is None
+    # FVG-15m SHORT: low(c0)=110.0 > high(c2)=109.8 → zone [109.8, 110.0], overlap с [109.5, 110.4] ✓
 
-
-def test_detect_rdrb4_short_fails_c2_close_below_c1_low():
-    """c2.close < c1.low → нарушает c1.low < c2.close (нет ловушки)."""
-    df = make_df([
-        ("2026-01-01 00:00:00", 110, 111, 100, 109, 1),
-        ("2026-01-01 01:00:00", 108, 109,  95,  98, 1),  # c2.close=98 < c1.low=100
-        ("2026-01-01 02:00:00", 107, 108,  85,  90, 1),
-        ("2026-01-01 03:00:00",  91,  98,  89,  93, 1),
-    ])
-    assert detect_rdrb4(df, 3) is None
-
-
-def test_detect_rdrb4_short_fails_c2_low_above_c1_low():
-    """c2.low >= c1.low → c2 не выносит ликвидность c1."""
-    df = make_df([
-        ("2026-01-01 00:00:00", 110, 111, 100, 109, 1),
-        ("2026-01-01 01:00:00", 108, 109, 100, 107, 1),  # c2.low=100 == c1.low
-        ("2026-01-01 02:00:00", 107, 108,  85,  90, 1),
-        ("2026-01-01 03:00:00",  91,  98,  89,  93, 1),
-    ])
-    assert detect_rdrb4(df, 3) is None
-
-
-def test_detect_rdrb4_returns_none_on_short_df():
-    df = make_df([("2026-01-01 00:00:00", 100, 101, 99, 100, 1)])
-    assert detect_rdrb4(df, 0) is None
-    assert detect_rdrb4(df, 3) is None
-
-
-# ============================================================
-# detect_strategy_1_1_5_signals — полный каскад
-# ============================================================
-
-def _build_short_cascade():
-    """Полный SHORT-каскад: OB-1d → FVG-4h → RDRB4-1h.
-
-    Все зоны overlap, направление SHORT.
-    """
-    # ===== OB-1d (top): пара (prev=bull, cur=bear closing below prev.open) =====
-    # SHORT OB: prev.close > prev.open, cur.close < prev.open
-    # zone = [prev.open, max(prev.high, cur.high)]
-    df_1d = make_df([
-        ("2026-01-01 00:00:00", 100, 110, 95, 108, 1),  # bull (close>open)
-        ("2026-01-02 00:00:00", 109, 112, 95, 99,  1),  # bear closing < prev.open=100
-        # SHORT OB zone: [100, 112]
-    ])
-    # search_start for macro-FVG = 2026-01-02 + 24h = 2026-01-03 00:00
-
-    # ===== FVG-4h (macro): SHORT FVG в зоне OB-top =====
-    # SHORT FVG: c0.low > c2.high. Зона = [c2.high, c0.low].
-    # Должна overlap с [100, 112]. Возьмём [102, 108]: c0.low=108, c2.high=102.
-    # Размещаем после search_start.
-    df_4h_rows = []
-    # filler before search_start:
-    t = pd.Timestamp("2026-01-02 00:00:00", tz="UTC")
-    while t < pd.Timestamp("2026-01-03 00:00:00", tz="UTC"):
-        df_4h_rows.append((t.strftime("%Y-%m-%d %H:%M:%S"), 105, 107, 103, 106, 1))
-        t += pd.Timedelta(hours=4)
-    # SHORT FVG triple at 03 00:00, 04:00, 08:00
-    df_4h_rows.append(("2026-01-03 00:00:00", 107, 109, 108, 108, 1))  # c0: low=108
-    df_4h_rows.append(("2026-01-03 04:00:00", 106, 107, 105, 105, 1))  # c1
-    df_4h_rows.append(("2026-01-03 08:00:00", 103, 102, 100, 101, 1))  # c2: high=102
-    # FVG zone: [102, 108]. fvg.c2_time = 2026-01-03 08:00
-    df_4h = make_df(df_4h_rows)
-
-    # search_start for RDRB-1h = 2026-01-03 08:00 + 4h = 2026-01-03 12:00
-
-    # ===== RDRB-4 1h (htf): SHORT в зоне FVG-macro [102, 108] =====
-    # Используем шаблон из happy_short, c1.low=104, c4.high=105
-    # zone = [105, 104]? Нет: [c4.high, c1.low] = [105, 104] — bottom > top, ошибка.
-    # Перестраиваем: c1.low=106, c4.high=103 → zone=[103, 106]. Должно overlap с [102, 108]: да.
-    # Пересмотр SHORT условий с c1.low=106:
-    #   c1.low(106) > c2.low — c2.low < 106
-    #   c1.low(106) < c2.close — c2.close > 106
-    #   c2.low < c4.high — c2.low < 103
-    #   c3.close < c2.low — c3.close < c2.low
-    #   c1.low(106) > c4.high(103) ✓
-    # Возьмём c2.low=102, c2.close=107 (нужно o<=107, h>=107, l<=102).
-    # c3.close < 102: c3.close=98.
-    # c4.high=103, c4.low<103.
-    df_1h_rows = []
-    t = pd.Timestamp("2026-01-03 00:00:00", tz="UTC")
-    while t < pd.Timestamp("2026-01-03 12:00:00", tz="UTC"):
-        df_1h_rows.append((t.strftime("%Y-%m-%d %H:%M:%S"), 105, 106, 104, 105, 1))
-        t += pd.Timedelta(hours=1)
-    # RDRB-4: c1=12:00, c2=13:00, c3=14:00, c4=15:00
-    df_1h_rows.append(("2026-01-03 12:00:00", 108, 109, 106, 107, 1))  # c1: low=106
-    df_1h_rows.append(("2026-01-03 13:00:00", 107, 108, 102, 107, 1))  # c2: low=102, close=107
-    df_1h_rows.append(("2026-01-03 14:00:00", 100, 101,  95,  98, 1))  # c3: close=98 < 102
-    df_1h_rows.append(("2026-01-03 15:00:00",  99, 103,  97, 100, 1))  # c4: high=103
-    df_1h = make_df(df_1h_rows)
-
-    return df_1d, df_4h, df_1h
-
-
-def test_strategy_1_1_5_happy_short():
-    df_1d, df_4h, df_1h = _build_short_cascade()
     sigs = detect_strategy_1_1_5_signals(
-        df_1d=df_1d, df_12h=empty_df(),
-        df_4h=df_4h, df_6h=empty_df(),
-        df_1h=df_1h, df_2h=empty_df(),
+        df_1d, df_4h, empty_df(), df_1h, empty_df(), df_15m, empty_df(),
+        k_after=3,
     )
     assert len(sigs) == 1
     s = sigs[0]
     assert s["direction"] == "SHORT"
-    assert s["top_tf"] == "1d"
-    assert s["macro_tf"] == "4h"
-    assert s["htf_tf"] == "1h"
-    # Расширенная зона:
-    #   c4_body_high = max(c4.open=99, c4.close=100) = 100
-    #   bottom = max(c2.low=102, c4_body_high=100) = 102
-    #   top    = c1.low = 106
-    # Entry SHORT = bottom = 102
-    assert s["entry"] == 102
-    # SL = max(c1.high=109, c2.high=108) = 109
-    assert s["sl"] == 109
-    # risk = 109 - 102 = 7, tp = 102 - 7 = 95
-    assert s["risk"] == 7
-    assert s["tp"] == 95
-    assert RR == 1.0
+    assert s["fractal_type"] == "HH"
+    assert s["sweep_tf"] == "4h"
+    assert s["macro_ob_tf"] == "4h"
+    assert s["macro_ob_zone"] == (109.0, 110.5)
+    assert s["macro_ob_cur_is_sweep"] is False
+    assert s["ob_htf_tf"] == "1h"
+    assert s["ob_htf_prev_time"] == pd.Timestamp("2026-01-06 16:00", tz="UTC")
+    assert s["ob_htf_cur_time"] == pd.Timestamp("2026-01-06 17:00", tz="UTC")
+    assert s["ob_htf_zone"] == (109.5, 110.4)
+    assert s["fvg_entry_tf"] == "15m"
+    assert s["fvg_entry_zone"] == (109.8, 110.0)
+    assert s["signal_time"] == pd.Timestamp("2026-01-06 16:30", tz="UTC")
 
 
-def test_strategy_1_1_5_lookahead_rdrb_before_fvg_close_rejected():
-    """RDRB c1_time раньше чем fvg_macro.c2_time + macro_tf — пропуск."""
-    df_1d, df_4h, _df_1h_good = _build_short_cascade()
-    # RDRB сдвинут на 8 часов назад: c1=04:00 вместо 12:00.
-    # FVG c2_time=2026-01-03 08:00, search_start = 12:00. RDRB до search_start
-    # должен быть отброшен.
-    df_1h_rows = []
-    t = pd.Timestamp("2026-01-03 00:00:00", tz="UTC")
-    while t <= pd.Timestamp("2026-01-04 00:00:00", tz="UTC"):
-        df_1h_rows.append((t.strftime("%Y-%m-%d %H:%M:%S"), 105, 106, 104, 105, 1))
-        t += pd.Timedelta(hours=1)
-    # RDRB в early window (04:00 c1) — должен быть отброшен:
-    df_1h_rows[4] = ("2026-01-03 04:00:00", 108, 109, 106, 107, 1)
-    df_1h_rows[5] = ("2026-01-03 05:00:00", 107, 108, 102, 107, 1)
-    df_1h_rows[6] = ("2026-01-03 06:00:00", 100, 101,  95,  98, 1)
-    df_1h_rows[7] = ("2026-01-03 07:00:00",  99, 103,  97, 100, 1)
-    df_1h_lookahead = make_df(df_1h_rows)
+# ---------- Test 2: happy LONG — LL 1d → 6h sweep+OB → 2h OB + 20m FVG ----------
+
+def test_happy_long_full_funnel_6h_2h_20m():
+    df_1d = _df_1d_ll()
+    df_6h = make_df([
+        ("2026-02-06 00:00", 90,   92, 85, 88,   10),
+        ("2026-02-06 06:00", 88,   90, 78, 82,   10),  # SWEEP (low=78<80, close=82>80)
+        ("2026-02-06 12:00", 82,   84, 81, 80.5, 10),  # OB-macro prev — bearish
+        ("2026-02-06 18:00", 80.5, 84, 79, 83,   10),  # OB-macro cur  — bullish, close>prev.open
+    ])
+    # OB-macro LONG zone = [79, 82], cur=18:00, search_start_htf=2026-02-07 00:00
+    df_2h = make_df([
+        ("2026-02-07 00:00", 81, 81.2, 79.5, 80, 10),  # OB-htf prev — bearish
+        ("2026-02-07 02:00", 80, 82.5, 79.8, 82, 10),  # OB-htf cur  — bullish, close>prev.open
+    ])
+    # OB-2h LONG zone = [min(79.5, 79.8), 81] = [79.5, 81], overlap с [79, 82] ✓
+    # FVG-20m окно: [00:00, 02:00 + 100min = 03:40]
+    df_20m = make_df([
+        ("2026-02-07 02:00", 79.8, 80.0, 79.5, 80.0, 1),   # c0: high=80.0
+        ("2026-02-07 02:20", 80.0, 80.3, 79.7, 79.9, 1),   # c1
+        ("2026-02-07 02:40", 80.6, 81.0, 80.5, 80.8, 1),   # c2: low=80.5
+    ])
+    # FVG-20m LONG: high(c0)=80.0 < low(c2)=80.5 → zone [80.0, 80.5], overlap с [79.5, 81] ✓
 
     sigs = detect_strategy_1_1_5_signals(
-        df_1d=df_1d, df_12h=empty_df(),
-        df_4h=df_4h, df_6h=empty_df(),
-        df_1h=df_1h_lookahead, df_2h=empty_df(),
+        df_1d, empty_df(), df_6h, empty_df(), df_2h, empty_df(), df_20m,
+        k_after=3,
     )
-    # RDRB до search_start не должен пройти.
-    # Если в df больше нет валидных RDRB после 12:00 — sigs пустой.
-    assert len(sigs) == 0
+    assert len(sigs) == 1
+    s = sigs[0]
+    assert s["direction"] == "LONG"
+    assert s["sweep_tf"] == "6h"
+    assert s["macro_ob_tf"] == "6h"
+    assert s["macro_ob_zone"] == (79.0, 82.0)
+    assert s["ob_htf_tf"] == "2h"
+    assert s["ob_htf_zone"] == (79.5, 81.0)
+    assert s["fvg_entry_tf"] == "20m"
+    assert s["fvg_entry_zone"] == (80.0, 80.5)
 
 
-def test_strategy_1_1_5_no_overlap_rdrb_with_fvg_skipped():
-    """RDRB зона не overlap с FVG-macro → пропуск."""
-    df_1d, df_4h, _ = _build_short_cascade()
-    # RDRB далеко выше FVG (zone [103,106] vs RDRB zone выше). FVG zone=[102,108].
-    # Сделаем RDRB зону [200, 205] — не overlap.
-    df_1h_rows = []
-    t = pd.Timestamp("2026-01-03 00:00:00", tz="UTC")
-    while t < pd.Timestamp("2026-01-03 12:00:00", tz="UTC"):
-        df_1h_rows.append((t.strftime("%Y-%m-%d %H:%M:%S"), 202, 204, 201, 203, 1))
-        t += pd.Timedelta(hours=1)
-    df_1h_rows.append(("2026-01-03 12:00:00", 208, 209, 206, 207, 1))  # c1: low=206
-    df_1h_rows.append(("2026-01-03 13:00:00", 207, 208, 202, 207, 1))
-    df_1h_rows.append(("2026-01-03 14:00:00", 200, 201, 195, 198, 1))
-    df_1h_rows.append(("2026-01-03 15:00:00", 199, 203, 197, 200, 1))
-    df_1h_no_overlap = make_df(df_1h_rows)
+# ---------- Test 3: edge — первая касающаяся 4h-свеча пробивает фрактал ----------
+
+def test_first_touching_candle_breaks_level_yields_no_signal():
+    df_1d = _df_1d_hh()
+    df_4h = make_df([
+        ("2026-01-06 00:00", 100, 105, 99,  102, 10),
+        ("2026-01-06 04:00", 102, 112, 107, 111, 10),  # close=111 ≥ 110 → broken
+        ("2026-01-06 08:00", 111, 113, 110, 112, 10),
+    ])
 
     sigs = detect_strategy_1_1_5_signals(
-        df_1d=df_1d, df_12h=empty_df(),
-        df_4h=df_4h, df_6h=empty_df(),
-        df_1h=df_1h_no_overlap, df_2h=empty_df(),
+        df_1d, df_4h, empty_df(), empty_df(), empty_df(), empty_df(), empty_df(),
+        k_after=3,
     )
-    assert len(sigs) == 0
+    assert sigs == []
 
 
-def test_strategy_1_1_5_empty_inputs_no_crash():
+# ---------- Test 4: «особый случай» macro_ob_cur_is_sweep + полная воронка ----------
+
+def test_special_case_macro_ob_cur_is_sweep_with_full_funnel():
+    df_1d = _df_1d_hh()
+    df_4h = make_df([
+        # idx 0: prev OB-macro. Bullish (close=108>open=105). High=109 ≤ 110, не касается уровня.
+        ("2026-01-06 00:00", 105, 109, 104, 108, 10),
+        # idx 1: SWEEP + cur OB-macro одновременно. high=112>110, close=104<110, close<prev.open=105.
+        ("2026-01-06 04:00", 108, 112, 104, 104, 10),
+        ("2026-01-06 08:00", 104, 105, 103, 104, 10),  # filler
+    ])
+    # OB-macro SHORT zone = [105, max(109, 112)] = [105, 112]. cur=04:00, search_start_htf=08:00
+    df_1h = make_df([
+        ("2026-01-06 08:00", 106, 109,   105, 108,   10),  # OB-htf prev — bullish
+        ("2026-01-06 09:00", 108, 109.5, 104, 105,   10),  # OB-htf cur  — bearish, close<prev.open=106
+    ])
+    # OB-1h SHORT zone = [106, max(109, 109.5)] = [106, 109.5], overlap с [105, 112] ✓
+    df_15m = make_df([
+        ("2026-01-06 08:00", 108.5, 108.8, 109.0 - 0.0, 108.7, 1),  # c0: low=109.0 (через high поле — but compute manually)
+    ])
+    # упрощу: построю валидный SHORT FVG-15m в окне [08:00, 09:00 + 45min = 09:45]
+    df_15m = make_df([
+        ("2026-01-06 08:00", 108.7, 109.0, 108.5, 108.8, 1),  # c0: low=108.5
+        ("2026-01-06 08:15", 108.8, 108.9, 108.0, 108.2, 1),  # c1
+        ("2026-01-06 08:30", 108.0, 108.2, 107.5, 107.8, 1),  # c2: high=108.2
+    ])
+    # SHORT FVG-15m: low(c0)=108.5 > high(c2)=108.2 → zone [108.2, 108.5]. overlap с OB-1h [106, 109.5] ✓
+
     sigs = detect_strategy_1_1_5_signals(
-        df_1d=empty_df(), df_12h=empty_df(),
-        df_4h=empty_df(), df_6h=empty_df(),
-        df_1h=empty_df(), df_2h=empty_df(),
+        df_1d, df_4h, empty_df(), df_1h, empty_df(), df_15m, empty_df(),
+        k_after=3,
+    )
+    assert len(sigs) == 1
+    s = sigs[0]
+    assert s["direction"] == "SHORT"
+    assert s["sweep_time"] == pd.Timestamp("2026-01-06 04:00", tz="UTC")
+    assert s["macro_ob_prev_time"] == pd.Timestamp("2026-01-06 00:00", tz="UTC")
+    assert s["macro_ob_cur_time"] == pd.Timestamp("2026-01-06 04:00", tz="UTC")
+    assert s["macro_ob_zone"] == (105.0, 112.0)
+    assert s["macro_ob_cur_is_sweep"] is True
+    assert s["ob_htf_tf"] == "1h"
+    assert s["ob_htf_zone"] == (106.0, 109.5)
+    assert s["fvg_entry_tf"] == "15m"
+    assert s["fvg_entry_zone"] == (108.2, 108.5)
+
+
+# ---------- Test 5: edge — sweep валиден, но в [sweep, sweep+k_after] нет macro OB ----------
+
+def test_no_macro_ob_in_window_yields_no_signal():
+    df_1d = _df_1d_hh()
+    df_4h = make_df([
+        ("2026-01-06 00:00", 100, 105, 99,  102, 10),  # filler
+        ("2026-01-06 04:00", 102, 112, 107, 109, 10),  # SWEEP (bullish)
+        ("2026-01-06 08:00", 110, 110, 105, 105, 10),  # bearish, но close>prev.open=102 → не SHORT
+        ("2026-01-06 12:00", 104, 104, 100, 100, 10),  # bearish, prev bearish → не SHORT
+        ("2026-01-06 16:00", 99,  100, 95,  95,  10),  # bearish, prev bearish → не SHORT
+    ])
+
+    sigs = detect_strategy_1_1_5_signals(
+        df_1d, df_4h, empty_df(), empty_df(), empty_df(), empty_df(), empty_df(),
+        k_after=3,
+    )
+    assert sigs == []
+
+
+# ---------- Test 6: edge — macro OB найден, но нет 1h/2h OB+FVG entry → [] ----------
+
+def test_macro_ob_without_htf_fvg_yields_no_signal():
+    """4h sweep+OB валидны, но 1h/2h не дают OB+FVG в зоне → скип."""
+    df_1d = _df_1d_hh()
+    df_4h = make_df([
+        ("2026-01-06 00:00", 100, 105,   99,    102, 10),
+        ("2026-01-06 04:00", 102, 112,   107,   109, 10),
+        ("2026-01-06 08:00", 109, 110,   109,   110, 10),
+        ("2026-01-06 12:00", 110, 110.5, 107.5, 108, 10),
+    ])
+    # 1h без OB-pair: монотонные свечи (все bearish, нет prev bullish для SHORT OB)
+    df_1h = make_df([
+        ("2026-01-06 16:00", 110, 110.5, 109, 109.2, 10),
+        ("2026-01-06 17:00", 109, 109.5, 108, 108.2, 10),
+        ("2026-01-06 18:00", 108, 108.5, 107, 107.2, 10),
+    ])
+
+    sigs = detect_strategy_1_1_5_signals(
+        df_1d, df_4h, empty_df(), df_1h, empty_df(), empty_df(), empty_df(),
+        k_after=3,
+    )
+    assert sigs == []
+
+
+# ---------- Test 7: edge — 1d без фрактала i±2 ----------
+
+def test_no_fractal_yields_no_signal():
+    df_1d = make_df([
+        ("2026-01-01", 100, 110, 90,  105, 100),
+        ("2026-01-02", 105, 115, 95,  110, 100),
+        ("2026-01-03", 110, 120, 100, 115, 100),
+        ("2026-01-04", 115, 125, 105, 120, 100),
+        ("2026-01-05", 120, 130, 110, 125, 100),
+    ])
+
+    sigs = detect_strategy_1_1_5_signals(
+        df_1d, empty_df(), empty_df(), empty_df(), empty_df(), empty_df(), empty_df(),
+        k_after=3,
     )
     assert sigs == []

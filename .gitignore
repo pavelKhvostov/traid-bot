@@ -22,6 +22,12 @@ state/signals_today.json
 
 # Логи
 *.log
+
+# research/elements_study/output — большие CSV (94 MB), регенерируются скриптами
+# Исключения: финальный портфельный CSV и PDF-отчёт сессии 2026-05-11
+research/elements_study/output/*
+!research/elements_study/output/etap74_BFJK_fixed_portfolio.csv
+!research/elements_study/output/etap75_strategy_1_1_4_report.pdf
 # GSD locally-installed config (each developer installs separately)
 .claude/*
 # но project-specific агенты шарим через git
