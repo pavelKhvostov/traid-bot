@@ -1,0 +1,412 @@
+"""Этап 14: ПОЛНЫЙ grid search комбинаций элементов БЕЗ size-фильтра.
+
+Контекст: в etap_13 проверили — OB-small был ошибочным выбором.
+Без size-фильтра total return лучше (×7 частота при том же WR).
+Теперь пробегаем ВСЕ комбинации элементов на всех ТФ без size-preselection.
+
+Ограничения пользователя:
+- min SL = 1% от entry (фьючерсы)
+- WR >= 55% (фильтр финального report)
+- частота >= 0.5/неделю (~26/год)
+
+Анкоры (HTF zones, full size):
+  OB-{1d, 12h, 6h, 4h}, FVG-{1d, 12h, 6h, 4h}, RDRB-{1d, 12h, 4h}
+  = 11 anchors
+
+Триггеры (LTF zones):
+  OB-{2h, 1h}, FVG-{2h, 1h, 15m}, RDRB-{1h}
+  = 6 triggers
+
+Variations:
+  - pro-trend filter (close LTF vs EMA200 LTF): on / off
+  - RR: 1.0 / 1.5 / 2.0
+  - всегда: dedup first-LTF-per-anchor, min_sl=1%, SL_buf 0.3·ATR
+
+Vектoрная simulate на numpy (быстрее чем iterrows в ~50 раз).
+"""
+from __future__ import annotations
+
+import sys as _sys
+from pathlib import Path as _Path
+_ROOT = _Path(__file__).resolve()
+while not (_ROOT / "data_manager.py").exists():
+    _ROOT = _ROOT.parent
+if str(_ROOT) not in _sys.path:
+    _sys.path.insert(0, str(_ROOT))
+
+from itertools import product
+from pathlib import Path
+import time
+import numpy as np
+import pandas as pd
+
+from data_manager import load_df
+from strategies.strategy_1_1_1 import detect_ob_pair, detect_fvg
+
+SYMBOL = "BTCUSDT"
+START_DATE = "2020-01-01"
+RR_LIST = [1.0, 1.5, 2.0]
+MIN_SL_PCT = 1.0
+SL_BUF_ATR = 0.3
+RDRB_SL_BUF_ATR = 0.5
+
+# Сколько дней живёт зона по ТФ (timeout)
+TF_LIFE_DAYS = {"1d": 30, "12h": 14, "6h": 10, "4h": 5,
+                "2h": 3, "1h": 2, "15m": 1}
+
+OUT_DIR = Path("research/elements_study/output")
+OUT_DIR.mkdir(parents=True, exist_ok=True)
+
+ANCHOR_TFS = ["1d", "12h", "6h", "4h"]
+TRIGGER_TFS = ["2h", "1h", "15m"]
+ALL_TFS = sorted(set(ANCHOR_TFS + TRIGGER_TFS), key=lambda t: pd.Timedelta(t))
+
+# Какие kinds на каких TF собираем как зону
+ANCHOR_KINDS = {
+    "OB":   ["1d", "12h", "6h", "4h"],
+    "FVG":  ["1d", "12h", "6h", "4h"],
+    "RDRB": ["1d", "12h", "4h"],  # 6h RDRB слишком extreme variance (etap_3)
+}
+TRIGGER_KINDS = {
+    "OB":   ["2h", "1h"],
+    "FVG":  ["2h", "1h", "15m"],
+    "RDRB": ["1h"],
+}
+
+TF_ORDER = {"15m": 1, "1h": 2, "2h": 3, "4h": 4, "6h": 5, "12h": 6, "1d": 7}
+
+
+# ---------------- helpers ----------------
+
+def compute_atr(df, period=14):
+    high = df["high"]; low = df["low"]; pc = df["close"].shift(1)
+    tr = pd.concat([(high-low),(high-pc).abs(),(low-pc).abs()], axis=1).max(axis=1)
+    return tr.rolling(period).mean()
+
+
+def detect_rdrb(df, idx):
+    """RDRB: 3 свечи (a, m, c). Зона = пересечение фитилей с ограничением телами."""
+    if idx < 2:
+        return None
+    a = df.iloc[idx-2]; m = df.iloc[idx-1]; c = df.iloc[idx]
+    a_o, a_c, a_h, a_l = float(a["open"]), float(a["close"]), float(a["high"]), float(a["low"])
+    m_c = float(m["close"])
+    c_o, c_h, c_l, c_c = float(c["open"]), float(c["high"]), float(c["low"]), float(c["close"])
+    if m_c > a_h and c_l < a_h and c_c > a_h:
+        zb = max(c_l, max(a_o, a_c)); zt = min(a_h, min(c_o, c_c))
+        if zt <= zb:
+            return None
+        return ("LONG", zb, zt, c_l, c_h)
+    if m_c < a_l and c_h > a_l and c_c < a_l:
+        zb = max(a_l, max(c_o, c_c)); zt = min(c_h, min(a_o, a_c))
+        if zt <= zb:
+            return None
+        return ("SHORT", zb, zt, c_l, c_h)
+    return None
+
+
+# ---------------- vectorized simulate ----------------
+
+class FastSim:
+    """Хранит numpy arrays of 1m данных и делает быстрый first-hit."""
+    def __init__(self, df_1m):
+        self.ts = df_1m.index.values  # numpy datetime64
+        self.high = df_1m["high"].to_numpy(dtype=float)
+        self.low = df_1m["low"].to_numpy(dtype=float)
+
+    def simulate(self, direction, entry, sl, tp, start_time, timeout_days):
+        end_time = start_time + pd.Timedelta(days=timeout_days)
+        i0 = np.searchsorted(self.ts, np.datetime64(start_time.tz_localize(None) if start_time.tz else start_time))
+        i1 = np.searchsorted(self.ts, np.datetime64(end_time.tz_localize(None) if end_time.tz else end_time))
+        if i1 <= i0:
+            return ("no_data", 0.0)
+        h = self.high[i0:i1]
+        l = self.low[i0:i1]
+        if len(h) == 0:
+            return ("no_data", 0.0)
+        risk = abs(entry - sl)
+        if risk <= 0:
+            return ("invalid", 0.0)
+        if direction == "LONG":
+            act_mask = l <= entry
+            if not act_mask.any():
+                return ("not_filled", 0.0)
+            act_idx = int(np.argmax(act_mask))
+            h2 = h[act_idx:]; l2 = l[act_idx:]
+            sl_hits = l2 <= sl
+            tp_hits = h2 >= tp
+            sl_idx = int(np.argmax(sl_hits)) if sl_hits.any() else len(h2)
+            tp_idx = int(np.argmax(tp_hits)) if tp_hits.any() else len(h2)
+            if sl_idx == len(h2) and tp_idx == len(h2):
+                return ("open", 0.0)
+            if sl_idx <= tp_idx:  # same-bar = conservative loss
+                return ("loss", -1.0)
+            return ("win", (tp - entry) / risk)
+        else:  # SHORT
+            act_mask = h >= entry
+            if not act_mask.any():
+                return ("not_filled", 0.0)
+            act_idx = int(np.argmax(act_mask))
+            h2 = h[act_idx:]; l2 = l[act_idx:]
+            sl_hits = h2 >= sl
+            tp_hits = l2 <= tp
+            sl_idx = int(np.argmax(sl_hits)) if sl_hits.any() else len(h2)
+            tp_idx = int(np.argmax(tp_hits)) if tp_hits.any() else len(h2)
+            if sl_idx == len(h2) and tp_idx == len(h2):
+                return ("open", 0.0)
+            if sl_idx <= tp_idx:
+                return ("loss", -1.0)
+            return ("win", (entry - tp) / risk)
+
+
+# ---------------- zone collection ----------------
+
+def collect_zones(df, kind, atr_series, tf_label):
+    """Все zones типа kind на TF, БЕЗ size_filter."""
+    out = []
+    for idx in range(2, len(df) - 1):
+        if kind == "OB":
+            ob = detect_ob_pair(df, idx)
+            if ob is None:
+                continue
+            zb, zt, dirn = ob.bottom, ob.top, ob.direction
+            extra = {}
+            zone_time = ob.cur_time
+        elif kind == "FVG":
+            f = detect_fvg(df, idx)
+            if f is None:
+                continue
+            zb, zt, dirn = f.bottom, f.top, f.direction
+            extra = {}
+            zone_time = f.c2_time
+        elif kind == "RDRB":
+            r = detect_rdrb(df, idx)
+            if r is None:
+                continue
+            dirn, zb, zt, tlow, thigh = r
+            extra = {"trigger_low": tlow, "trigger_high": thigh}
+            zone_time = df.index[idx]
+        else:
+            continue
+        atr = float(atr_series.iloc[idx])
+        if pd.isna(atr) or atr <= 0:
+            continue
+        out.append({"kind": kind, "tf": tf_label, "direction": dirn,
+                    "bottom": zb, "top": zt, "atr": atr,
+                    "time": zone_time, "idx": idx, **extra})
+    return out
+
+
+# ---------------- setup builders ----------------
+
+def build_setup_from_trigger(trig, sl_buf, min_sl_pct, rr):
+    """Из trigger zone строим (entry, sl, tp). Возвращает None если risk<=0."""
+    entry = (trig["bottom"] + trig["top"]) / 2
+    atr = trig["atr"]
+    direction = trig["direction"]
+    if trig["kind"] == "RDRB":
+        if direction == "LONG":
+            atr_sl = trig["trigger_low"] - sl_buf * atr
+        else:
+            atr_sl = trig["trigger_high"] + sl_buf * atr
+    else:
+        if direction == "LONG":
+            atr_sl = trig["bottom"] - sl_buf * atr
+        else:
+            atr_sl = trig["top"] + sl_buf * atr
+    # min SL % constraint (фьючерсы)
+    min_dist = entry * min_sl_pct / 100
+    if direction == "LONG":
+        pct_sl = entry - min_dist
+        sl = min(atr_sl, pct_sl)
+    else:
+        pct_sl = entry + min_dist
+        sl = max(atr_sl, pct_sl)
+    risk = abs(entry - sl)
+    if risk <= 0:
+        return None
+    if direction == "LONG":
+        tp = entry + rr * risk
+    else:
+        tp = entry - rr * risk
+    return entry, sl, tp
+
+
+def zones_overlap(b1, t1, b2, t2):
+    return not (t1 < b2 or t2 < b1)
+
+
+# ---------------- main grid ----------------
+
+def main():
+    t0 = time.time()
+    print(f"[INFO] loading data START={START_DATE}")
+    dfs = {}
+    for tf in ALL_TFS:
+        df = load_df(SYMBOL, tf)
+        df = df[df.index >= pd.Timestamp(START_DATE, tz="UTC")].copy()
+        df["atr14"] = compute_atr(df, 14)
+        df["ema200"] = df["close"].ewm(span=200, adjust=False).mean()
+        dfs[tf] = df
+        print(f"  {tf}: {len(df)} bars, last={df.index[-1]}")
+    df_1m = load_df(SYMBOL, "1m")
+    df_1m = df_1m[df_1m.index >= pd.Timestamp(START_DATE, tz="UTC")]
+    print(f"  1m: {len(df_1m)} bars")
+    sim = FastSim(df_1m)
+    years = (dfs["1d"].index[-1] - dfs["1d"].index[0]).days / 365
+    print(f"  years coverage: {years:.2f}")
+
+    # ----- pre-collect zones -----
+    print("\n[INFO] collecting zones (no size filter)")
+    anchors = {}  # (kind, tf) -> list
+    for kind, tfs in ANCHOR_KINDS.items():
+        for tf in tfs:
+            zs = collect_zones(dfs[tf], kind, dfs[tf]["atr14"], tf)
+            anchors[(kind, tf)] = zs
+            print(f"  anchor {kind}-{tf}: {len(zs)}")
+    triggers = {}
+    for kind, tfs in TRIGGER_KINDS.items():
+        for tf in tfs:
+            zs = collect_zones(dfs[tf], kind, dfs[tf]["atr14"], tf)
+            triggers[(kind, tf)] = zs
+            print(f"  trigger {kind}-{tf}: {len(zs)}")
+    print(f"[TIME] zones collected in {time.time()-t0:.1f}s")
+
+    # ----- build all candidate combos -----
+    combos = []  # list of (name, anchor_key, trigger_key)
+    for a_key in anchors.keys():
+        a_kind, a_tf = a_key
+        for t_key in triggers.keys():
+            t_kind, t_tf = t_key
+            if TF_ORDER[a_tf] <= TF_ORDER[t_tf]:
+                continue
+            combos.append((a_key, t_key))
+    print(f"\n[INFO] valid pair combos: {len(combos)}")
+
+    # ----- evaluate each combo × RR × pro/all -----
+    results = []
+    for ci, (a_key, t_key) in enumerate(combos, 1):
+        a_kind, a_tf = a_key
+        t_kind, t_tf = t_key
+        a_list = anchors[a_key]
+        t_list = triggers[t_key]
+        if not a_list or not t_list:
+            continue
+
+        # Pre-build setup base list (anchor × first qualifying trigger, dedup):
+        # FIX: anchor confirmed at cur_close = cur_open + tf, NOT at cur_open.
+        # Триггеры в окне (cur_open, cur_close) использовали бы ещё-не-сформированный анкор.
+        a_tf_td = pd.Timedelta(a_tf)
+        a_life = pd.Timedelta(days=TF_LIFE_DAYS.get(a_tf, 5))
+        t_life = pd.Timedelta(days=TF_LIFE_DAYS.get(t_tf, 5))
+        df_t = dfs[t_tf]
+        ema_arr = df_t["ema200"].to_numpy()
+        close_arr = df_t["close"].to_numpy()
+
+        # For speed: sort triggers by time once
+        t_sorted = sorted(t_list, key=lambda x: x["time"])
+        base_setups = []
+        t_times = np.array([np.datetime64(t["time"].tz_localize(None) if t["time"].tz else t["time"])
+                             for t in t_sorted])
+        for a in a_list:
+            a_confirm = a["time"] + a_tf_td  # cur_close — момент когда анкор виден
+            a_start = a_confirm
+            a_end = a["time"] + a_life       # life отсчитывается от cur_open (как в etap_13)
+            if a_end <= a_start:
+                continue
+            # candidate trigger time range
+            i_start = np.searchsorted(t_times,
+                                       np.datetime64(a_start.tz_localize(None) if a_start.tz else a_start),
+                                       side="right")
+            i_end = np.searchsorted(t_times,
+                                     np.datetime64(a_end.tz_localize(None) if a_end.tz else a_end),
+                                     side="right")
+            for ti in range(i_start, i_end):
+                t = t_sorted[ti]
+                if t["direction"] != a["direction"]:
+                    continue
+                if not zones_overlap(t["bottom"], t["top"], a["bottom"], a["top"]):
+                    continue
+                # pro-trend filter feature (compute, decide later)
+                em = float(ema_arr[t["idx"]])
+                cl = float(close_arr[t["idx"]])
+                pro = ((t["direction"] == "LONG" and cl > em) or
+                       (t["direction"] == "SHORT" and cl < em))
+                base_setups.append({"trigger": t, "pro": pro})
+                break  # dedup: first qualifying LTF per anchor
+
+        if not base_setups:
+            continue
+
+        # For each (RR, filter) — evaluate
+        for rr in RR_LIST:
+            for filt_name, filt_pred in [("all", lambda s: True),
+                                           ("pro", lambda s: s["pro"])]:
+                rows_eval = []
+                for s in base_setups:
+                    if not filt_pred(s):
+                        continue
+                    trig = s["trigger"]
+                    sl_buf = RDRB_SL_BUF_ATR if trig["kind"] == "RDRB" else SL_BUF_ATR
+                    tup = build_setup_from_trigger(trig, sl_buf, MIN_SL_PCT, rr)
+                    if tup is None:
+                        continue
+                    entry, sl, tp = tup
+                    start = trig["time"] + pd.Timedelta(t_tf)
+                    outcome, R = sim.simulate(trig["direction"], entry, sl, tp,
+                                              start, TF_LIFE_DAYS.get(t_tf, 5))
+                    rows_eval.append({"outcome": outcome, "R": R})
+                if not rows_eval:
+                    continue
+                df_e = pd.DataFrame(rows_eval)
+                closed = df_e[df_e["outcome"].isin(["win", "loss"])]
+                nc = len(closed)
+                n_total = len(df_e)
+                if nc == 0:
+                    continue
+                w = (closed["outcome"] == "win").sum()
+                results.append({
+                    "anchor": f"{a_kind}-{a_tf}",
+                    "trigger": f"{t_kind}-{t_tf}",
+                    "filter": filt_name,
+                    "RR": rr,
+                    "n_total": n_total,
+                    "n_per_week": round(n_total / years / 52, 2),
+                    "n_closed": nc,
+                    "WR%": round(w / nc * 100, 1),
+                    "total_R": round(closed["R"].sum(), 1),
+                    "R/trade": round(closed["R"].mean(), 3),
+                })
+        if ci % 10 == 0 or ci == len(combos):
+            print(f"  [{ci}/{len(combos)}] {a_key} x {t_key} | elapsed={time.time()-t0:.0f}s")
+
+    summary = pd.DataFrame(results)
+    summary.to_csv(OUT_DIR / "etap14_full_grid.csv", index=False)
+    print(f"\n[TIME] total {time.time()-t0:.1f}s, candidates={len(summary)}")
+
+    # ----- reports -----
+    print("\n=== FILTER: WR>=55, n/week>=1 ===")
+    pass1 = summary[(summary["WR%"] >= 55) & (summary["n_per_week"] >= 1)]
+    if len(pass1):
+        print(pass1.sort_values("total_R", ascending=False).to_string(index=False))
+    else:
+        print("  (пусто)")
+
+    print("\n=== FILTER: WR>=55, n/week>=0.5 (top-25 by total_R) ===")
+    pass2 = summary[(summary["WR%"] >= 55) & (summary["n_per_week"] >= 0.5)]
+    if len(pass2):
+        print(pass2.sort_values("total_R", ascending=False).head(25).to_string(index=False))
+    else:
+        print("  (пусто)")
+
+    print("\n=== TOP-15 by R/trade (n/week>=0.5) ===")
+    rt = summary[summary["n_per_week"] >= 0.5]
+    if len(rt):
+        print(rt.sort_values("R/trade", ascending=False).head(15).to_string(index=False))
+
+    print("\n=== TOP-15 by total_R (любая частота) ===")
+    print(summary.sort_values("total_R", ascending=False).head(15).to_string(index=False))
+
+
+if __name__ == "__main__":
+    main()
