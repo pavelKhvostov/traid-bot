@@ -160,8 +160,13 @@ def money_flow_ha(df):
 # ===== Lookup helpers =====
 
 def safe_label_at(series, ts, default="na"):
-    """idx-1 lookup (last closed bar before signal)."""
-    idx = series.index.searchsorted(ts, side="right") - 1
+    """SAFE last-closed-bar lookup at ts.
+
+    FIX 2026-05-11: было `side="right"-1` (читало FORMING bar). Теперь
+    `side="left"-1` чтобы при ts=bar_open использовать БАР ВЫШЕ (last closed).
+    Класс pitfall: [[htf-lookup-must-use-last-closed-bar-not-forming]].
+    """
+    idx = series.index.searchsorted(ts, side="left") - 1
     if idx < 0 or idx >= len(series): return default
     v = series.iloc[idx]
     if pd.isna(v): return default

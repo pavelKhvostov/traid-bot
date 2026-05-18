@@ -41,11 +41,15 @@ HISTORY_DAYS = 30
 # TV нет публичного WS → используем периодический REST-style fetch.
 TV_REFRESH_INTERVAL_SEC = 30 * 60
 
-# Защита от устаревших сигналов: если signal_time старше N часов от
-# текущего момента — не отправляем, помечаем как stale и кладём в дедуп.
-# Это страхует от случаев когда prefill_silent пропустил часть истории
-# и detector находит её спустя долго (вылезающие старые сигналы по одному).
-MAX_SIGNAL_AGE_HOURS = 2
+# Фильтр "current hour only": сигнал отправляется только если его entry
+# FVG c2 закрылся в текущем 1h окне. c2_close = c2_open + tf_duration.
+# Окно валидности: (current_hour_close - 1h, current_hour_close].
+# Это страхует от:
+#   - устаревших сигналов из предыдущих часов (старая логика MAX=2h
+#     пропускала сигналы с age 1.5h — это уже прошлый час)
+#   - случаев когда prefill_silent пропустил часть истории и detector
+#     находит её спустя долго (вылезающие старые сигналы по одному).
+FVG_TF_MINUTES = {"15m": 15, "20m": 20, "1h": 60, "2h": 120}
 
 
 class Strategy111Scanner:
@@ -140,6 +144,10 @@ class Strategy111Scanner:
             log_event("ERROR", f"s111 detect {symbol}: {e!r}")
             return
 
+        # Фильтр "current hour only": см. док FVG_TF_MINUTES.
+        current_hour_close = pd.Timestamp.now(tz="UTC").floor("h")
+        prev_hour_close = current_hour_close - pd.Timedelta(hours=1)
+
         for sig in signals:
             key = self._dedup_key(symbol, sig)
             if was_sent(key):
@@ -149,18 +157,24 @@ class Strategy111Scanner:
             if sig_time.tz is None:
                 sig_time = sig_time.tz_localize("UTC")
 
-            # Защита от устаревших сигналов — глушим тихо в дедуп.
-            age = pd.Timestamp.now(tz="UTC") - sig_time
-            if age > pd.Timedelta(hours=MAX_SIGNAL_AGE_HOURS):
+            # Вычисляем c2_close сигнала (момент когда entry FVG стал актуален).
+            fvg_tf = sig.get("fvg_tf", "15m")
+            tf_min = FVG_TF_MINUTES.get(fvg_tf, 15)
+            signal_close = sig_time + pd.Timedelta(minutes=tf_min)
+
+            # Защита от устаревших сигналов — только current hour.
+            if not (prev_hour_close < signal_close <= current_hour_close):
                 mark_sent(key, {
-                    "stale": True,
+                    "stale_outside_current_hour": True,
                     "signal_time": sig_time.isoformat(),
-                    "age_hours": round(age.total_seconds() / 3600, 1),
+                    "signal_close": signal_close.isoformat(),
+                    "current_hour_close": current_hour_close.isoformat(),
                 })
                 log_event(
                     "INFO",
-                    f"S111 {symbol} {sig['direction']} stale (age "
-                    f"{age.total_seconds() / 3600:.1f}h) — silenced",
+                    f"S111 {symbol} {sig['direction']} "
+                    f"c2_close={signal_close.strftime('%Y-%m-%d %H:%M')} "
+                    f"not in current hour — silenced",
                 )
                 continue
 

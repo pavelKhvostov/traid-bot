@@ -75,10 +75,39 @@ IF 50% <= baseline_WR < 60%:
 Это не «floating exit», это «conditional TP extension». Работает для high-WR
 если хочется захватывать редкие большие движения, не разрушая baseline.
 
+## Refinement 2026-05-17 — counter-trend exclusion не абсолютен
+
+Wicked OB-D — counter-trend strategy. На V2 (3-stage) floating TP **режет
+edge** (-22 до -42R на всех фильтрах). На A2 (4-stage 1.1.1-style cascade)
+floating TP **работает** (+14% PnL: +36 → +40.9R).
+
+См. [[strategy-wicked-fractal-ob-d-btc-only]]:
+- V2 baseline WR 36.9% (counter-trend, 3-stage) → floating fails
+- A2 baseline WR 50.7% (4-stage с macro-FVG) → floating works modestly
+
+**Уточнение правила**: counter-trend exclusion применим к чистым 3-stage
+counter-trend стратегиям. Когда добавляется macro-trend filter (FVG/OB
+на 4h+), стратегия перестаёт быть полностью counter-trend и floating
+снова применим. Borderline WR 50-55% — пограничная зона, тест per-strategy.
+
+## Refinement 2026-05-17 #2 — floating не создаёт edge с нуля
+
+Cross-symbol тест A2 wicked OB-D (etap_134):
+- ETH LONG baseline +5R / WR 37.5% → +floating: +31.9R / WR 35.0% / **R/tr +0.80** (×6.4 boost) ✓
+- SOL LONG baseline -1R / WR 32.5% → +floating: -1.5R / WR 17.5% (хуже) ✗
+
+SOL имеет WR<50% (continuation profile) и macro-trend filter (FVG-4h/6h),
+по правилу floating должен работать. Но **не работает** — baseline уже
+негативный. Floating amplifies existing edge, не создаёт его с нуля.
+
+**Доп. условие**: baseline_PnL > 0 (или R/tr > 0). Если базовая стратегия
+убыточна, floating сделает её ещё хуже.
+
 ## Связи
 
 - [[4-indicator-momentum-score]]
 - [[strategy-1-1-1-floating-tp-final]]
 - [[strategy-1-1-2-floating-tp-final]]
 - [[strategy-1-1-4-floating-tp-not-applicable]]
+- [[strategy-wicked-fractal-ob-d-btc-only]]
 - [[2026-05-15-floating-tp-multi-symbol-c2-trendfilter]]

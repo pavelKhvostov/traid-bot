@@ -128,10 +128,20 @@ def was_sent(key: str) -> bool:
     return key in load_sent_signals()
 
 
+# Thread-lock для предотвращения race condition при concurrent mark_sent.
+# 4 live-сканера запускают on_closed_1h через asyncio.to_thread → может
+# быть одновременная запись в state/sent_signals.json. Без lock возможна
+# потеря записей (load → modify → save с race window).
+import threading as _threading
+_SENT_LOCK = _threading.Lock()
+
+
 def mark_sent(key: str, payload: dict) -> None:
-    d = load_sent_signals()
-    d[key] = payload
-    save_sent_signals(d)
+    """Thread-safe mark sent. Защищает от concurrent writes 4 сканеров."""
+    with _SENT_LOCK:
+        d = load_sent_signals()
+        d[key] = payload
+        save_sent_signals(d)
 
 
 # ---- last signal ----

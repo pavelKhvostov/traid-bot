@@ -10,16 +10,31 @@ Telegram-бот, который параллельно прогоняет нес
 
 ## Стратегии
 
-### Live (8) — все используют `STRATEGY_TFS = ["12h","1d","2d","3d"]`, confirm 1h
+### Live (4) — multi-TF nested OB+FVG cascade семейство, confirm 1h
 
-- **OBX4** ⚡        — 5-свечная цепочка с FVG на c3-c5
-- **FVG** 〰️         — сырая FVG как зона старшего ТФ
-- **OB_HTF** 📦      — OB старшего ТФ + обязательный фильтр FVG-4h
-- **RDRB** ↩️        — пересечение фитилей с ограничением телами
-- **FRACTAL** ❄️     — LL/HH фрактал → свеча-снятие
-- **HAMMER** 🔨      — молот + LL/HH-фрактал + OB-связка
-- **MARUBOZU** 🟩    — тело ≥ 95% диапазона
-- **VIC_EVOT** 🎯    — отдельный сканер VicScanner, см. [[архитектура vic-evot]]
+- **Strategy 1.1.1** 🔬 (с confluence BTC1!/TOTALES/USDT.D)
+  - OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} (SWEPT) + FVG-{15m,20m}
+  - entry=0.80, sl=0.35 sym, RR=2.2, SWEPT ON
+  - `strategy_1_1_1_scanner.py` (отдельный со своим WS + tv_refresh)
+- **Strategy 1.1.2** 🔬 (без confluence)
+  - OB-{1d,12h} + OB-{4h,6h} → OB-{1h,2h} + FVG-{15m,20m}
+  - entry=0.70, sl=0.35 sym, RR=2.2
+  - `multi_strategy_scanner.MultiStrategyScanner` с S112
+- **Strategy 1.1.3** 🔬 (без confluence)
+  - OB-{1d,12h} + OB-{4h,6h} → OB-{1h,2h} + FVG того же ТФ (1h/2h)
+  - entry=0.70, sl=0.35 sym, RR=2.2, macro_mode=untouched
+  - `multi_strategy_scanner.MultiStrategyScanner` с S113
+- **Strategy 1.1.6** 🔬 (без confluence, NEW 2026-05-13)
+  - OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} + FVG того же ТФ (1h/2h)
+  - Гибрид: macro как в 1.1.1 (FVG-4h/6h), entry как в 1.1.3 (immediate FVG-htf)
+  - entry=0.70, sl=0.35 sym, RR=2.2
+  - `multi_strategy_scanner.MultiStrategyScanner` с S116
+
+### Disabled — в коде, но не запускаются
+
+- **OBX4** ⚡, **FVG** 〰️, **OB_HTF** 📦, **RDRB** ↩️, **FRACTAL** ❄️,
+  **HAMMER** 🔨, **MARUBOZU** 🟩 — старые "STRATEGY_TFS" семейство, отключены
+- **VIC_EVOT** 🎯, **VIC_BOS** — VIC семейство, отключено
 
 ### Backtest-only — в live не интегрированы
 

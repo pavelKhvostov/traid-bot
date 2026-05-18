@@ -22,6 +22,10 @@ date: 2026-04-29
 - [[strategy-1-1-1-floating-tp-final]] — per-symbol config: BTC/ETH 4.5/-0.25/2, SOL 3.5/0/1 → +35% PnL
 - [[strategy-1-1-2-floating-tp-final]] — universal 4.5/0/2 → +31% PnL
 - [[strategy-1-1-4-floating-tp-not-applicable]] — 1.1.4 high-WR не любит floating
+- [[strategy-1-1-5-multipath-floating-tp]] — 1.1.5 multi-path + F6 + floating: +31R на 24 trades (research only, канон лучше)
+- [[strategy-wicked-fractal-ob-d-btc-only]] — Wicked+Fractal OB-D: **7 OOS-validated variants** — B (146/+80R/0 bad), C (513/+129R/1 flat-bad), **H (461/+149.9R/best PnL)**, E (159/+91.6R), F (Asia 150/+60.7R), D (68/+48.8R/best R/tr), Tier-1 (22 BTC, OOS WR 88.9%)
+- [[что такое snr]] — Support aNd Resistance, классический S/R концепт (НЕ в книге ICT)
+- [[2026-05-18-wicked-ob-variants-rdrb-snr]] — session с полным семейством wicked OB + RDRB зоны V1/V2/V3 + SnR
 - [[c2-ema-or-hull6h-trend-filter-winner]] — per-symbol: BTC/SOL OR, ETH AND
 - [[etap-42-instant-fill-3-7x-inflation]] — pitfall execution model
 - [[multi-shot-detector-2.3x-inflation]] — pitfall duplicate counting
