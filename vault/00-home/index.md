@@ -14,16 +14,34 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
-## Стратегии (по одной заметке на каждую)
+## Свежее (2026-05-15) — Floating TP framework, multi-symbol audit, C2 trend filter
 
-- [[s1 obx4 + ob1h]] — OBx4-цепочка из 5 свечей → подтверждение 1h.
-- [[s2 ob htf + ob1h]] — OB на старшем ТФ + обязательный фильтр FVG 4h.
-- [[s3 rdrb + ob1h]] — RDRB-зона (пересечение фитилей с ограничением телами).
-- [[s4 снятие фрактала]] — LL/HH-фрактал → свеча-снятие → подтверждение 1h.
-- [[s5 fvg + ob1h]] — сырая FVG как зона старшего ТФ.
-- [[hammer молот плюс фрактал плюс ob]] — молот + LL/HH-фрактал + OB-связка одновременно.
-- [[marubozu тело 95 процентов]] — одна свеча с телом ≥ 95% диапазона.
-- [[vic_evot]] — уровень maxV(D-1) + LL/HH-фрактал + FVG, подтверждение **на 15m** (а не 1h).
+См. [[2026-05-15-floating-tp-multi-symbol-c2-trendfilter]] — большая сессия:
+- [[4-indicator-momentum-score]] — Hull + MH + RSI + ASVK композитный score
+- [[floating-tp-only-helps-low-wr-strategies]] — главный эмпирический закон
+- [[strategy-1-1-1-floating-tp-final]] — per-symbol config: BTC/ETH 4.5/-0.25/2, SOL 3.5/0/1 → +35% PnL
+- [[strategy-1-1-2-floating-tp-final]] — universal 4.5/0/2 → +31% PnL
+- [[strategy-1-1-4-floating-tp-not-applicable]] — 1.1.4 high-WR не любит floating
+- [[c2-ema-or-hull6h-trend-filter-winner]] — per-symbol: BTC/SOL OR, ETH AND
+- [[etap-42-instant-fill-3-7x-inflation]] — pitfall execution model
+- [[multi-shot-detector-2.3x-inflation]] — pitfall duplicate counting
+
+## Live стратегии (с 2026-05-13)
+
+В live запущены 4 параллельных сканера через `asyncio.gather` в `main.py`:
+
+- **Strategy 1.1.1** (с confluence): OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} (SWEPT) + FVG-{15m,20m}. entry=0.80, sl=0.35 sym, RR=2.2. См. [[strategy_1_1_1]].
+- **Strategy 1.1.2**: OB-{1d,12h} + OB-{4h,6h} → OB-{1h,2h} + FVG-{15m,20m}. entry=0.70, sl=0.35 sym, RR=2.2. `research/1_1_2/`.
+- **Strategy 1.1.3**: OB-{1d,12h} + OB-{4h,6h} → OB-{1h,2h} + FVG того же ТФ. macro_mode=untouched. entry=0.70, sl=0.35 sym, RR=2.2.
+- **Strategy 1.1.6** (NEW гибрид, см. [[strategy-1-1-6-fvg-macro-immediate-htf-fvg]]): OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} + FVG того же ТФ. entry=0.70, sl=0.35, RR=2.2.
+
+См. [[2026-05-13-live-bot-vic-ifvg-strategies-117-118]] — добавление в live.
+
+## Disabled live стратегии (в коде, не запущены)
+
+- [[s1 obx4 + ob1h]], [[s2 ob htf + ob1h]], [[s3 rdrb + ob1h]], [[s4 снятие фрактала]],
+  [[s5 fvg + ob1h]], [[hammer молот плюс фрактал плюс ob]], [[marubozu тело 95 процентов]] — old STRATEGY_TFS family
+- [[vic_evot]] — VIC level + LL/HH-fractal + FVG на 15m
 
 ## Backtest-only стратегии (не в live)
 
@@ -35,10 +53,9 @@ date: 2026-04-29
 - **Strategy 1.1.3** — entry FVG того же ТФ что OB-htf. Слабее 1.1.1: stage3 @ RR=2.2 +11.4R. Файлы: `research/1_1_3/`.
 - **Strategy 1.1.4** — мульти-цепочечный каскад FVG-d/12h → OB-4h/6h → OB-1h/2h → FVG-15m/20m. **Portfolio B+F+J+K (2026-05-11)**: WR 64.3%, +107R, +0.93R/trade, 6.3y, 0 bad years 2020-2024+2026 (2025 bad). См. [[strategy-1-1-4-bfjk-portfolio]]. Файлы: `research/elements_study/etap_74_*` + `research/1_1_4/`.
 - **Strategy 1.1.5** — 1d-фрактал → 4h/6h sweep+OB в окне `[sweep, sweep+k]` → 1h/2h OB + 15m/20m FVG. Только детектор зон, бэктест-обвязка TBD.
+- [[strategy-1-1-7-ifvg-continuation]] — iFVG (4h) → OB-1h → FVG-15m, continuation in B direction. V2c RR=2.5: WR 39.4%, +37.5R, **0 bad years** (BTC 2024-2026). С age>=5 filter: +0.46R/trade. Prototype, not approved.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning. Файлы: `research/1_2_0/`.
 - **Strategy 3.2** — FVG-4h → 2 свечи rejection → FVG-1h в 8h окне. Entry=mid FVG-1h, SL=c0(low/high), RR=1. 3y BTC: 245 closed, WR 55.1%, +25R.
-- [[strategy_1_1_6]] — параллельная ветка с инвертированным каскадом FVG-OB-FVG (top-FVG+macro-OB+htf-FVG). 3y BTC raw RR=1: WR 33%, −5R на 15 closed (после lookahead-fix). В live НЕ добавлена. Файлы: `research/1_1_6/`.
-- [[strategy_1_1_7]] — **fractal-sweep**: 4h FL/FH-фрактал → sweep → 8h окно stayed_fractal → 1h confirmation → OB-{1h,2h} внутри POI до invalidation → FVG-{15m,20m}. 3y BTC raw RR=1.0: 220 deduped, 76 closed, WR 52.6%, +4R, R/tr +0.053. LONG +5R / SHORT −1R. Research-only. Файлы: `research/1_1_7/`.
 
 ## Research-стенд
 
@@ -53,12 +70,14 @@ date: 2026-04-29
 - [[asvk-custom-rsi]] — авторский Pine: amplified RSI + адаптивные OB/OS + NWE-канал + 4 типа дивергенций. Python-реализация в `research/asvk_rsi/`.
 - [[money-hands-asvk]] — авторский Pine: WaveTrend bw2 + цветовая state machine + HA Money Flow + двойной Stochastic + дивергенции. Python-реализация в `research/money_hands/`.
 - [[asvk-trend-line-hull]] — авторский Pine: Hull MA в 3 модах (HMA/EHMA/THMA) с 2-bar shift band и trend-coloring. Default len=49·1.6=78. Python-реализация в `research/asvk_trend_line/`.
+- [[vic-asvk-indicator-python]] — Volume in Candle (ViC ASVK). LTF auto-select по Pine формуле (D=15m, 1h=1m). Сверка с TV exact. См. [[vic-asvk-as-filter-for-cascade-strategies]] — фильтр |maxV-1d|>1 ATR даёт +6pp WR на 1.1.4 BFJK.
 
 ## SMC-примитивы
 
 - [[универсальные определения OB и FVG]] — **canon формулы** зон, применимы во всех стратегиях.
 - [[что такое order block]] — пара (prev, cur), формула зоны для LONG/SHORT.
 - [[что такое fvg]] — Fair Value Gap, тройка свечей.
+- [[inverse-fvg-definition]] — iFVG: FVG противоположного направления, чьи свечи ПЕРВЫМИ перекрывают untouched зону предыдущей FVG. Маркирует Break of Structure через volume imbalance. 31 iFVG / 48 дней BTC 1h.
 - [[что такое rdrb]] — ложный пробой с возвратом, 3 свечи.
 - [[что такое обx4 цепочка]] — 5 свечей с чередованием + FVG c3-c5.
 - [[фракталы билла уильямса]] — i±2.
@@ -93,6 +112,8 @@ date: 2026-04-29
 - [[allow-multi-несколько-сетапов-на-одну-l1]] — design decision: до 5 каскадов на одну макрозону. WR растёт с allow_multi (повторные retest качественнее первых).
 - [[fvg-12h-сильнее-fvg-1d-как-макро-якорь]] — эмпирическая находка: 12h как L1 даёт 2× больше валидных зон и +62% к total R vs 1d.
 - [[3-stage-цепочки-системно-хуже-4-stage]] — пропуск среднего OB в каскаде роняет WR на 10-15pp и резко ухудшает bad-year профиль.
+- [[ifvg-7-concepts-tested]] — 7 концепций iFVG. Работает: continuation (1.1.7), age filter, breakout no-retest. Не работает: failed iFVG fade, regime detector. Сюрприз: iFVG-against на 1.1.4 = POSITIVE сигнал (WR 75% n=16).
+- [[vic-asvk-as-filter-for-cascade-strategies]] — ViC forensic на 1.1.4 BFJK: |maxV-1d|>1 ATR-1h даёт +6pp WR.
 
 ## Research-стенд элементов
 
@@ -114,8 +135,7 @@ date: 2026-04-29
 - [[2026-05-08-validation-data-gap-fix-c2-winner]] — большая validation-сессия. 480-day data gap fix (2022 пропадал!), C2 новый #1 winner (+70R, 0 bad years), Strategy 1.1.1 не оправдалась в honest audit (+20R / RR≥1.5 отрицательный). 2 новых pitfall.
 - [[2026-05-08-strategy-111-forensic-indicator-filters]] — forensic 262 trades 1.1.1 × 14 features. Топ-edges: Hull-4h (+13.6pp), HA-MF sign (+9.8pp), DO-discount (+7.3pp). Filter спасает RR=1.5 в +R, но frequency 0.29/wk остаётся ниже C2.
 - [[2026-05-11-strategy-114-bfjk-portfolio-bug-audit]] — большая ресёрч-сессия по 1.1.4. 10 этапов (etap_66..75). Survey 18 цепочек, allow_multi, портфельные комбо, forensic audit. Найден критический баг [[l3-не-фильтровался-против-l1-invalidation]] (13% сетапов на мёртвой L1, WR 21%). Финал: portfolio B+F+J+K — WR 64.3%, +107R, +0.93R/trade.
-- [[2026-05-06-strategy-1-1-6-первый-прогон]] — реализована 1.1.6 (FVG-top + OB-macro + FVG-htf). Найден lookahead в `find_first_fvg_htf_in_zone` (htf-search стартовал до закрытия cur macro-OB). После fix'а: WR 33%, −5R на 15 closed. В live не добавлена.
-- [[2026-05-12-strategy-1-1-7-fractal-sweep]] — новая 1.1.7 с fractal-sweep top. Discovery process v1-v5 закрепа/инвалидации (закреп и инвалидация на ПРОТИВОПОЛОЖНЫХ границах POI). 3y raw RR=1: 220 deduped, 76 closed, WR 52.6%, +4R. Research-only.
+- [[2026-05-13-live-bot-vic-ifvg-strategies-117-118]] — большая сессия: добавлены 3 новых live-сканера (1.1.2/1.1.3/1.1.6), исправлены 2 критических live-бага (current-hour filter, mark_sent race), реализован ViC ASVK Python (сверка с TV точная), изучена iFVG концепция (31 events / 48d), создан прототип [[strategy-1-1-7-ifvg-continuation]] (+37.5R / 2.3y / 0 bad), протестированы 7 концепций iFVG.
 
 ## Debugging
 
@@ -130,11 +150,11 @@ date: 2026-04-29
 - [[confluence-lookahead-and-rr22-bugs]] — 2 бага в analyze-скриптах создавали иллюзию edge от Triple confluence (WR 71% → реальные 41%).
 - [[2022-1m-data-gap-symptom-year-missing]] — 480 дней (2022-01-01..2023-04-26) отсутствовали в `data/BTCUSDT_1m.csv`. Год пропадал из year-by-year breakdown — выглядело как «no setups», было data gap.
 - [[multi-bar-pattern-confirm-vs-trigger-lookahead]] — для multi-bar patterns entry должен быть на confirm_idx (после waiting period), не на trigger_idx. RDRB+ filter показывал +14pp WR из-за этого peek-in-future.
+- [[multi-scanner-current-hour-filter]] — live-сканеры использовали `age > 2h` против c2_OPEN, что пропускало сигналы из ПРЕДЫДУЩИХ часов и блокировало свежие 2h FVG из-за WS delay. Fix: проверять c2_CLOSE в `(now.floor('h')-1h, now.floor('h')]`.
+- [[mark-sent-race-condition-4-scanners]] — `state.mark_sent()` без `threading.Lock` при 4 concurrent сканерах через `asyncio.to_thread`. Риск потери записей в `sent_signals.json`. Fix: добавлен Lock.
 - [[lookahead-anchor-confirm-окно-cur_open-cur_close]] — anchor зона использовалась с `cur_open` вместо `cur_close + tf`. Edge испарился после fix (WR 67-77% → 26-49%).
 - [[htf-lookup-must-use-last-closed-bar-not-forming]] — HTF lookup в LTF-стратегии читал FORMING bar's close (etap_36 hull_1d filter). Inflation +35R/53%. Правильно: использовать `idx - 1` (last closed bar).
 - [[l3-не-фильтровался-против-l1-invalidation]] — в каскаде 1.1.4 проверка инвалидации макрозоны была только на L2; L3/L4 могли формироваться после смерти L1. 13% сетапов на «мёртвых» зонах с WR 21.1%, total -7R. Правило: при многоуровневом каскаде с TTL — проверка валидности на КАЖДОМ уровне.
-- [[strategy-1-1-6-look-ahead-macro-htf]] — 1.1.6 htf-search стартовал с `+htf_hours` вместо `+macro_hours`. Брат-близнец 1.1.1 +15min bug, тот же класс ошибки на другом уровне каскада.
-- [[fractal-sweep-confirmation-vs-invalidation-borders]] — 1.1.7: confirmation и invalidation POI ОБЯЗАНЫ быть на противоположных границах зоны. Иначе детектор отсекает 99% валидных цепочек.
 
 ## Планы и процесс
 

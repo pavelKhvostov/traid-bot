@@ -18,7 +18,7 @@ import pandas as pd
 from data_manager import compose_from_base, load_df
 from strategies.strategy_1_1_7 import RR, detect_strategy_1_1_7_signals
 
-DAYS_BACK = 1095
+DAYS_BACK = 2310  # ~6.33y (2020-01-01 .. 2026-05-07), как у Андрея на 1.1.1/1.1.4
 SYMBOL = "BTCUSDT"
 OUTPUT = Path("signals/backtest_strategy_1_1_7.csv")
 

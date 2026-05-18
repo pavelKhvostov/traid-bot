@@ -15,6 +15,35 @@ status: living-document
 
 ---
 
+### Instant-fill simulator завышает PnL в 3-7×
+
+Что было: etap_42 PDF использовал `simulate_fixed_rr` без ожидания касания
+entry — trade фейерится мгновенно по signal_time + tf_min независимо от
+текущей цены. Числа +168R BTC (etap_42 reference) → реально +42R (×4).
+Симптом: PDF числа выглядят слишком хорошо vs другие симуляторы.
+Reproduce: instant baseline 165R / limit baseline 41R → ×4 inflation.
+Inflation factor: BTC ×4.0 / ETH ×3.3 / SOL ×4.6.
+Правило избегания: backtest simulator ОБЯЗАН ждать касания entry
+(limit-fill) или использовать market-at-close с пересчётом R. instant-fill
+OK только для screening relative comparison, НИКОГДА для абсолютных
+live-expectations. Любой WR > 60% — first candidate проверки exec model.
+Источник: [[etap-42-instant-fill-3-7x-inflation]]
+
+### Multi-shot detector добавляет 1.7-2.3× duplicate inflation
+
+Что было: multi-shot framework (etap_98 для 1.1.1, etap_109 для 1.1.2)
+собирает все (OB-htf, entry-FVG) пары в зоне. Без дедупа `(signal_time,
+direction, entry)` число trades завышено ×1.7-2.3 от реальной торговли.
+Симптом: 1.1.2 BTC 6.34y multi-shot baseline +726R на 2157 closed →
+после дедупа 968 unique → +315R (×2.3 inflation).
+Reproduce: один top-OB содержит 5-15 macro-OB кандидатов, многие
+производят тот же (signal_time, entry) → дубли (max 14× на один entry).
+Правило избегания: при сравнении multi-shot PnL с canonical numbers
+из CLAUDE.md — учитывать factor. Multi-shot OK для relative
+baseline-vs-floating comparison (oба используют ту же выборку). Для
+абсолютных live-expectations — применить дедуп.
+Источник: [[multi-shot-detector-2.3x-inflation]]
+
 ### Lookahead в backtest от open() текущей свечи
 
 Что было: `signal_time = open(i+2)` — scan 1m начинался от open бара i+2.
@@ -227,6 +256,30 @@ SL/TP отсчитываются от него. Сравнение `lookahead vs
 для multi-bar patterns. На LTF (1h-4h) edge таких фильтров обычно
 полностью пропадает; real edge остаётся только на HTF (12h-1d).
 Источник: [[multi-bar-pattern-confirm-vs-trigger-lookahead]]
+
+### Live-сканер пропускал сигналы из предыдущих часов (MAX_SIGNAL_AGE_HOURS=2)
+
+Что было: live-сканеры использовали `age = now - signal_time` против `MAX_SIGNAL_AGE_HOURS=2`,
+но `signal_time = fvg_entry.c2_time` это OPEN бара, не CLOSE. Для 2h FVG свежий сигнал
+имеет age=2h на момент 1h close. WS delay 100ms → age=2h+ε → silenced.
+Симптом: 2h FVG сетапы систематически блокировались. 15m FVG из ПРЕДЫДУЩЕГО часа
+(c2_close=12:30 при 1h close 14:00, age=1.75h) проходили — слали "stale" сигналы.
+Причина: age по c2_OPEN не соответствует фактической freshness; диапазон 2h слишком широк.
+Правило избегания: для "current hour only" фильтра использовать `c2_CLOSE = signal_time
++ tf_duration` и проверять `(now.floor('h') - 1h, now.floor('h')]`. Не использовать
+`MAX_SIGNAL_AGE_HOURS` как окно — оно охватывает несколько часов.
+Источник: [[multi-scanner-current-hour-filter]]
+
+### mark_sent race condition при concurrent live-сканерах
+
+Что было: `state.mark_sent()` делал read-modify-write на `state/sent_signals.json`
+без thread lock. При 4 live-сканерах (1.1.1 + 1.1.2 + 1.1.3 + 1.1.6) запускаемых через
+`asyncio.to_thread`, на 1h boundary возможны 12+ concurrent calls.
+Симптом: потенциальная потеря записей в JSON, повторные рассылки одного сигнала.
+Причина: ThreadPool в asyncio.to_thread позволяет parallel execution, JSON-файл не atomic.
+Правило избегания: любая функция в `state.py` с read-modify-write на shared JSON —
+обязательно через `threading.Lock`. Для масштабирования рассмотреть SQLite с WAL.
+Источник: [[mark-sent-race-condition-4-scanners]]
 
 ### Каскад продолжается на мёртвой родительской зоне — invalidation проверяется только на L2
 
