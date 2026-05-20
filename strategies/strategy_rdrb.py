@@ -9,17 +9,26 @@ LONG:
   close(i-1) > high(i-2)                      i-1 закрылась выше high якоря (пробой вверх)
   low(i)     < high(i-2)                      i ушла хвостом ПОД high якоря (false retrace)
   close(i)   > max(open(i-2), close(i-2))     i закрылась ВЫШЕ всего тела якоря
-  Zone:
+  Zone V1 (intersection):
     top    = min(high(i-2), close(i))
     bottom = max(low(i),    close(i-2))
+  Zone V2 (+ anchor body ext):
+    top    = min(high(i-2), close(i))
+    bottom = max(open(i-2), close(i-2))       верх тела якоря
 
 SHORT:
   close(i-1) < low(i-2)
   high(i)    > low(i-2)
   close(i)   < min(open(i-2), close(i-2))     i закрылась НИЖЕ всего тела якоря
-  Zone:
+  Zone V1 (intersection):
     top    = min(high(i),  close(i-2))
     bottom = max(low(i-2), close(i))
+  Zone V2 (+ anchor body ext):
+    top    = min(open(i-2), close(i-2))       низ тела якоря
+    bottom = max(low(i-2), close(i))
+
+Версии зоны — canon, см. vault/knowledge/smc/что такое rdrb.md.
+V1 и V2 зафиксированы как верные (2026-05-19); V3 (MAX) отклонён.
 
 SL = OB_SL_DEPTH (15%) внутрь от ближней к рынку границы RDRB (LONG: bottom вверх,
 SHORT: top вниз) — то же правило что в 1.1.1, только зона теперь RDRB.
@@ -49,10 +58,24 @@ class RDRBZone:
     anchor_time: pd.Timestamp   # i-2 open_time
     trigger_time: pd.Timestamp  # i open_time
     tf_hours: int               # 24 или 12 — длина свечи RDRB
+    zone_version: str = "V1"    # "V1" intersection | "V2" + anchor body ext
 
 
-def detect_rdrb(df: pd.DataFrame, idx: int) -> RDRBZone | None:
-    """Если (df.iloc[idx-2], df.iloc[idx-1], df.iloc[idx]) образуют RDRB — вернуть."""
+def detect_rdrb(df: pd.DataFrame, idx: int,
+                zone_version: str = "V1") -> RDRBZone | None:
+    """Если (df.iloc[idx-2], df.iloc[idx-1], df.iloc[idx]) образуют RDRB — вернуть.
+
+    `zone_version` — формула зоны (canon, см. vault/.../что такое rdrb.md):
+      "V1" — intersection фитилей anchor+trigger (узкая, точная);
+      "V2" — V1 + расширение до тела anchor (баланс).
+    Условие формирования паттерна для V1 и V2 идентично — отличается только зона.
+    V3 (MAX) отклонён 2026-05-19 — не поддерживается.
+    """
+    if zone_version not in ("V1", "V2"):
+        raise ValueError(
+            f"zone_version должен быть 'V1' или 'V2', получено {zone_version!r} "
+            f"(V3 отклонён 2026-05-19)"
+        )
     if idx < 2 or idx >= len(df):
         return None
     a = df.iloc[idx - 2]
@@ -75,27 +98,31 @@ def detect_rdrb(df: pd.DataFrame, idx: int) -> RDRBZone | None:
             and c_low < a_high
             and c_close > a_body_top):       # close ВЫШЕ всего тела якоря
         top = min(a_high, c_close)
-        bottom = max(c_low, a_close)
+        # V1: низ = пересечение фитилей; V2: низ = верх тела anchor
+        bottom = max(c_low, a_close) if zone_version == "V1" else a_body_top
         if top > bottom:
             return RDRBZone(
                 direction="LONG", bottom=bottom, top=top,
                 anchor_time=df.index[idx - 2],
                 trigger_time=df.index[idx],
                 tf_hours=0,  # caller проставит
+                zone_version=zone_version,
             )
 
     # SHORT
     if (m_close < a_low
             and c_high > a_low
             and c_close < a_body_bottom):    # close НИЖЕ всего тела якоря
-        top = min(c_high, a_close)
         bottom = max(a_low, c_close)
+        # V1: верх = пересечение фитилей; V2: верх = низ тела anchor
+        top = min(c_high, a_close) if zone_version == "V1" else a_body_bottom
         if top > bottom:
             return RDRBZone(
                 direction="SHORT", bottom=bottom, top=top,
                 anchor_time=df.index[idx - 2],
                 trigger_time=df.index[idx],
                 tf_hours=0,
+                zone_version=zone_version,
             )
 
     return None
@@ -234,8 +261,12 @@ def detect_strategy_rdrb_signals(
     df_15m: pd.DataFrame,
     df_20m: pd.DataFrame,
     verbose: bool = False,
+    zone_version: str = "V1",
 ) -> list[dict]:
-    """Сканер RDRB на 1d и 12h параллельно. На каждой RDRB → поиск 1h/2h × 15m/20m."""
+    """Сканер RDRB на 1d и 12h параллельно. На каждой RDRB → поиск 1h/2h × 15m/20m.
+
+    `zone_version` — версия зоны RDRB ("V1" или "V2", см. detect_rdrb).
+    """
     signals: list[dict] = []
     counters = {
         "rdrb_1d": 0, "rdrb_12h": 0,
@@ -248,7 +279,7 @@ def detect_strategy_rdrb_signals(
         if df_top is None or df_top.empty:
             return
         for idx in range(2, len(df_top)):
-            rdrb = detect_rdrb(df_top, idx)
+            rdrb = detect_rdrb(df_top, idx, zone_version)
             if rdrb is None:
                 continue
             rdrb.tf_hours = top_tf_hours
@@ -307,6 +338,7 @@ def detect_strategy_rdrb_signals(
                 "rdrb_anchor_time": rdrb.anchor_time,
                 "rdrb_trigger_time": rdrb.trigger_time,
                 "rdrb_zone": (rdrb.bottom, rdrb.top),
+                "rdrb_zone_version": rdrb.zone_version,
                 "ob_htf_tf": htf_label,
                 "ob_htf_prev_time": ob_htf.prev_time,
                 "ob_htf_cur_time": ob_htf.cur_time,

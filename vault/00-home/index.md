@@ -140,6 +140,7 @@ date: 2026-04-29
 - [[2026-05-08-strategy-111-forensic-indicator-filters]] — forensic 262 trades 1.1.1 × 14 features. Топ-edges: Hull-4h (+13.6pp), HA-MF sign (+9.8pp), DO-discount (+7.3pp). Filter спасает RR=1.5 в +R, но frequency 0.29/wk остаётся ниже C2.
 - [[2026-05-11-strategy-114-bfjk-portfolio-bug-audit]] — большая ресёрч-сессия по 1.1.4. 10 этапов (etap_66..75). Survey 18 цепочек, allow_multi, портфельные комбо, forensic audit. Найден критический баг [[l3-не-фильтровался-против-l1-invalidation]] (13% сетапов на мёртвой L1, WR 21%). Финал: portfolio B+F+J+K — WR 64.3%, +107R, +0.93R/trade.
 - [[2026-05-13-live-bot-vic-ifvg-strategies-117-118]] — большая сессия: добавлены 3 новых live-сканера (1.1.2/1.1.3/1.1.6), исправлены 2 критических live-бага (current-hour filter, mark_sent race), реализован ViC ASVK Python (сверка с TV точная), изучена iFVG концепция (31 events / 48d), создан прототип [[strategy-1-1-7-ifvg-continuation]] (+37.5R / 2.3y / 0 bad), протестированы 7 концепций iFVG.
+- [[2026-05-19-rdrb-v2-babai-fractal-prediction]] — RDRB V2 в код + тесты + canon (V3 отклонён), [[babai]] LONG-сетап на 12h спроектирован/забэктестен/отложен (+4.78R на 41 сделке, слабый edge), главное открытие — эмпирика предсказания HH/LL фракталов на D с топ-стэками 84.6%/76.9% precision (см. [[reversal-3candle-fractal-prediction]]). Новый pitfall [[zone-mitigation-filter-required]].
 
 ## Debugging
 
@@ -159,6 +160,7 @@ date: 2026-04-29
 - [[lookahead-anchor-confirm-окно-cur_open-cur_close]] — anchor зона использовалась с `cur_open` вместо `cur_close + tf`. Edge испарился после fix (WR 67-77% → 26-49%).
 - [[htf-lookup-must-use-last-closed-bar-not-forming]] — HTF lookup в LTF-стратегии читал FORMING bar's close (etap_36 hull_1d filter). Inflation +35R/53%. Правильно: использовать `idx - 1` (last closed bar).
 - [[l3-не-фильтровался-против-l1-invalidation]] — в каскаде 1.1.4 проверка инвалидации макрозоны была только на L2; L3/L4 могли формироваться после смерти L1. 13% сетапов на «мёртвых» зонах с WR 21.1%, total -7R. Правило: при многоуровневом каскаде с TTL — проверка валидности на КАЖДОМ уровне.
+- [[zone-mitigation-filter-required]] — zone-overlap фильтры (FVG, OB, любые ценовые зоны) без учёта mitigation покрывают 94% свечей за 8.7 лет и дают нулевой lift. Фикс — «первый touch на немитигированной зоне»: с ним lift ×0 → ×2.2, топ-стэк 84.6% precision.
 
 ## Планы и процесс
 
