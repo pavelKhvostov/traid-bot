@@ -1,0 +1,32 @@
+{
+  "reference_short_v1_2026_05_22": {
+    "description": "BTCUSDT 1h, 2026-05-22, UTC+3 10:00-12:00, эталонный SHORT RDRB V1",
+    "candles": [
+      {"open_time_msk": "2026-05-22 10:00", "open": 77423.41, "high": 77543.38, "low": 77288.77, "close": 77408.06},
+      {"open_time_msk": "2026-05-22 11:00", "open": 77408.07, "high": 77535.00, "low": 77216.00, "close": 77267.38},
+      {"open_time_msk": "2026-05-22 12:00", "open": 77267.39, "high": 77360.00, "low": 77200.00, "close": 77307.11}
+    ],
+    "expected": {
+      "direction": "short",
+      "variant": "V1",
+      "poi": [77307.11, 77408.06],
+      "block": [77307.11, 77360.00],
+      "liq": [77360.00, 77408.06]
+    }
+  },
+  "reference_short_v1_2026_05_23_15m": {
+    "description": "BTCUSDT 15m, 2026-05-23 09:30-10:00, SHORT RDRB V1; нижняя граница POI = C1.low",
+    "candles": [
+      {"open_time_msk": "2026-05-23 09:30", "open": 75458.41, "high": 75491.31, "low": 75419.72, "close": 75452.45},
+      {"open_time_msk": "2026-05-23 09:45", "open": 75452.44, "high": 75452.45, "low": 75394.54, "close": 75398.33},
+      {"open_time_msk": "2026-05-23 10:00", "open": 75398.33, "high": 75443.44, "low": 75266.74, "close": 75363.40}
+    ],
+    "expected": {
+      "direction": "short",
+      "variant": "V1",
+      "poi": [75419.72, 75452.45],
+      "block": [75419.72, 75443.44],
+      "liq": [75443.44, 75452.45]
+    }
+  }
+}

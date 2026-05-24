@@ -1,0 +1,14 @@
+{
+  "reference_short_fvg_2026_05_21_4h": {
+    "description": "BTCUSDT 4h, 2026-05-21 07:00-15:00 MSK, SHORT FVG поверх SHORT i-RDRB (continuation вниз)",
+    "candles": [
+      {"open_time_msk": "2026-05-21 07:00", "open": 78078.72, "high": 78180.01, "low": 77521.00, "close": 77889.01},
+      {"open_time_msk": "2026-05-21 11:00", "open": 77889.01, "high": 78200.00, "low": 77147.15, "close": 77189.10},
+      {"open_time_msk": "2026-05-21 15:00", "open": 77189.10, "high": 77402.12, "low": 76719.47, "close": 77259.46}
+    ],
+    "expected": {
+      "direction": "short",
+      "zone": [77402.12, 77521.00]
+    }
+  }
+}

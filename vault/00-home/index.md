@@ -14,6 +14,76 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
+## Свежее (2026-05-24, ночью) — **smc-lib 11 элементов + Expert Opinion methodology + 10 индикаторов**
+
+См. [[2026-05-24-smc-lib-cascade-expert-opinion-indicators]]. Расширили smc-lib с 8 до **11 primitive-элементов**:
+- `+i_fvg/` (Inverse FVG, composite) — 10 тестов
+- `+marubozu/` (canon Pine WICK.ED, **не** body/range ≥ 0.95!) — 13 тестов
+- `+fractal/` (Williams N=2, единственный point-zone primitive) — 14 тестов
+
+Создан главный артефакт — **Expert Opinion методология** ([[expert-opinion-multi-tf-cascade-methodology]]): multi-TF top-down каскад **W → 3D → 2D → D → 12h → 6h → 4h → 2h → 1h → 15m** для построения мнения о цене. Реализация в `~/smc-lib/expert_opinion.md` + `scripts/expert_opinion.py` — полный каскад работает за 3.1s.
+
+Создан `indicators/` layer (10 модулей): ATR, EMA-200, Cumulative Delta (Williams A/D proxy), Volume Profile (POC/VAH/VAL), Anchored VWAP + Effectiveness scoring, **VIC ASVK** (порт canon, auto LTF), **ASVK Trend Line** (Hull MA), **ASVK Custom RSI** (adaptive OB/OS + NWE), **Money Hands ASVK** (WaveTrend + color state).
+
+**VWAPs ranking**: anchor на каждом D-фрактале за 1 год (98 фракталов), effectiveness через все 10 ТФ каскада, selection = 2 closest + 6 most effective + 2 farthest.
+
+Фундаментальный принцип, зафиксированный пользователем: 🧲 **непроторгованная область = магнит, притягивающий цену** ([[feedback-untraded-area-is-magnet]]). Применимо к FVG / i_FVG / marubozu (там целевая точка = уровень open, не всё тело).
+
+Текущий expert opinion на BTC 2026-05-24 20:33 MSK (close 76 627): bullish bias ~60-65% для завершения D-retracement в HTF uptrend (3D/2D HH+HL не нарушены, D+12h RSI ASVK в зелёной OS-зоне, 6h Hull flipped UP, VWAP cluster 76 100-76 700 = 7 effective VWAPs на цене). Trigger A: 1h close > 77 543 → path 78 200 → 80 500 → 82 850.
+
+## Свежее (2026-05-24, поздно вечером) — **smc-lib canon 8 элементов + VWAPs ASVK introduction**
+
+См. [[2026-05-24-smc-lib-canon-vwap-asvk-introduction]]. Расширение `~/smc-lib/` с 3 до 8 элементов (+ob, +ob_liq, +i_rdrb_fvg, +block_orders, +rb). Создан справочник [[zone_of_interest]] для канонических зон. Начали изучать VWAPs ASVK — найден optimal anchor 2026-03-23 09:40 MSK (score +26 на 2-мес forward, rebound rate 64.1%); VWAP@now (74505) совпал с reversal low 23-05 (74289) — точная HTF-проекция. Multi-TF анализ разворота 23-05 на 74289 нашёл массивный confluence (1w RDRB liq + 2-летний untouched 1w/2d FVG из Oct-Nov 2024 + 1d/2d RB BOTTOM). Текущий setup: SHORT-cluster выше 77100-78400 — оценка SHORT-разворота 75-85% на 1-3 дня.
+
+## Свежее (2026-05-24, обновление) — **Combined D zafiksирован** как baseline upgrade
+
+См. [[i-rdrb-fvg-combined-d-block-edge-sl-01]]. Первый upgrade i-RDRB+FVG, улучшающий ОБЕ метрики одновременно:
+- LONG: entry = block.top, SL = pl + 0.1×(bb-pl)
+- SHORT: entry = block.bottom, SL = ph − 0.1×(ph-bt)
+- TP unchanged (baseline price)
+- **6y BTC 1h: 781 trades, WR 59.80% (vs 56.67% baseline), ΣR +122.6R (vs +104R, +17.9%)**
+- LONG: 392 trades, 65.31% WR, +102.5R (+19%)
+- SHORT: 389 trades, 54.24% WR, +20.0R (+11%)
+
+## Свежее (2026-05-24) — i-RDRB+FVG: feature mining (EVoT/VWAPs/FL/RDRB) + SL grid
+
+См. [[2026-05-24-i-rdrb-fvg-evot-vwap-features-sl-optim]] — большая аналитическая сессия. Главные находки:
+- **R/ATR(14) ∈ [0.5, 0.85)** — топ-фильтр: 305 trades, 63.28% WR, **+81R из +104 base** (78% всего edge, 39% выборки). Независимо переоткрыт фильтр из [[i-rdrb-v1-pattern]].
+- EVoT bimodal: maxV "глубоко под entry" (≤−0.5R) OR "выше entry" — ~67% WR; "под, но близко" (−0.5..0) — 47% anti-edge
+- EVoT time в C1/C2 — 65.5% WR (153 trades, +47R, +0.31R/tr)
+- VWAP-FL 4h distance [1, 2)R над entry — 67.92% WR (53 trades)
+- **30m bullish FVG в zone [pattern_low, block.bottom] = anti-edge** (WR 50.91% vs 62.61% без). 3-TF FVG confluence — 45.95% WR (anti).
+- **15m FL.low — надёжный support** (71% удержание в WIN), но как SL не помогает
+- **15m RDRB.block.bottom — late re-entry trap**: 76% wins "касаются", но многие fills происходят ПОСЛЕ baseline TP
+- **SL grid optimization** на 239 winners:
+  - SL offset 0.10 от (pattern_low → block.bottom): WR 97.91%, +252.9R (+5.8%) — conservative upgrade
+  - SL offset 0.50: WR 74.90%, +275.3R (+15%) — aggressive trend-rider (new R-units)
+
+## Свежее (2026-05-23) — smc-lib + VWAPs ASVK experiments на i-RDRB+FVG
+
+См. [[2026-05-23-smc-lib-vwap-entry-experiments]] — основная сессия дня:
+- Создана независимая Python-библиотека `~/smc-lib/` (RDRB, i-RDRB, FVG) — см. [[smc-lib-as-canonical-source]]
+- Зафиксированы каноны: RDRB direction по C2 (bear→SHORT, bull→LONG); i-RDRB всегда reversal; POI/block/liq геометрия
+- BTC 1h 6y: 808 i-RDRB+FVG паттернов, baseline RR=1 даёт **+112R, WR 57.02%** (LONG 61.4% +91R, SHORT 52.6% +21R)
+- VWAPs ASVK как entry / TP / filter — **не даёт существенного edge** (см. [[i-rdrb-fvg-vwap-entry-experiment]]):
+  - VWAP-entry strict: режет 94% сетапов, edge не улучшен
+  - VWAP-TP (3 anchor варианта): хуже baseline на ΣR, но SHORT side +34R vs +18R
+  - VWAP-filter (F1-F10): маржинальный +0.5pp WR ценой −2..−7R
+- 1m CSV догнан до 2026-05-23 18:25 UTC через `~/smc-lib/scripts/update_btc_1m_csv.py`
+- Графики: `~/Desktop/i-rdrb-charts/vwap_entry_*.png` (3 эталона)
+
+## Свежее (2026-05-22) — i-RDRB V1 + FVG · F1∪F2_same · F3(R/ATR) · 257 setups WR 71.6%
+
+См. [[i-rdrb-v1-fvg-f1-f2-f3-strategy-257-setups-wr72]] — финальная версия:
+- 5-свечной паттерн i-RDRB V1 + bullish FVG (LONG; SHORT зеркально)
+- F1 = HTF Order Block (4h/6h/8h/12h/D, same dir)
+- F2_same = HTF RDRB 3-candle (same dir, c3 closed by fill)
+- F3 = R/ATR(20) ∈ [0.55, 1.03] — sweet spot R относительно волатильности
+- 6y: 257 трейдов, WR 71.60%, +111R, MDD −6R, Sharpe 3.13
+- Поэтапная воронка 809 → 525 → 257; все 7 лет прибыльны
+- Структурные SL правила на 15m TF (V.1/V.2/V.3 OB + FVG-1/FVG-2 entry) запаркованы — на 257 ухудшают: +57R vs +111R
+- Альтернативная версия (F4 multi-OR + hour exclude) → [[i-rdrb-v1-fvg-f1-f2-f4-strategy-401-setups-wr71]] (superseded)
+
 ## Свежее (2026-05-15) — Floating TP framework, multi-symbol audit, C2 trend filter
 
 См. [[2026-05-15-floating-tp-multi-symbol-c2-trendfilter]] — большая сессия:
@@ -60,6 +130,8 @@ date: 2026-04-29
 - [[strategy-1-1-7-ifvg-continuation]] — iFVG (4h) → OB-1h → FVG-15m, continuation in B direction. V2c RR=2.5: WR 39.4%, +37.5R, **0 bad years** (BTC 2024-2026). С age>=5 filter: +0.46R/trade. Prototype, not approved.
 - **Strategy 1.2.0** — новая ветка: EMA-200 + sweep + FVG-15m. В стадии tuning. Файлы: `research/1_2_0/`.
 - **Strategy 3.2** — FVG-4h → 2 свечи rejection → FVG-1h в 8h окне. Entry=mid FVG-1h, SL=c0(low/high), RR=1. 3y BTC: 245 closed, WR 55.1%, +25R.
+- [[i-rdrb fvg митигация зоны 1h btc eth]] — i-RDRB+FVG (5-свечной element) + zone-mitigation entry. **BTC + ETH 1h**, 6 лет: entry=0.9, SL=0.2, RR=1.4 универсально. Σ портфель: **WR 49.26%, +269.2R / 6y (+44.9R/год)**, ~245 сделок/год. BTC: +150.8R/+25.1y, ETH: +118.4R/+19.7y. Cross-asset validated. Файлы: `research/vic_vadim/backtest_irdrb_fvg_*.py`.
+- [[vadim 12 confluens asvk]] — confluence-score стратегия поверх i-RDRB+FVG. 11 факторов (max 16 баллов): trendline, OB/FVG HTF, sweep на LTF/HTF, ViC.D нетронутый, RSI, дивы на 5 осцилляторах, rel_vol. **In-research**: score ≥ 12.0 даёт WR 53.60%, R/tr +0.286, ΔWR +4.34pp (n=278). Но ΣR падает с baseline +269.2R до +79.6R — confluence повышает R/tr, не ΣR. Открыто: score-based RR. Файл: `research/vic_vadim/vadim_confluens_asvk.py`.
 
 ## Research-стенд
 
@@ -118,6 +190,11 @@ date: 2026-04-29
 - [[3-stage-цепочки-системно-хуже-4-stage]] — пропуск среднего OB в каскаде роняет WR на 10-15pp и резко ухудшает bad-year профиль.
 - [[ifvg-7-concepts-tested]] — 7 концепций iFVG. Работает: continuation (1.1.7), age filter, breakout no-retest. Не работает: failed iFVG fade, regime detector. Сюрприз: iFVG-against на 1.1.4 = POSITIVE сигнал (WR 75% n=16).
 - [[vic-asvk-as-filter-for-cascade-strategies]] — ViC forensic на 1.1.4 BFJK: |maxV-1d|>1 ATR-1h даёт +6pp WR.
+- [[12h фрактал — эмпирика снятия зон 6y BTC]] — 2026-05-20. **Финальная стратегия:** (sweep_FH ∪ OB_sweep) ∩ sweep_maxV[i] → HH 81.9% / LL 73.4% (n=177 за 6y BTC, ~30/год). Sniper AND: HH 90.3% / LL 68.3% (n=72). Артефакты в `research/vic_vadim/`.
+- [[стратегия ViC Vadim 12h вариант 1]] — 2026-05-21. **Финальная стратегия (mlt=45 / LTF=16m).** BTC Core: HH 83.3% / LL 75.0% (n=176, ~29/год). ETH Core (OOS): HH 73.0% / LL 75.4% (n=120, ~20/год). LL стабилен между BTC и ETH. HH Sniper BTC: 93.6% (n=31).
+- [[2026-05-21-vic-vadim-12h-fractal-finalize]] — session: финализация стратегии, brute-force mlt 30-200, OOS ETH, новый pitfall.
+- [[2026-05-21-vic-vadim-c3-research-paused]] — продолжение: исследование C3 (ASVK RSI отклонён, Money Hands / Hull MA — варианты), SOL pending.
+- [[pine-ltf-12h-chart-ceil-round-up-to-integer-minutes]] — pitfall: Pine `from_seconds` на 12h-chart round-up до integer-minute (≠ closest valid на D-chart).
 
 ## Research-стенд элементов
 
@@ -141,6 +218,9 @@ date: 2026-04-29
 - [[2026-05-11-strategy-114-bfjk-portfolio-bug-audit]] — большая ресёрч-сессия по 1.1.4. 10 этапов (etap_66..75). Survey 18 цепочек, allow_multi, портфельные комбо, forensic audit. Найден критический баг [[l3-не-фильтровался-против-l1-invalidation]] (13% сетапов на мёртвой L1, WR 21%). Финал: portfolio B+F+J+K — WR 64.3%, +107R, +0.93R/trade.
 - [[2026-05-13-live-bot-vic-ifvg-strategies-117-118]] — большая сессия: добавлены 3 новых live-сканера (1.1.2/1.1.3/1.1.6), исправлены 2 критических live-бага (current-hour filter, mark_sent race), реализован ViC ASVK Python (сверка с TV точная), изучена iFVG концепция (31 events / 48d), создан прототип [[strategy-1-1-7-ifvg-continuation]] (+37.5R / 2.3y / 0 bad), протестированы 7 концепций iFVG.
 - [[2026-05-19-rdrb-v2-babai-fractal-prediction]] — RDRB V2 в код + тесты + canon (V3 отклонён), [[babai]] LONG-сетап на 12h спроектирован/забэктестен/отложен (+4.78R на 41 сделке, слабый edge), главное открытие — эмпирика предсказания HH/LL фракталов на D с топ-стэками 84.6%/76.9% precision (см. [[reversal-3candle-fractal-prediction]]). Новый pitfall [[zone-mitigation-filter-required]].
+- [[2026-05-23-smc-lib-vwap-entry-experiments]] — построена независимая `~/smc-lib/` (RDRB/i-RDRB/FVG), 23 теста, baseline 1h 6y BTC = +112R / 57% WR. VWAP-варианты протестированы (entry, TP, filter) — edge не улучшается. Локальный 1m CSV догнан до 2026-05-23.
+- [[2026-05-24-i-rdrb-fvg-evot-vwap-features-sl-optim]] — feature mining на 798 trades + SL grid optimization. R/ATR ∈ [0.5, 0.85) — топ-фильтр (+81R из +104 на 305 trades). EVoT, VWAP-FL 4h, multi-TF FVG, 15m FL/RDRB разобраны. SL offset 0.5 от pattern_low → block.bottom даёт +275R на 239 winners в new R-units (+15% vs baseline).
+- [[i-rdrb-fvg-combined-d-block-edge-sl-01]] — Combined D upgrade: entry на block edge + SL 0.1 offset. 781 trades, WR 59.80%, ΣR +122.6R (vs +104R baseline, +17.9%). Симультантное улучшение WR и ΣR на обеих сторонах.
 
 ## Debugging
 
