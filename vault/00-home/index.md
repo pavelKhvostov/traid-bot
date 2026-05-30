@@ -14,6 +14,39 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
+## Свежее (2026-05-26) — **VC канонизирована как концепция (не зона) + F5 search для 12h фракталов**
+
+См. [[2026-05-26-vc-concept-canon-in-smc-lib-and-f5-search]] и [[что такое VC volume confirmation]].
+
+- **VC = Volume Confirmation = обобщённая концепция подтверждения** (предикат над HTF-зоной, не зона интереса). Канонический случай: LTF FVG (15m/20m) ⊆ HTF OB (1h/2h) того же направления. Объём не используется (название vestigial). Добавлен в `~/smc-lib/elements/vc/` (7 тестов; 113 passed full regression).
+- F4 v3 per-element mitigation canon (wick-fill / first-touch / sweep-level): 1105 keep / P=49.6% / 16 imp (теряет fresh-extreme FL #4, #9).
+- F5 search: 70% барьер не пройден без потери imp. Best: counter FVG ≥1h (572 / 63.1% / 9 imp) — precision-leader; counter VC any (894 / 52.9% / 13 imp) — recall-leader. **Aligned LTF FVG/VC = anti-signal** (−2…−12pp) — direction-asymmetry закон.
+
+## Свежее (2026-05-25, ночью) — **i-RDRB+FVG V2 определён + block_orders anti-filter найден**
+
+См. [[2026-05-25-irdrb-fvg-v2-block-orders-confluence]]. Продолжение работы над стратегией с целью RR≥1 при ~10 trades/мес.
+
+**Главные находки:**
+
+1. **i-RDRB+FVG V2** — новый 6-bar pattern (continuation-FVG). FVG на (C4, C5, C6), НЕ на (C3, C4, C5) как V1. → [[i-rdrb-fvg-v2-definition]]
+   - На BTC 1h за 6y: V1=800, V2=294, total=1094 setups
+   - V2-FVG чаще над V2-RDRB (58% vs ~43% baseline) — подтверждает "deep reversal → strong follow-through"
+
+2. **Backtest Combined D entry/SL @ RR=1.0 на 1094 setups:**
+   - V1+V2: 1050 closed, WR **57.62%**, ΣR **+160.0R**, R/tr +0.152, **14.6 trades/мес**
+   - V1 только: 773 closed, WR 57.70%, +119R, **10.7 trades/мес** ✅ (точно в цель)
+   - LONG доминирует (61.9% WR vs SHORT 53.1%)
+
+3. ⭐ **block_orders × i-RDRB+FVG confluence — анти-фильтр**:
+   - **FULL overlap + SAME direction**: 125 setups, WR **47.97%**, **−5R** (отрицательный edge)
+   - **NO overlap (clean structure)**: 111 setups, WR **62.73%**, R/tr +0.255 (best subset)
+   - **PARTIAL same**: 567 setups, WR 59.74%, +105R (основная масса)
+   - **Применение exclusion-filter (FULL SAME out)**: +5R прирост на 969 setups, WR 58.9%, 12.9/мес
+
+**Интерпретация:** наш паттерн полностью внутри same-direction 1h block_orders = late entry в already-resolved institutional structure → momentum иссяк. Clean structure (no HTF block) — лучший edge.
+
+**Завтра продолжить:** apply exclusion-filter официально + наложить cascade-фильтры (W→15m, RSI ASVK zone, MH color) на 969 setups, цель WR 65-70% при ~10-12/мес. См. [[текущие приоритеты]] для приоритетов.
+
 ## Свежее (2026-05-24, ночью) — **smc-lib 11 элементов + Expert Opinion methodology + 10 индикаторов**
 
 См. [[2026-05-24-smc-lib-cascade-expert-opinion-indicators]]. Расширили smc-lib с 8 до **11 primitive-элементов**:
@@ -157,6 +190,7 @@ date: 2026-04-29
 - [[что такое rdrb]] — ложный пробой с возвратом, 3 свечи.
 - [[что такое обx4 цепочка]] — 5 свечей с чередованием + FVG c3-c5.
 - [[фракталы билла уильямса]] — i±2.
+- [[что такое VC volume confirmation]] — **обобщённая концепция подтверждения** (предикат, не зона): LTF FVG ⊆ HTF-зоны same direction. Канонично OB-1h/2h × FVG-15m/20m. Объём не используется. Smc-lib: `elements/vc/`.
 
 ## Главные правила движка
 

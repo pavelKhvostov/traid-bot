@@ -346,6 +346,22 @@ bucketing: сортировка по значению + последовател
 смещены, чинить при следующем прогоне.
 Источник: [[нативный-3d-binance-не-выровнен-по-epoch]]
 
+### Pine LTF на 12h-chart — ceil round-up до integer-minute, не closest valid
+
+Что было: ViC ASVK 12h-chart с mlt=100 даёт `rs=432s=7.2min`. Ожидалось,
+что Pine возьмёт closest valid из {5m, 10m} — теоретически 5m.
+Симптом: maxV не совпадал с индикатором (расхождение десятки/сотни USD)
+на любом LTF из {1m, 5m, 7m, 10m, 15m}. На D-chart (Pine LTF=15m через
+closest valid) совпадало точно — отсюда ожидание тоже closest valid.
+Причина: Pine `timeframe.from_seconds(seconds)` на не-D chart **round-up
+до ближайшей целой минуты** = `ceil(seconds/60)`. Для 432s → "8" (8m).
+Правило избегания: при репликации Pine indicator на любом не-D chart
+использовать `LTF_minutes = math.ceil(rs/60)`. На D-chart правило другое
+(closest valid). При первой реплике — попросить 2-3 контрольных значения
+из TV для сверки. Brute-force LTF от 1 до 30 минут показывает оптимум
+точечно (для 12h@mlt=100 → 8m, Σ|Δ| на 6 свечах = 12 USD vs 600+ на других).
+Источник: [[pine-ltf-12h-chart-ceil-round-up-to-integer-minutes]]
+
 ### Zone-overlap фильтр без mitigation покрывает почти все бары
 
 Что было: в HH-предикторе (сессия 2026-05-19) использовалось «свеча `i`

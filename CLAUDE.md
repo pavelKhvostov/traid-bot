@@ -14,8 +14,11 @@ Telegram-бот, который параллельно прогоняет нес
 
 - **Strategy 1.1.1** 🔬 (с confluence BTC1!/TOTALES/USDT.D)
   - OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} (SWEPT) + FVG-{15m,20m}
-  - entry=0.80, sl=0.35 sym, RR=2.2, SWEPT ON
+  - entry=0.80, sl=0.35 sym, **Floating TP** (4-indicator score; R-cap BTC/ETH=4.5, SOL=3.5)
+  - SWEPT ON
   - `strategy_1_1_1_scanner.py` (отдельный со своим WS + tv_refresh)
+  - Floating TP **ещё не интегрирован** в live (текущий live = fixed RR=2.2)
+  - Reference: `~/smc-lib/projects/strategy_1_1_1_floating.py`
 - **Strategy 1.1.2** 🔬 (без confluence)
   - OB-{1d,12h} + OB-{4h,6h} → OB-{1h,2h} + FVG-{15m,20m}
   - entry=0.70, sl=0.35 sym, RR=2.2
@@ -40,9 +43,14 @@ Telegram-бот, который параллельно прогоняет нес
 
 - **VIC_BOS**        — VIC-уровень + BOS на 3m (quadruple H-L-H-L). 3y BTC: WR 53.6%, +37R.
 - **Strategy 1.1.1** — multi-TF nested OB+FVG: OB-{1d,12h} + FVG-{4h,6h} → OB-{1h,2h} + FVG-{15m,20m}.
-                       3y BTC raw @ RR=1.0: 144 deduped, WR 61.7%, +33R.
-                       После 3-stage SWEPT optimize @ RR=2.2: 115 closed, WR 54.8%, **+46.8R**, R/trade 0.755.
-                       См. `research/1_1_1/`.
+                       Финальная версия (etap108): **Floating TP** вместо fixed RR=2.2 — 4 способа выхода
+                       (SL / R-cap / score-exit / 7d timeout), 4-indicator momentum score
+                       (Hull/MH/RSI/ASVK), per-symbol R-cap configs.
+                       6y BTC+ETH+SOL: **+428.9R total** (vs baseline RR=2.2 +317.8R, **+35-44% boost**).
+                       BTC 6.34y: +179.9R / WR 52% / medR +0.07 (baseline: +165.2R / WR 45% / medR −1.00).
+                       Source: `~/smc-lib/projects/strategy_1_1_1_floating.py` + `.pdf`.
+                       Прежние числа (3y BTC fixed RR=2.2: +46.8R) — **deprecated, не используются**.
+                       См. `research/1_1_1/` (historical) + smc-lib reference (current).
 - **Strategy 1.1.2** — макро-OB вместо макро-FVG. Stage 3 @ RR=2.2: WR 44.4%, +101.4R на 241 closed.
                        См. `research/1_1_2/`.
 - **Strategy 1.1.3** — entry FVG того же ТФ что OB-htf (без 15m/20m). Слабее 1.1.1: stage3 @ RR=2.2 +11.4R.
