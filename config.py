@@ -8,8 +8,11 @@ load_dotenv()
 
 SYMBOLS = ["BTCUSDT"]
 
-TIMEFRAMES_NATIVE = ["1h", "2h", "4h", "6h", "8h", "12h", "1d", "3d"]
-TIMEFRAMES_COMPOSED = {"3h": "1h", "2d": "1d"}
+TIMEFRAMES_NATIVE = ["1h", "2h", "4h", "6h", "8h", "12h", "1d"]
+# 3d собирается из 1d через compose_from_base (origin='epoch'): нативный 3d
+# Binance не выровнен по UTC-эпохе и расходится с TV / с composed 2d.
+# См. known-pitfalls «Нативный 3d Binance не выровнен по UTC-эпохе».
+TIMEFRAMES_COMPOSED = {"3h": "1h", "2d": "1d", "3d": "1d"}
 ALL_TIMEFRAMES = TIMEFRAMES_NATIVE + list(TIMEFRAMES_COMPOSED.keys())
 
 # VIC_EVOT (стратегия №8) — отдельная WS-подписка, чтобы существующий

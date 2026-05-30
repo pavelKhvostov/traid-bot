@@ -1,0 +1,140 @@
+"""Entry grid: смещаем entry от block.top до C5.low с шагом 0.2.
+SL = pattern_low. TP = TP_baseline price (фикс).
+
+Для LONG i-RDRB+FVG.
+"""
+from __future__ import annotations
+
+import csv
+import pathlib
+import sys
+from datetime import datetime, timedelta, timezone
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1]))
+from candle import Candle
+from elements.i_rdrb.code import detect_i_rdrb
+from elements.fvg.code import detect_fvg
+
+CSV_PATH = pathlib.Path.home() / "traid-bot/data/BTCUSDT_1m_vic_vadim.csv"
+MS_HOUR = 3600_000
+MAX_HOLD_MIN = 30 * 24 * 60
+
+
+def load_1m():
+    rows = []
+    with CSV_PATH.open() as f:
+        rd = csv.reader(f); next(rd)
+        for r in rd:
+            t = datetime.fromisoformat(r[0])
+            rows.append((int(t.timestamp() * 1000), float(r[1]), float(r[2]), float(r[3]), float(r[4]), float(r[5])))
+    return rows
+
+
+def aggregate(d, tf_min):
+    bucket = tf_min * 60_000
+    out = []; cb = None; o = h = l = c = 0
+    for ts, oo, hh, ll, cc, _ in d:
+        b = ts - (ts % bucket)
+        if b != cb:
+            if cb is not None: out.append(Candle(open=o, high=h, low=l, close=c, open_time=cb))
+            cb = b; o, h, l, c = oo, hh, ll, cc
+        else:
+            h = max(h, hh); l = min(l, ll); c = cc
+    if cb is not None: out.append(Candle(open=o, high=h, low=l, close=c, open_time=cb))
+    return out
+
+
+print("Loading..."); data = load_1m()
+candles_1h = aggregate(data, 60)
+ts_1m = [r[0] for r in data]
+
+
+def idx_at(ms):
+    lo, hi = 0, len(ts_1m)
+    while lo < hi:
+        m = (lo + hi) // 2
+        if ts_1m[m] < ms: lo = m + 1
+        else: hi = m
+    return lo
+
+
+def simulate(entry, sl, tp, start_ms):
+    sk = idx_at(start_ms); ek = min(sk + MAX_HOLD_MIN, len(data))
+    in_trade = False
+    for k in range(sk, ek):
+        _, _, h_, l_, _, _ = data[k]
+        if not in_trade:
+            if l_ <= entry:
+                in_trade = True
+                if l_ <= sl: return "loss"
+                if h_ >= tp: return "win"
+        else:
+            if l_ <= sl: return "loss"
+            if h_ >= tp: return "win"
+    return "no_fill"
+
+
+patterns = []
+for i in range(len(candles_1h) - 4):
+    c1, c2, c3, c4, c5 = candles_1h[i:i + 5]
+    ir = detect_i_rdrb(c1, c2, c3, c4)
+    if ir is None or ir.direction != "long": continue
+    fvg = detect_fvg(c3, c4, c5)
+    if fvg is None or fvg.direction != "long": continue
+    patterns.append((ir, c5))
+
+
+print(f"{len(patterns)} LONG patterns\n")
+
+print(f"{'α':<10} {'entry pos':<20} {'WIN':<6} {'LOSS':<6} {'NoFill':<8} {'WR%':<8} {'ΣR_new':<10} {'ΣR_base':<10} {'avg RR/win':<12}")
+print("-" * 110)
+
+ALPHAS = [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+
+for alpha in ALPHAS:
+    n_win = 0; n_loss = 0; n_nofill = 0; n_skip = 0
+    total_r_new = 0.0; total_r_base = 0.0
+    rrs = []
+    for ir, c5 in patterns:
+        block_b, block_t = ir.rdrb.block
+        all5 = [ir.rdrb.c1, ir.rdrb.c2, ir.rdrb.c3, ir.c4, c5]
+        pl = min(c.low for c in all5)
+        c5_low = c5.low
+        entry_base = (block_b + block_t) / 2
+        r_unit_base = entry_base - pl
+        if r_unit_base <= 0: continue
+        tp_abs = entry_base + r_unit_base
+        c5_close_ms = c5.open_time + MS_HOUR
+
+        # entry: from block.top up to C5.low
+        if c5_low <= block_t:
+            n_skip += 1  # пропускаем если C5.low не выше block.top (узкий или необычный паттерн)
+            continue
+        new_entry = block_t + alpha * (c5_low - block_t)
+        # При new_entry >= tp_abs — entry выше TP, trade не имеет смысла
+        if new_entry >= tp_abs:
+            n_skip += 1; continue
+        r_unit_new = new_entry - pl
+        if r_unit_new <= 0: continue
+        rr_new = (tp_abs - new_entry) / r_unit_new
+
+        out = simulate(new_entry, pl, tp_abs, c5_close_ms)
+        if out == "win":
+            n_win += 1
+            total_r_new += rr_new
+            total_r_base += (tp_abs - new_entry) / r_unit_base
+            rrs.append(rr_new)
+        elif out == "loss":
+            n_loss += 1
+            total_r_new -= 1.0
+            total_r_base += (pl - new_entry) / r_unit_base
+        else:
+            n_nofill += 1
+
+    n_filled = n_win + n_loss
+    wr = n_win / n_filled * 100 if n_filled else 0
+    avg_rr = sum(rrs) / len(rrs) if rrs else 0
+    desc = f"bt + {alpha:.1f}×(c5l-bt)"
+    print(f"{alpha:<10.1f} {desc:<20} {n_win:<6} {n_loss:<6} {n_nofill:<8} {wr:<8.2f} {total_r_new:<+10.1f} {total_r_base:<+10.1f} {avg_rr:<12.2f}")
+
+print(f"\nSkipped (C5.low ≤ block.top или entry ≥ TP): варьируется по α (для информации)")
