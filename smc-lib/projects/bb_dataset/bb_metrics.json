@@ -1,0 +1,13 @@
+{
+  "n_train": 5523,
+  "n_test": 1160,
+  "test_P_break_actual": 0.09913793103448276,
+  "test_brier": 0.10635490279236602,
+  "test_brier_raw": 0.14490087739974566,
+  "baseline_brier": 0.0900039980506902,
+  "brier_lift_pct": -18.166864912453118,
+  "test_auc": 0.6115914291657998,
+  "test_auc_raw": 0.7222800083211983,
+  "top_decile_precision": 0.28448275862068967,
+  "bottom_decile_bounce_pct": 0.9568965517241379
+}

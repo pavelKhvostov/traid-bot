@@ -29,16 +29,33 @@ Canon из vault: `~/traid-bot/vault/knowledge/smc/универсальные о
 
 ## Зона интереса
 
-OB — частный случай `block_orders` с `(N₁, N₂) = (1, 1)`, поэтому геометрия зоны идентична: полная зона возврата = breaker block + drop/rally area.
+OB — частный случай `block_orders` с `(N₁, N₂) = (1, 1)`. Геометрия зоны зависит от того, был ли **полный структурный пробой** prev candle:
 
-| Направление | **Зона интереса** | Состоит из |
-|---|---|---|
-| **LONG OB** | `[min(prev.low, cur.low), cur.close]` | breaker block `[prev.open, cur.close]` сверху + drop area `[min(prev.low, cur.low), prev.open]` снизу |
-| **SHORT OB** | `[cur.close, max(prev.high, cur.high)]` | breaker block `[cur.close, prev.open]` снизу + rally area `[prev.open, max(prev.high, cur.high)]` сверху |
+### Условие существования Breaker Block
 
-**Breaker block** = body синтетической свечи `[min(prev.open, cur.close), max(prev.open, cur.close)]` — **подзона** внутри зоны интереса, где бывшая сторона ордеров была «сломана» (broken side). Это институциональный анкор уровня — open последнего противоположного ордера (`prev.open`) ↔ close реакции (`cur.close`).
+**Breaker block существует только при полном пробое prev структуры:**
 
-**Drop / rally area** = расширение зоны до экстремума паттерна (lowest low для LONG, highest high для SHORT) — отвергнутое движение, которое cancelled реакцией.
+| Направление | Условие наличия breaker |
+|---|---|
+| **LONG OB** | `cur.close > prev.high` (закрытие cur ВЫШЕ всего prev) |
+| **SHORT OB** | `cur.close < prev.low` (закрытие cur НИЖЕ всего prev) |
+
+Если условие не выполнено (cur.close в диапазоне prev), **breaker отсутствует** — есть только drop/rally area.
+
+### Геометрия зон
+
+| Направление | Drop/Rally area (всегда) | Breaker (если cur.close > prev.high для LONG / cur.close < prev.low для SHORT) | **Full ZoI** |
+|---|---|---|---|
+| **LONG OB**, без breaker | `[min(prev.low, cur.low), prev.open]` | — | **= drop area** |
+| **LONG OB**, с breaker | `[min(prev.low, cur.low), prev.open]` | `[prev.open, cur.close]` | `[min(prev.low, cur.low), cur.close]` (drop + breaker) |
+| **SHORT OB**, без breaker | `[prev.open, max(prev.high, cur.high)]` | — | **= rally area** |
+| **SHORT OB**, с breaker | `[prev.open, max(prev.high, cur.high)]` | `[cur.close, prev.open]` | `[cur.close, max(prev.high, cur.high)]` (rally + breaker) |
+
+**Breaker block** = body синтетической свечи `[min(prev.open, cur.close), max(prev.open, cur.close)]` — где бывшая сторона ордеров была «сломана» структурным пробоем. Институциональный анкор уровня.
+
+**Drop area** (LONG) / **Rally area** (SHORT) = всегда существует. Это отвергнутое движение `prev`, которое cancelled реакцией `cur`. Институциональная зона исполнения — где крупный игрок исполнил ордера ПРОТИВ retail-движения.
+
+> ⚠ Раньше canon фиксировал breaker всегда. С 2026-05-29 уточнено: breaker требует **полный пробой prev** (`cur.close > prev.high` для LONG). Без полного пробоя — ZoI = только drop/rally area.
 
 ### Альтернативные варианты (не дефолт)
 

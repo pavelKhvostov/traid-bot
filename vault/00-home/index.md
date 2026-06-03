@@ -14,6 +14,64 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
+## Свежее (2026-05-31) — **Phase 3 PC1 results + Phase 4 «Force × Liquidity» framework (5 принципов)**
+
+См. [[2026-05-31-phase3-results-phase4-force-framework]].
+
+- **Phase 3 PC1 результат**: AUC 0.540 (vs Phase 2 0.537) — +52 «count» фичи **почти не сдвинули** дискриминационную способность.
+- **Strict detection bug найден**: ob_vc backtest имеет lookahead **30мин-2ч** на каждый трейд (cur HTF не закрыт + Williams n=2 fractal не подтверждён). Среднее ~1.5ч.
+- **5 фундаментальных принципов** для Phase 4 (от пользователя, сессия walk-through 4 примеров):
+  1. Zone STRENGTH (не count)
+  2. Multi-TF Force Aggregation (BUYER vs SELLER на каждом ТФ 1h-3d)
+  3. Liquidity Charge = fuel (sweep events при formation)
+  4. HTF Magnets above/below (opposing zones = targets, не resistance)
+  5. 3D Dominance + LTF Noise Filter
+- **Historical Zone Memory** добавлено как 6-й принцип: «зона интереса» как price band тестированный месяцами.
+- **Phase 4 спека**: 101 фича в 12 группах (A. Multi-TF Force, B. Force Alignment, C. Structural Anchor, D. Opposing Force, E. Liquidity Charge, F. HTF Magnets, G. Self, H. Temporal, I. Historic Memory, J. Volatility/Compression, K. Classical Divergence RSI/MACD, L. Volume).
+- **Phase 4 архив упакован** (60 MB), готов к PC1 запуску. Прогноз ~60-80 мин runtime.
+- Найден n_fvg_components bug в `scan_ob_vc_events` — все 6683 events в Phase 2/3 имеют value=1 (multi-FVG info потеряна).
+
+### Update ночь 2026-05-31:
+
+- ✅ **Strict-fix реализован** в `scan_ob_vc_events` (записывает `strict_detection_ts`) и `simulate_floating` (`fill_start = strict_detection_ts`)
+- ✅ **n_fvg_components bug пофикшен** + добавлено `fvg_components_LTFs`
+- ✅ **G_fvg_multi_LTF_confluence** feature → Phase 4 теперь 102 features
+- ✅ **Phase 4 архив re-packed** с patches — labels теперь honest (без lookahead)
+- 📋 **Phase 5 prerequisite зафиксирован**: extend `HTF_TO_LTF` для macro ob_vc на 4h/12h/D — НЕ ломать Phase 4 entry rules (только 1h+2h)
+- ✅ **Strict baseline backtest** — strict=+301R / R/tr=+0.10 vs Phase 2 lookahead +1076R / +0.36 → lookahead overstate ~72%, **2025 был bad year (−38R)**
+
+### 2026-05-31 утро — Phase 4 PC1 + PC2 screening результаты:
+
+- ❌ **Phase 4 PC1 не достиг target**: AUC mean 0.510 (хуже Phase 3 0.540), 7/12 фолдов <0.5, WR best 31.5%, RR best 2.34. **Tabular bb-classifier потолок ~0.55 AUC** на этой задаче.
+- ✅ **PC2 MH screening 6912 configs**: max dir_acc 0.553, **LazyBear-канон в нижних 19% (rank 5629/6912)**, best config `(7,14,3,22,60,50,60)`, key axes: `mf_sma=60` ✓, **`rsi_stoch=50`** (canon=40 — отличается).
+- 📊 **MH directional модель (0.553) сильнее Phase 4 bb-classifier (0.510)** — sequence/temporal signals дают больше чем zone-context features
+- 🎯 **Money Hands agent** при реализации использовать config `(7,14,3,22,60,50,60)`, **не LazyBear**
+
+См. [[2026-05-31-phase3-results-phase4-force-framework]] полные detail.
+
+### 2026-05-31 день — 12h fractal analysis + force_opinion module:
+
+- 🔬 **12h fractal basket C1-C7 conditions** расшифрованы и зафиксированы: C1 maxV, C2 P11_count fractal, C3 ob_liq, C4 FVG, C5 HMA-78, C6 HMA-200, C7 block_orders (basket WR 66.8% на 6y BTC)
+- 🔍 **4 missed fractals типизированы** (06-05, 10-05, 13-05, 18-05): 3 = «momentum break» (body 63-76%, close past level), 1 = «liquidity sweep in HTF-dominated zone». Candidate C8 conditions
+- ⚡ **Phase 4 force framework — практический рабочий слой** даже без ML edge:
+  - **07-05 vs 08-05**: force REVERSAL (-266 SELLER → +398 BUYER) = classic pivot
+  - **17-05 vs 18-05** (at close, no lookahead): UNANIMOUS BULLISH (9/9) → PIVOT signature (7/9, LTF flip)
+- 🆕 **Создан `~/smc-lib/prediction-algo/force_opinion.py`** — отдельный модуль, не ломает zones_opinion.py
+- 🎯 **Триггер «экспертное заключение по силе»** → force_opinion.py; зафиксировано в [[feedback-expert-force-opinion-trigger]]
+- **5 BIAS-категорий** в новом expert: UNANIMOUS BULLISH/BEARISH, PIVOT signature (HTF+LTF flip), BALANCED, HTF BULLISH/BEARISH bias
+- 3 экспертных заключения теперь: **force_opinion** (силa) | **zones_opinion** (P_hit_D) | **expert/opinion** (legacy cascade)
+
+## Свежее (2026-05-30) — **prediction-algo v2 (+2.7pp), bb-dataset, Strategy 1.1.1 V2, Floating TP verified, MH-ml feature importance**
+
+См. [[2026-05-30-prediction-algo-v2-bb-dataset-strategy-111-v2-floating-tp]].
+
+- **Prediction-algo v2** на новом btc_full (10.17M rows, ob_vc + per-zone mit): top-5 hit_D = **89.7%** (vs v1 87%), top-1 = 93.7%. P_hit_D≥0.95 → 96% (1146 events/year). `[[prediction-algo-final-results]]` обновлена.
+- **bb-dataset (ob_vc 1h+2h)** для bounce/break classifier: 6680 unique zones на 6y, P(bounce) = **92.3%** (close-based, 2-4h window).
+- **Strategy 1.1.1 Floating TP** (от разработчика, etap108) **verified by replication**: +196.9R / WR 51.45% / medR +0.08 на 6.08y BTC (PDF claim +179.9R / 52% / +0.07).
+- **Strategy 1.1.1 V2** (nested ob_vc cascade) — first backtest +227.7R (+15% vs v1), fat-tail-heavy профиль. Идеальный case для bb-фильтра.
+- **MH-ml feature importance dump** (3064×6=18K rows): sparsity 40-47%, `bars_since_mf_zero_32h` №1 на 4h-96h, Money Flow доминирует на длинных горизонтах (65% top-20 для 96h).
+- Git push на ветку `Vadim` (99 файлов, +18 623 строк).
+
 ## Свежее (2026-05-26) — **VC канонизирована как концепция (не зона) + F5 search для 12h фракталов**
 
 См. [[2026-05-26-vc-concept-canon-in-smc-lib-and-f5-search]] и [[что такое VC volume confirmation]].

@@ -21,7 +21,7 @@ from elements.fvg.code import detect_fvg
 from elements.i_fvg.code import detect_i_fvg
 from elements.rdrb.code import detect_rdrb
 from elements.i_rdrb.code import detect_i_rdrb
-from elements.i_rdrb_fvg.code import detect_i_rdrb_fvg
+from patterns.i_rdrb_fvg.code import detect_i_rdrb_fvg
 from elements.marubozu.code import detect_marubozu
 from elements.fractal.code import detect_fractal
 
@@ -112,7 +112,7 @@ for end in range(2, len(candles_all)):
 # ob_liq
 for i in range(2, len(candles_all) - 2):
     if not center_in_window(i): continue
-    r = detect_ob_liq(candles_all[i-2], candles_all[i-1], candles_all[i], candles_all[i+1], candles_all[i+2])
+    r = detect_ob_liq(candles_all[i], candles_all[i+1])
     if r: hits_eff.append(('OBL', d_all[i][0], r.zone, r.direction, r))
 
 # rdrb

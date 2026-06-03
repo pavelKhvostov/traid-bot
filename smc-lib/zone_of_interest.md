@@ -8,12 +8,34 @@
 
 Canon: `elements/ob/definition.md` + [[универсальные определения OB и FVG]] (vault, locked 2026-04-28). Геометрия совпадает с `(N₁, N₂) = (1, 1)` случаем `block_orders` (синхронизировано 2026-05-24).
 
-| Направление | Условие | **Зона интереса** | Состоит из |
-|---|---|---|---|
-| **LONG OB** | `prev` bear, `cur` bull, `cur.close > prev.open` | `[min(prev.low, cur.low), cur.close]` | breaker block `[prev.open, cur.close]` сверху + drop area `[min(prev.low, cur.low), prev.open]` снизу |
-| **SHORT OB** | `prev` bull, `cur` bear, `cur.close < prev.open` | `[cur.close, max(prev.high, cur.high)]` | breaker block `[cur.close, prev.open]` снизу + rally area `[prev.open, max(prev.high, cur.high)]` сверху |
+### Условия детекции
 
-**Breaker block** = body синтетической свечи `[min(prev.open, cur.close), max(prev.open, cur.close)]` — подзона внутри зоны интереса (broken side).
+| Направление | Условие OB |
+|---|---|
+| **LONG OB** | `prev` bear, `cur` bull, `cur.close > prev.open` |
+| **SHORT OB** | `prev` bull, `cur` bear, `cur.close < prev.open` |
+
+### Breaker block — существует только при полном пробое prev (уточнено 2026-05-29)
+
+**Breaker block ⇔ структурный пробой prev:**
+
+| Направление | Условие наличия breaker |
+|---|---|
+| **LONG OB** | `cur.close > prev.high` |
+| **SHORT OB** | `cur.close < prev.low` |
+
+Без полного пробоя — **breaker отсутствует**, есть только drop/rally area.
+
+### Зоны (с учётом условности breaker)
+
+| Направление | Drop / Rally area (всегда) | Breaker (условно) | **Full Zone of Interest** |
+|---|---|---|---|
+| **LONG**, без breaker | `[min(prev.low, cur.low), prev.open]` | — | **= drop area** |
+| **LONG**, с breaker | `[min(prev.low, cur.low), prev.open]` | `[prev.open, cur.close]` | `[min(prev.low, cur.low), cur.close]` |
+| **SHORT**, без breaker | `[prev.open, max(prev.high, cur.high)]` | — | **= rally area** |
+| **SHORT**, с breaker | `[prev.open, max(prev.high, cur.high)]` | `[cur.close, prev.open]` | `[cur.close, max(prev.high, cur.high)]` |
+
+**Drop / Rally area** = всегда определена для существующего OB; отвергнутое движение `prev`, cancelled реакцией `cur`. **Институциональная зона исполнения** — где крупный игрок исполнил ордера против retail.
 
 Альтернативные варианты зон (breaker-only, body-only prev, single-candle, full prev) — см. `elements/ob/definition.md`.
 
@@ -71,7 +93,9 @@ Canon: `elements/rb/definition.md` (зафиксирован 2026-05-24).
 
 Canon: `elements/ob_liq/definition.md`.
 
-Composite: canon-OB (пара `prev`/`cur`) + Williams 5-bar маркер (фитиль ≥ 3×, фитиль > тела, prev = HH/LL пятисвечного фрактала).
+Composite: canon-OB (пара `prev`/`cur`) + 2-условный маркер ликвидности на `prev` (фитиль ≥ 3× фитиля `cur` AND фитиль > тела `prev`).
+
+> ⚠️ **Обновлено 2026-05-27**: Williams 5-bar фрактальность УБРАНА из канона. Маркер ликвидности стал 2-условным. **Понятие «фрактальность» к ob_liq не применяется.** 2-свечный паттерн `(prev, cur)`.
 
 | Зона | LONG | SHORT |
 |---|---|---|
@@ -158,6 +182,53 @@ LuxAlgo "Liquidity Swings" — **measurement layer** над FH/FL (touch count +
 
 ---
 
+## 7a) VWAP (anchored, ASVK)
+
+Canon: `~/smc-lib/indicators/vwap_anchored.py` + Правило 6 в `rules.md` (построение от D-фрактала).
+
+VWAP — **точечный уровень во времени** (значение `VWAP(t)` на каждом баре). Класс зоны — **liquidity / equilibrium** (точка справедливой цены по объёму с anchor'а).
+
+- **SHORT VWAP** (anchored от FH): «resistance-line» — цена идёт снизу, тестирует уровень сверху.
+- **LONG VWAP** (anchored от FL): «support-line» — цена идёт сверху, тестирует уровень снизу.
+
+| Направление | **Зона интереса** | Геометрия |
+|---|---|---|
+| **SHORT VWAP** (от FH) | `VWAP(t)` | **точка / уровень во времени** (динамический) |
+| **LONG VWAP** (от FL) | `VWAP(t)` | **точка / уровень во времени** (динамический) |
+
+Аналогично fractal — **точечная** зона, но с **time-varying** значением (не статичная). По мере накопления volume `VWAP(t)` дрейфует к равновесной цене.
+
+> **Effectiveness scoring** (`~/smc-lib/indicators/vwap_effectiveness.py`) — measurement layer: reactions (close on entry side) vs breaks (close на противоположной). Не часть primitive — навешивается отдельно как метрика качества уровня.
+
+---
+
+## 4a) ob_sweep_liq_4candles
+
+Canon: `elements/ob_sweep_liq_4candles/definition.md`. ⚠️ Имя `_4candles` историческое.
+
+Снятие ликвидности Williams 5-bar FH/FL свечой Y. Y открывается по другую сторону от фрактала, wick проходит за уровень, close за close фрактал-бара.
+
+| Направление | Условия Y | **liq_zone** |
+|---|---|---|
+| **SHORT** (anchor = FH) | `y.open < anchor.high`, `y.high > anchor.high`, `y.close < anchor.close` | `[anchor.high, y.high]` |
+| **LONG** (anchor = FL) | `y.open > anchor.low`, `y.low < anchor.low`, `y.close > anchor.close` | `[y.low, anchor.low]` |
+
+Mitigation: TBD (вероятно first-touch).
+
+---
+
+## 7b) run_3candles_sweep
+
+Перемещён в `patterns/` (полный setup-паттерн с entry/SL/TP). См. `patterns/run_3candles_sweep/definition.md`.
+
+Зона интереса (sweep wick c2):
+| Направление | Зона |
+|---|---|
+| **SHORT** | `[max(c2.o, c2.c), c2.high]` (верхний фитиль c2) |
+| **LONG** | `[c2.low, min(c2.o, c2.c)]` (нижний фитиль c2) |
+
+---
+
 ## 8) RDRB
 
 Canon: `elements/rdrb/definition.md`.
@@ -186,9 +257,13 @@ Canon: `elements/rdrb/definition.md`.
 ### i-RDRB
 Все зоны наследуются от подлежащего RDRB (POI / block / liq не меняются). C4 только подтверждает разворот.
 
-### i-RDRB + FVG
-- **Зона интереса 1 (RDRB-часть)** — POI (см. RDRB выше)
-- **Зона интереса 2 (FVG-часть)** — gap-зона FVG
+### i-RDRB + FVG (перемещён в `patterns/`)
+Полный setup-паттерн с торговым контекстом — см. `patterns/i_rdrb_fvg/definition.md`.
+Зоны интереса:
+- **Зона 1 (RDRB-часть)** — POI (см. RDRB выше)
+- **Зона 2 (FVG-часть)** — gap-зона FVG
+
+> **VC (Volume Confirmation) НЕ является зоной интереса** — это **обобщённая концепция подтверждения** (предикат над HTF-зоной), не геометрическая зона. Канон: `vc/definition.md`. Здесь только ссылка для справки.
 
 ---
 
@@ -196,5 +271,78 @@ Canon: `elements/rdrb/definition.md`.
 
 - «**Зона интереса**» (POI / Point of Interest) — зона, где ждать реакцию. Геометрическое понятие.
 - «**Зона ликвидности**» — место скопления стопов / лимиток (FH / FL, liq-под-зоны RDRB, маркер ob_liq).
-- «**Зона неэффективности**» — FVG.
-- «**Зона эффективности**» — RDRB block, maxV (см. [[три класса зон ликвидность эффективность неэффективность]]).
+- «**Зона неэффективности**» — FVG, i-FVG, marubozu (тело).
+- «**Блок**» — OB, RDRB POI / block, block_orders, ob_liq.zone. «Наторгованный блок» — точка институционального исполнения, не магнит. См. [[memory:zone-class-liquidity-inefficiency-block|таксономия классов]].
+
+> ⚠ **2026-05-29:** класс «**эффективность**» переименован в «**блок**» по решению пользователя. Согласовано с уже использовавшимся термином «блок наторгованный» (maxV ASVK). Историческая ссылка на vault-файл `три класса зон ликвидность эффективность неэффективность.md` оставлена как есть (не переименован).
+
+---
+
+## Mitigation (изменение зоны интереса при взаимодействии с ценой)
+
+Существует три модели mitigation в зависимости от типа зоны:
+
+### Модель 1: **Wick-fill** (постепенное заполнение)
+
+При каждом касании цены wick'ом зона сжимается на величину проникновения. Каждое последующее касание ещё больше сжимает оставшуюся зону (кумулятивно).
+
+**LONG-направленная зона** (`[zone_lo, zone_hi]`, untraded область снизу/поддержка):
+- Касание сверху, `low ≤ zone_hi`:
+  - `low > zone_lo` → зона сжимается до **`[zone_lo, low]`**
+  - `low ≤ zone_lo` → **зона полностью consumed**
+
+**SHORT-направленная зона** (`[zone_lo, zone_hi]`, untraded область сверху/сопротивление):
+- Касание снизу, `high ≥ zone_lo`:
+  - `high < zone_hi` → зона сжимается до **`[high, zone_hi]`**
+  - `high ≥ zone_hi` → **зона полностью consumed**
+
+Применимо к: **OB, block_orders, FVG, i-FVG, RDRB POI, i-RDRB POI**.
+
+### Модель 2: **First-touch** (одноразовое consumption на zone)
+
+Первое касание зоны wick'ом → зона **полностью consumed** (без постепенного сжатия).
+
+Применимо к: **RB, ob_liq**.
+
+Семантика:
+- **RB** = одиночная rejection-свеча с длинным wick'ом. Зона = "место отвергнутого тика". После первого касания зона "отработала".
+- **ob_liq** = OB + liquidity marker (одноразовый sweep). После первого touch остаётся только canon-OB (с wick-fill на оставшуюся часть, если actionable).
+
+### Модель 3: **Sweep** (для точечных levels)
+
+Mitigation = wick касается/проходит за level.
+
+Применимо к: **fractal, marubozu (open level), VWAP (anchored)**.
+
+**Fractal:**
+- FH swept: `high > level`
+- FL swept: `low < level`
+
+**Marubozu (open level = sweep открытия):**
+- Bull marubozu (open == low): consumed когда `low ≤ open` (тест открытия снизу)
+- Bear marubozu (open == high): consumed когда `high ≥ open` (тест открытия сверху)
+
+Семантика marubozu: body = imbalance area, target = open level (точечный магнит, см. [[feedback-marubozu-is-imbalance-not-support]]). Body как actionable zone актуальна пока open не sweep'нут. После sweep — marubozu полностью отработан.
+
+**VWAP (anchored, ASVK):**
+- SHORT VWAP (от FH): swept когда `high(t) > VWAP(t)` (wick пересёк уровень сверху)
+- LONG VWAP (от FL): swept когда `low(t) < VWAP(t)` (wick пересёк уровень снизу)
+- Особенность: `VWAP(t)` **дрейфует во времени** — sweep оценивается на текущее значение. Strict-canon sweep (wick касается) = consumed; для более тонкой логики см. effectiveness scoring (`vwap_effectiveness.py` — break vs reaction).
+
+### Сводная таблица
+
+| Элемент | Модель | Заметки |
+|---|---|---|
+| OB | wick-fill | постепенное сжатие |
+| block_orders | wick-fill | |
+| FVG | wick-fill | |
+| i-FVG | wick-fill | на overlap zone (как FVG) |
+| RDRB POI | wick-fill | |
+| i-RDRB POI | wick-fill | наследует от RDRB |
+| **RB** | **first-touch** | одноразовое |
+| **ob_liq** | **first-touch** | после → canon OB с wick-fill |
+| **marubozu (body)** | **sweep open** | mitigation = касание open level |
+| fractal | sweep | wick за level |
+| **VWAP (anchored)** | **sweep** | wick пересёк VWAP(t) (time-varying level). См. также effectiveness scoring |
+
+> **VC не входит в таблицу mitigation** — это предикат, не зона. Mitigation касается **HTF-зоны**, к которой VC привязан (OB / block_orders / …) по своим канонам.
