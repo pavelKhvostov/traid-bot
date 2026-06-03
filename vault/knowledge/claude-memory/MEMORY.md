@@ -1,0 +1,53 @@
+# Memory index
+
+- [ob_vc strict detection timing](feedback-ob-vc-strict-detection-timing.md) — strict ob_vc detect = max(cur_HTF.close, c3.close, opposite_fractal_n2.close); текущий backtest имеет lookahead 30мин-2ч
+- [Expert force_opinion trigger](feedback-expert-force-opinion-trigger.md) — «экспертное заключение по силе» → force_opinion.py (Phase 4 framework, НЕ zones_opinion)
+- [MH screening best config](mh-screening-best-config-not-lazybear.md) — LazyBear-канон в нижних 19%; best (7,14,3,22,60,50,60) dir_acc=0.553; key axis rsi_stoch=50
+- [bb-model Phase 4 negative result](bb-model-phase4-negative-result.md) — Phase 4 AUC=0.510 (хуже Phase 3 0.540); tabular ML потолок ~0.55 на ob_vc+etap108; strict baseline +301R vs Phase 2 lookahead +1076R (overstate 72%)
+- [Zone class taxonomy](zone-class-liquidity-inefficiency-block.md) — user's three-class SMC zone taxonomy (liquidity / inefficiency / блок); efficiency → блок renamed 2026-05-29
+- [Display time in UTC+3](display-time-in-utc-plus-3.md) — show all times in chat as UTC+3; data files stay UTC
+- [Weekly TF anchor = Monday](weekly-tf-anchor-monday.md) — W timeframe uses Mon-Mon anchor (TV-standard), not epoch-anchor (Thu)
+- [3D resample = Monday weekly reset](feedback-3d-resample-monday-reset.md) — 3D bars open только Mon/Thu; continuous 72h без reset создаёт фантомные Sun/Wed/Sat/Tue/Fri бары
+- [Push back on fact mismatch](feedback-push-back-on-fact-mismatch.md) — при расхождении user-факта с данными СРАЗУ поправить, не подстраиваться
+- [Candle zone/liquidity methodology](feedback-candle-zone-liquidity-methodology.md) — baseline = prior candle's high (long) / low (short); liquidity = **active backward HH/LL chain** (НЕ raw bar highs); 8 TFs для zones, 6 TFs для liquidity
+- [Key findings from reading format (Rule 13)](feedback-key-findings-from-reading-format.md) — «изучи книги/выводы из чтения» → action-oriented format с emoji + таблица/bullet list, привязка к нашим модулям
+- [12h fractal prediction final strategy](12h-fractal-prediction-final-strategy.md) — (sweep_FH ∪ OB_sweep) ∩ sweep_maxV[i] gives 82% HH / 73% LL on 6y BTC
+- [i-RDRB V1 + FVG pattern](i-rdrb-v1-pattern.md) — 5-candle bullish reversal: i-RDRB = [C1.low, C3.high] overlap, FVG = [C3.high, C5.low], C4 = displacement
+- [smc-lib location](smc-lib-location.md) — ~/smc-lib/ — канонический источник определений и кода SMC-элементов
+- [BTC 1m CSV data](btc-data-1m-csv.md) — ~/traid-bot/data/ — локальные 1m OHLCV CSV для BTC/ETH/SOL за 6 лет
+- [Charts output location](charts-output-location.md) — ~/Desktop/i-rdrb-charts/ — папка для PNG-графиков по i-RDRB/FVG
+- [Anchored VWAP from fractals recipe](feedback-anchored-vwap-from-fractals.md) — N_FRACTAL=2, дисплей на ТФ-1, Reds/Greens градиенты, шаблон plot_fhfl_vwap_4h*
+- [ob vs ob_liq zones differ](feedback-ob-vs-ob-liq-zones-differ.md) — ob_liq имеет свою (узкую) зону интереса; не выравнивать автоматически
+- [ob_liq БЕЗ Williams-фрактальности](feedback-ob-liq-no-fractality.md) — с 2026-05-27 канон 2-свечный, 2-условный маркер; «фрактальность» НЕ применять
+- [Marubozu canon = Pine WICK.ED](feedback-marubozu-canon-pine-wicked.md) — open на экстремуме; старый канон body/range ≥ 0.95 deprecated
+- [Marubozu = imbalance, not S/R](feedback-marubozu-is-imbalance-not-support.md) — аномалия; цель цены = уровень open (точечный магнит), а не всё тело; разворот ТОЛЬКО после касания open
+- [🧲 Untraded area is a magnet](feedback-untraded-area-is-magnet.md) — fundamental SMC principle: непроторгованная область притягивает цену; применимо к FVG / iFVG / marubozu; entry на возврате, не на отскоке
+- [Zone mitigation rules (3 модели)](feedback-fvg-wick-fill-mitigation.md) — wick-fill (OB/FVG/iFVG/RDRB POI/block_orders/iRDRB POI), first-touch (RB/ob_liq), sweep (fractal + marubozu open level). Записано в smc-lib/zone_of_interest.md
+- [Fractal liquidity strength & sweep](feedback-fractal-liquidity-strength-and-sweep.md) — сила = TF × возраст × cluster; sweep TF-relative (wick на своём ТФ); HTF sweep "проглатывает" LTF события
+- [Expert opinion = multi-TF cascade](feedback-expert-opinion-is-multi-tf-cascade.md) — заключение всегда top-down W → D → 12h → 4h → 1h → 15m; не один ТФ; HTF priority + confluence
+- [12h fractal filter F1+F2+F3 (Pred/Filt dual)](12h-fractal-filter-F1-F2.md) — F1=left_ext_5 + F2=(opp_colors OR three_same) + F3=(body≤0.80 AND wick≥0.03) на (i-2,i-1,i). Pred: 1266/2891 за 6y (17.6/мес), P(Williams)=48.9%. Filt: 18/35 recall 100%
+- [VC = Volume Confirmation](vc-volume-confirmation-definition.md) — концепция подтверждения (предикат над HTF-зоной), НЕ зона; LTF FVG ⊆ HTF-зоны same direction; канон OB-1h/2h + FVG-15m/20m
+- [12h fractal baseline = F1∩F2∩F3](feedback-12h-fractal-baseline-f1f2f3.md) — статистику Pred-фракталов начинать с 1266/48.9%/18/18, не с raw bars
+- [12h fractal OR-basket arch](feedback-12h-fractal-or-basket-arch.md) — после F3 условия параллельные (OR), не AND-cascade; recall 18/18 — обязательное требование
+- [12h fractal OR-basket C1-C7](12h-fractal-orbasket-c1-c5.md) — состояние: C1-C7, basket=654/66.8%/15imp, missed=#14/#15/#48. Canon: ~/smc-lib/projects/pred12h-fractal-three-candles.md
+- [TrendLine default = HMA 78 + 200](feedback-trendline-hma-78-200-default.md) — Hma mode, LIVE value, Правило 7. Helpers: trend_line_hma_78/200 в smc-lib/indicators/trend_line_asvk.py
+- [Always fetch 1m before chart](feedback-always-fetch-1m-before-chart.md) — при ЛЮБОМ чарте BTC сначала вызывать fetch_btc_1m_missing.py, иначе текущая цена будет устаревшей
+- [Chart format canonical base](feedback-chart-format-canonical-base.md) — chart_format.md база утверждена 2026-05-27. Эталон-скрипт plot_chart_format_template.py — копировать для всех новых plot-скриптов
+- [Expert chart trigger](feedback-expert-chart-trigger.md) — «экспертный график» → ~/smc-lib/expert/chart.py; «экспертное заключение» → ~/smc-lib/expert/opinion.py
+- [Prediction algo decisions](feedback-prediction-algo-open-question.md) — задача 2026-05-28: 6 параметров определены (per-zone mit / 12h+D / 13 TF / гибко 2+3 / агрессивный re-train / BTC). Готов Phase 1
+- [Prediction algo final results](prediction-algo-final-results.md) — все 8 задач закрыты 2026-05-28. Top-5 hit_D=87% lift 72×. Walk-forward на 6y. Pipeline production-ready
+- [Pivot money hands LONG-cascade rule](pivot-money-hands-long-cascade-rule.md) — резонанс bear+cascade≤1h = 62.9% LONG accuracy. SHORT side не работает (асимметрия)
+- [Expert zones opinion trigger](feedback-expert-zones-opinion-trigger.md) — «экспертное заключение по зонам интереса» → zones_opinion.py (НЕ expert/opinion.py)
+- [Prediction algo 5-question roadmap](prediction-algo-roadmap-5-questions.md) — после v1 (2026-05-29): старт с #3 отскок/пробой + #2 корреляции зон; принцип «SMC fingers → ML head»
+- [Heavy compute on PC (Rule 9)](feedback-heavy-compute-on-pc.md) — Mac M5 = интерактив; heavy ML/walk-forward/GPU → архив на Windows PC (Ryzen 7 7700 + RTX 5070 Ti + 32GB)
+- [Elements library output format (Rule 10)](feedback-elements-library-output-format.md) — «элементы библиотеки» → строго 5-секционный формат (таблица + структура + сигнатуры + ALL_TYPES + не-элементы)
+- [Pivot filter lookahead vs strict](feedback-pivot-filter-lookahead-vs-strict.md) — lookahead Williams+2% +132R/PF 3.47, strict +90R/PF 2.18; всегда начинать со strict timing
+- [Pred12h НЕ улучшает Strategy 1.1.1 floating](pred12h-doesnot-improve-floating-strict.md) — strict 6y: pure floating +196R/PF 2.20 побеждает любой filter; pred12h optimized for Williams precision, not floating PF
+- [Phase 4 zone batch — must chunk](feedback-phase4-zone-precompute-must-chunk.md) — snapshot_from_events O(N²) на 6y; обязательно чанковать по 1y (22.9 мин vs 5+ часов)
+- [P4ZR entry-fill lookahead bias](feedback-p4zr-entry-fill-lookahead.md) — simulate_trade ASSUMES fill at zone-edge; real WR/PF inflated на 10-30%
+- [RSI cumulative fresh-exit edge](feedback-rsi-cumulative-fresh-exit-edge.md) — bars_since_rsi_*_exit q1 даёт P(W) 60-62% standalone (vs baseline 49%); единственная structural feature с чистым edge
+- [1.1.1 floating без TOTALES/USDT.D](feedback-1-1-1-floating-without-totales-usdtd.md) — мой +196R baseline это «stripped» 1.1.1 без macro confluence; full canon = + Triple sync
+- [Empirical TF_WEIGHT rejected](empirical-tf-weight-rejected.md) — naive (1,2,4,...,72) канон; ML на next-bar Williams сломан методологически (StandardScaler нейтрализует 72×); если fair test нужен — per-zone-event labeling
+- [Force rank inverted vs Williams](force-rank-inverted-vs-williams.md) — strong force = lower P(W) (0.78×); calm Q2 |imb|=327 peak lift 1.25×; 4 потеряшки = outliers
+- [Force model v2 architecture](force-model-v2-architecture.md) — 5 раздельных logistic regressions, **344 коэф.** (8 TFs без 8h), strict Williams-i target на 12h; заменяет TF_WEIGHT × hours
+- [Force model v3 architecture](force-model-v3-architecture.md) — **CURRENT** (2026-06-03): regions + directional Williams + empirical monotonic TF weights (3d=13×, не 72×); 344 коэф; top-10 wins 50%
