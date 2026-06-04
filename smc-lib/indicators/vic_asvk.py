@@ -36,20 +36,32 @@ class VICBar:
 
 
 def auto_ltf_minutes(htf_min: int, mlt: int = 100) -> int:
-    """Pine 'ViC ASVK' auto LTF selection (non-premium, mlt=100).
+    """Pine 'ViC ASVK' auto LTF selection — CEIL rule (verified 2026-06-04).
 
-    Pine `timeframe.from_seconds(s)` возвращает наименьший валидный TF ≥ s
-    (если точного совпадения нет). Поэтому для D (864 sec → 15m), не 10m.
+    Pine `timeframe.from_seconds(s)` behavior (consolidated from vault docs +
+    user verification):
+      target_seconds = max(60, tfC / mlt)
+      LTF_minutes = ceil(target_seconds / 60)
+
+    Pine accepts arbitrary integer-minute custom TFs (e.g. 8m, 16m, 32m).
+
+    Examples (all verified):
+      12h + mlt=100: target=432s, ceil(432/60)=8m
+      12h + mlt=45:  target=960s, ceil(960/60)=16m  ⭐ (12h strategy)
+      D + mlt=100:   target=864s, ceil(864/60)=15m
+      D + mlt=45:    target=1920s, ceil(1920/60)=32m  ⭐ (D maxV)
+      D + mlt=144:   target=600s, ceil(600/60)=10m
+
+    См. memory:
+      - feedback-pine-ltf-d-chart-integer-rule.md
+      - vault: pine-ltf-12h-chart-ceil-round-up-to-integer-minutes.md
     """
+    import math
     tfC = htf_min * 60
-    rs_raw = tfC // mlt if mlt > 0 else tfC
-    rs = max(60, rs_raw)
-    target = min(tfC, rs)
-    # Pine: smallest valid TF ≥ target
-    for v in VALID_LTF_SECONDS:
-        if v >= target:
-            return v // 60
-    return VALID_LTF_SECONDS[-1] // 60
+    rs_raw = tfC / mlt if mlt > 0 else tfC
+    rs = max(60.0, rs_raw)
+    target = min(float(tfC), rs)
+    return int(math.ceil(target / 60))
 
 
 def calculate_vic_bar(
@@ -57,34 +69,37 @@ def calculate_vic_bar(
 ) -> VICBar | None:
     """Вычислить VIC для одного HTF-бара по его LTF-составу.
 
+    Canon (verified 2026-06-04 user values):
+      maxV = close LTF-бара с АБСОЛЮТНЫМ макс объёмом (любого направления),
+             НЕ "sided/dominant max" как было раньше (bug fixed 2026-06-04).
+      bullV / bearV — суммарные объёмы по направлениям (для delta/norm).
+
     Returns None если нет данных или ни одной направленной LTF-свечи.
+
+    См. memory: feedback-vic-maxv-absolute-not-sided.md
     """
     if not ltf_bars:
         return None
     htf_open_ms = ltf_bars[0][0]
     bullV = 0.0; bearV = 0.0
-    max_bull_v = 0.0; max_bull_close = None
-    max_bear_v = 0.0; max_bear_close = None
+    # Find ABSOLUTE max-volume bar (any direction)
+    max_v = -1.0; max_close = None
     for _, o, _, _, c, v in ltf_bars:
         if v <= 0:
             continue
         if c > o:
             bullV += v
-            if v > max_bull_v:
-                max_bull_v = v; max_bull_close = c
         elif c < o:
             bearV += v
-            if v > max_bear_v:
-                max_bear_v = v; max_bear_close = c
+        # Absolute max-vol bar tracking
+        if v > max_v:
+            max_v = v
+            max_close = c
 
-    if max_bull_v == 0 and max_bear_v == 0:
+    if max_close is None:
         return None
 
-    if max_bull_v > max_bear_v:
-        maxV = max_bull_close
-    else:
-        maxV = max_bear_close   # canon: при равенстве выбираем bear
-
+    maxV = max_close
     total = bullV + bearV
     delta = bullV - bearV
     norm = (delta / total) if total > 0 else 0.0

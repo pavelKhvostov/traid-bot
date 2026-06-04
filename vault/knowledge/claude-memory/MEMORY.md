@@ -10,6 +10,8 @@
 - [3D resample = Monday weekly reset](feedback-3d-resample-monday-reset.md) — 3D bars open только Mon/Thu; continuous 72h без reset создаёт фантомные Sun/Wed/Sat/Tue/Fri бары
 - [Push back on fact mismatch](feedback-push-back-on-fact-mismatch.md) — при расхождении user-факта с данными СРАЗУ поправить, не подстраиваться
 - [Candle zone/liquidity methodology](feedback-candle-zone-liquidity-methodology.md) — baseline = prior candle's high (long) / low (short); liquidity = **active backward HH/LL chain** (НЕ raw bar highs); 8 TFs для zones, 6 TFs для liquidity
+- [Pine ViC LTF integer rule (D-chart)](feedback-pine-ltf-d-chart-integer-rule.md) — rs/60 integer → exact ceil(rs/60) custom TF (mlt=45+D → LTF=32m); non-integer → closest valid
+- [ViC maxV = ABSOLUTE max-vol bar](feedback-vic-maxv-absolute-not-sided.md) — close of LTF bar with absolute max volume (any direction), NOT sided/dominant group. vic_asvk.py has bug.
 - [Key findings from reading format (Rule 13)](feedback-key-findings-from-reading-format.md) — «изучи книги/выводы из чтения» → action-oriented format с emoji + таблица/bullet list, привязка к нашим модулям
 - [12h fractal prediction final strategy](12h-fractal-prediction-final-strategy.md) — (sweep_FH ∪ OB_sweep) ∩ sweep_maxV[i] gives 82% HH / 73% LL on 6y BTC
 - [i-RDRB V1 + FVG pattern](i-rdrb-v1-pattern.md) — 5-candle bullish reversal: i-RDRB = [C1.low, C3.high] overlap, FVG = [C3.high, C5.low], C4 = displacement
