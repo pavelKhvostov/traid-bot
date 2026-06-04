@@ -14,6 +14,39 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
+## Свежее (2026-06-03) — **Bulkowski Encyclopedia → 13 reversal-детекторов на BTC 12h (etap_172)**
+
+См. [[2026-06-03-bulkowski-12-reversal-detectors-etap-172]].
+
+Bulkowski "Encyclopedia of Chart Patterns" 3rd Ed. (2076 стр.) распарсили через 4
+параллельных агента на 4 PDF-части. Консолидированная справка по 75 паттернам:
+`research/elements_study/refs/bulkowski_master_stats.md`.
+
+**etap_172** — 13 чистых детекторов reversal-паттернов на BTC 12h ([[bulkowski-reversal-detectors-btc-12h-baseline]]):
+- Long: BARR Bottom, Rounding Bottom, Cup with Handle, Big W, DB Eve&Eve, H&S Bottom, V-Bottom
+- Short: BARR Top, Big M, H&S Top, Diamond Top, V-Top, Triple Top
+
+См. [[bulkowski-top-12-patterns-for-btc-12h]] для обоснования выбора.
+
+**Bulkowski-style backtest** на BTC 12h 2020-2024 = 520 сигналов от 11 детекторов
+(cup_handle и rounding_bottom не нашли паттернов — R²-фит слишком строг для крипты).
+
+**Top-5 по edge:**
+| Паттерн | n | fail% | avg_mov% | half_tgt% |
+|---|---|---|---|---|
+| big_w | 89 | 17 | +29.8 | **90** |
+| db_eve_eve | 49 | 16 | +29.6 | 90 |
+| v_bottom | 42 | **14** | +26.6 | 83 |
+| hs_bottom | 30 | 13 | **+31.6** | 83 |
+| big_m | 87 | 21 | +16.0 | 90 |
+
+**Закрыт вопрос про "250 сетапов"**: baseline etap_163 при thr=0.3 = 252 setups,
+после всех книг (etap_171) = 316 при thr=0.3 + precision вырос с ~50% до ~62%.
+Объём сохранён, качество выросло.
+
+**Pitfalls (2 новых)**: [[socks-proxy-блокирует-binance-rest]],
+[[compose_from_base-reset_index-теряет-имя-time]].
+
 ## Свежее (2026-05-26) — **VC канонизирована как концепция (не зона) + F5 search для 12h фракталов**
 
 См. [[2026-05-26-vc-concept-canon-in-smc-lib-and-f5-search]] и [[что такое VC volume confirmation]].

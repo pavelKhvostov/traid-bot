@@ -380,3 +380,31 @@ range её пересекает. Vectorized: `first_touch_indices` через
 N(FVG-ft) = 354 (11%) → lift ×2.20 (+16.2 pp), топ-стэк ss+lh+(fvg-ft|ob-ft)
 = 84.6% (11/13) lift ×6.3.
 Источник: [[zone-mitigation-filter-required]]
+
+### SOCKS-прокси блокирует Binance REST в python-requests
+
+Что было: 2026-06-03 при `update_df_incrementally('BTCUSDT', '1h')` падал
+с `requests.exceptions.InvalidSchema: Missing dependencies for SOCKS support`.
+В env лежали `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY` с `socks5://...` от другой
+программы, а `pysocks` не установлен в venv проекта.
+Симптом: любой `requests.get(BINANCE_KLINES_URL)` падает мгновенно с
+InvalidSchema, причём это НЕ network error — это до отправки.
+Правило избегания: перед запуском скриптов, дёргающих Binance/любой REST,
+явно сбросить proxy env vars в subprocess:
+`NO_PROXY=* HTTP_PROXY= HTTPS_PROXY= ALL_PROXY= python ...`
+или внутри скрипта `for k in [...]: os.environ.pop(k, None)`. Не ставить
+pysocks как фикс — корректнее работать напрямую с api.binance.com.
+Источник: сессия [[2026-06-03-bulkowski-12-reversal-detectors-etap-172]]
+
+### `reset_index` после `compose_from_base` теряет имя колонки
+
+Что было: 2026-06-03 в etap_172 после `compose_from_base(df_1h, '12h')`
+вызвал `df.reset_index()` ожидая колонку `'time'`, но индекс был безымянным
+→ KeyError при `df['time']`. `compose_from_base` использует `resample`
+который не назначает имя индексу при отсутствии входного name.
+Симптом: KeyError: 'time' на первом же обращении к составленному ТФ-df.
+Правило избегания: после `compose_from_base(...).reset_index()` всегда
+ренеймить первую колонку: `df = df.rename(columns={df.columns[0]: 'time'})`.
+Или сразу работать через индекс без reset_index. Не полагаться на имя
+индекса от resample.
+Источник: сессия [[2026-06-03-bulkowski-12-reversal-detectors-etap-172]]

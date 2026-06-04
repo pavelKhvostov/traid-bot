@@ -1,0 +1,71 @@
+======================================================================
+etap_173: Vadim 12h-fractal-predictor + Bulkowski integration
+Base: etap_171 (270 features). +Vadim sweeps (8+4+4) + Bulkowski (10) = ~296
+======================================================================
+
+Loading data...
+  12h: 2020-01-01 00:00:00+00:00 -> 2026-05-31 00:00:00+00:00  (4685 bars)
+  USDT.D 1d: 2343 bars
+  loading 1m for maxV C2...
+  1m: 3369956 bars  (9.1s)
+
+Building etap_171 base dataset (270 features)...
+  bars 12h: 4685
+  computing VSA + Candlestick features (Williams + Nison)...
+  VSA + Candlestick features done
+  computing Lopez features (FFD, SADF, Amihud, VPIN, Roll, Parkinson, GK)...
+  Lopez features done
+  USDT.D 1d: 2343 bars  range 2020-01-02 00:00:00+00:00 -> 2026-06-01 00:00:00+00:00
+  block_orders: 1d=30 4h=313 12h=83
+  precompute zones for HTF...
+  zones precomputed in 5.8s
+  skipped (no future): 14
+  built 4667 samples × 288 cols in 44.4s
+
+Building GROUP A (Vadim zone-sweep features)...
+  precomputing Vadim zone catalog (OB + FH/FL on 12h, 1d)...
+    zone classes: 8, zones total: 3743
+  GROUP A: 16 features
+Building GROUP B (Vadim maxV C2)...
+  precomputing maxV per 12h bar (LTF=8m Pine-exact)...
+    maxV computed: 4684/4685  (50.6s)
+  GROUP B: 4 features
+Building GROUP D (Vadim Sniper composite flags)...
+  GROUP D: 4 features (sniper_HH, sniper_LL, core_HH, core_LL)
+Building GROUP E (Bulkowski top-5 fires)...
+  precomputing Bulkowski top-5 fires...
+    big_w: 119 fires
+    db_eve_eve: 62 fires
+    v_bottom: 50 fires
+    hs_bottom: 33 fires
+    big_m: 112 fires
+  GROUP E: 10 features (5 fires + 5 bars_since)
+Augmented dataset: 322 cols × 4667 rows
+
+TRAIN: 3652  (2020-01-02 00:00:00+00:00 -> 2024-12-31 12:00:00+00:00)
+TEST:  1015   (2025-01-01 00:00:00+00:00 -> 2026-05-23 00:00:00+00:00)
+
+Features: 308  (base ≈ 274, Vadim 24, Bulkowski 10)
+
+Training per target (Purged K-Fold + Hold-out)...
+  y_low_strong_3: CV 0.9422±0.0144  HO 0.9410  Brier 0.0640  AP 0.6143  (baseline 13.12%)
+  y_low_strong_4: CV 0.9370±0.0144  HO 0.9345  Brier 0.0615  AP 0.5800  (baseline 11.99%)
+  y_low_strong_5: CV 0.9336±0.0124  HO 0.9230  Brier 0.0623  AP 0.4752  (baseline 11.06%)
+  y_high_strong_3: CV 0.9291±0.0137  HO 0.9364  Brier 0.0609  AP 0.6261  (baseline 12.32%)
+  y_high_strong_4: CV 0.9253±0.0129  HO 0.9210  Brier 0.0640  AP 0.4950  (baseline 11.17%)
+  y_high_strong_5: CV 0.9159±0.0141  HO 0.9125  Brier 0.0606  AP 0.4111  (baseline 9.83%)
+
+======================================================================
+SUMMARY vs etap_171:
+======================================================================
+target                AUC_171  AUC_173        Δ       CV_171     CV_173
+--------------------------------------------------------------------------------
+y_low_strong_3         0.9368   0.9410  +0.0042   0.9442±0.013 0.9422±0.014
+y_low_strong_4         0.9320   0.9345  +0.0025   0.9403±0.012 0.9370±0.014
+y_low_strong_5         0.9224   0.9230  +0.0006   0.9347±0.013 0.9336±0.012
+y_high_strong_3        0.9332   0.9364  +0.0032   0.9256±0.010 0.9291±0.014
+y_high_strong_4        0.9233   0.9210  -0.0023   0.9219±0.012 0.9253±0.013
+y_high_strong_5        0.9107   0.9125  +0.0018   0.9155±0.013 0.9159±0.014
+
+Done in 546.4s
+======================================================================
