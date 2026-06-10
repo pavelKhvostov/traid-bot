@@ -45,3 +45,7 @@ vault/.obsidian/workspace-mobile.json
 vault/.obsidian/cache
 vault/.obsidian/graph.json
 .DS_Store
+
+# pivot research venv + NN artifacts
+.venv-pivot/
+research/elements_study/output/etap17*.npy
