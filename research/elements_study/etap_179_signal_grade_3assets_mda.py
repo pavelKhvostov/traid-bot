@@ -207,6 +207,14 @@ def main():
     print(f"\n[data] {len(ds)} сигналов (3 актива), фич={len(feats)}", flush=True)
     print("[grade dist]\n" + ds["grade"].value_counts().sort_index().to_string(), flush=True)
     print(f"  WR по TP=2.2R (grade>=4): {(ds['grade']>=4).mean()*100:.1f}%", flush=True)
+    # разбивка WR по источнику сигнала
+    SNAME = {0: "1.1.1", 1: "1.1.2", 2: "1.1.3", 3: "FRACTAL", 4: "1.1.4"}
+    print("[WR_TP по стратегии]", flush=True)
+    for sid in sorted(ds["sig_strategy_id"].unique()):
+        sub = ds[ds["sig_strategy_id"] == sid]
+        print(f"  {SNAME.get(int(sid), sid)}: n={len(sub):4d}  "
+              f"WR_TP={ (sub['grade']>=4).mean()*100:.0f}%  "
+              f"mean_R={sub['achieved_r'].mean():.2f}", flush=True)
 
     tr = ds[ds.index < TRAIN_END]; emb = TRAIN_END + pd.Timedelta("12h") * EMBARGO_BARS
     te = ds[ds.index >= emb]
@@ -228,6 +236,21 @@ def main():
     score = np.mean(preds, axis=0)
     rho_te = spearmanr(gte, score).correlation
     print(f"\n[ORDINAL NN 3-asset] CV ρ={np.mean(rhos):.4f} | TEST ρ={rho_te:.4f}", flush=True)
+
+    # === СОХРАНЕНИЕ МОДЕЛИ для прод-инференса (бот) ===
+    import torch
+    model_dir = OUT_DIR / "etap179_model"
+    model_dir.mkdir(exist_ok=True)
+    for fi, (net, sc) in enumerate(nets_scalers):
+        torch.save(net.state_dict(), model_dir / f"net_fold{fi}.pt")
+        np.savez(model_dir / f"scaler_fold{fi}.npz", mean=sc.mean_, scale=sc.scale_)
+    import json as _json
+    (model_dir / "meta.json").write_text(_json.dumps({
+        "feats": feats, "n_folds": len(nets_scalers),
+        "in_dim": len(feats), "cv_rho": float(np.mean(rhos)), "test_rho": float(rho_te),
+        "trained": "etap_179", "target_rr": 2.2,
+    }, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(f"[saved] модель → {model_dir} ({len(nets_scalers)} фолдов)", flush=True)
 
     te2 = te.copy(); te2["score"] = score
     te2["pred_grade"] = np.clip(np.round(score), 1, 5).astype(int)

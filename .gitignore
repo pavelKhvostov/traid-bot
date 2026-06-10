@@ -52,3 +52,7 @@ research/elements_study/output/etap17*.npy
 
 # neural bot state
 state/neural_bot/
+
+# trained model + live cache
+research/elements_study/output/etap179_model/
+state/neural_bot/live_sent.json
