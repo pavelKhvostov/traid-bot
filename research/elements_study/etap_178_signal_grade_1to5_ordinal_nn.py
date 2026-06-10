@@ -85,44 +85,94 @@ EMBARGO_KF = 14
 SEED = 42
 OUT_DIR = _ROOT / "research" / "elements_study" / "output"
 
-# нарезка R -> класс 1..5
+TARGET_RR = 2.2          # целевой RR стратегий 1.1.x (рабочий TP)
+MAX_HOLD_DAYS = 30       # макс горизонт удержания
+
+
 def r_to_grade(achieved_r, hit_sl_first):
-    """1=SL раньше (убыток); 2=0-1R; 3=1-2R; 4=2-3R; 5=3R+."""
+    """Класс вокруг целевого TP=2.2R (RR стратегий 1.1.x).
+
+    1 = SL раньше TP (убыток, не использовать)
+    2 = не дошёл даже до 1R (слабый)
+    3 = 1..2R (близко к TP, но не взял)
+    4 = взял TP 2..2.2R+ (ЦЕЛЬ достигнута — хороший сигнал)
+    5 = пробил >> 2.2R (≥3R, идеал — можно было держать дальше)
+    achieved_r тут = МАКС R до снятия SL (MFE/risk).
+    """
     if hit_sl_first:
         return 1
     if achieved_r < 1.0:
         return 2
     if achieved_r < 2.0:
         return 3
-    if achieved_r < 3.0:
+    if achieved_r < 3.0:        # 2..3R = TP=2.2 взят
         return 4
-    return 5
+    return 5                    # 3R+ идеал
 
 
 def achieved_r_outcome(sig, df_1m):
-    """Достигнутый R = MFE/risk до снятия SL. Через simulate_outcome с большим RR.
+    """Гонка TP(2.2R) vs SL по 1m + макс достигнутый R. Класс 1-5 вокруг TP=2.2R.
 
-    Трюк: гоняем simulate_outcome с RR=100 (TP недостижим) → exit только по SL
-    или open. MFE_pct даёт макс favorable. achieved_R = MFE_price/risk.
-    hit_sl_first = был ли SL тронут (loss).
+    Своя компактная fill+гонка логика (единая для всех стратегий).
+    [pitfall: lookahead-15min-vs-tf_duration] fill-scan стартует ПОСЛЕ закрытия
+    entry-свечи: signal_time(open c2) + длительность fvg_tf.
+    [pitfall: instant-fill] идём по реальным 1m high/low бар за баром.
+
+    Ключевое: класс по РЕАЛЬНОЙ гонке — что тронулось раньше, TP=2.2R или SL.
+    Если SL раньше → grade 1. Если TP взят → grade по тому, как далеко MFE.
+    Возврат: grade, achieved_r (MFE/risk), hit_tp (взят ли 2.2R), hit_sl.
     """
-    risk = sig["risk"]
-    entry = sig["entry"]
+    risk = sig["risk"]; entry = sig["entry"]; direction = sig["direction"]
+    sl = sig["sl"]
     if risk <= 0:
         return None
-    res = _bt.simulate_outcome(sig, df_1m, rr_ratio=100.0)
-    if res.get("outcome") == "not_filled":
+    tp = entry + risk * TARGET_RR if direction == "LONG" else entry - risk * TARGET_RR
+    fvg_tf = sig.get("fvg_tf", "15m")
+    tf_min = {"15m": 15, "20m": 20, "1h": 60, "2h": 120}.get(fvg_tf, 15)
+    t0 = pd.Timestamp(sig["signal_time"]) + pd.Timedelta(minutes=tf_min)  # close c2
+    t_end = t0 + pd.Timedelta(days=MAX_HOLD_DAYS)
+    fwd = df_1m[(df_1m.index >= t0) & (df_1m.index < t_end)]
+    if fwd.empty:
         return None
-    mfe_pct = res.get("mfe_pct", 0.0)        # % от entry в плюс
-    mfe_price = mfe_pct / 100.0 * entry      # абсолют
-    achieved_r = mfe_price / risk if risk > 0 else 0.0
-    hit_sl = res.get("hit_type") == "sl"
-    # если SL тронут — был ли он РАНЬШЕ достижения 1R? simulate с RR=100 выходит
-    # по SL, значит SL тронут до большого TP. Но MFE мог быть >0 до SL.
-    # Класс: если loss (SL hit) И mfe < 1R → grade 1; иначе по достигнутому R.
-    if hit_sl and achieved_r < 1.0:
-        return {"grade": 1, "achieved_r": achieved_r, "hit_sl": True}
-    return {"grade": r_to_grade(achieved_r, False), "achieved_r": achieved_r, "hit_sl": hit_sl}
+    H = fwd["high"].values; L = fwd["low"].values
+
+    # 1) fill: ждём касания entry (limit)
+    fill_i = None
+    for k in range(len(fwd)):
+        if (direction == "LONG" and L[k] <= entry) or (direction == "SHORT" and H[k] >= entry):
+            fill_i = k; break
+    if fill_i is None:
+        return None  # not filled
+
+    # 2) гонка: что тронулось раньше — SL или TP(2.2R). Параллельно копим MFE.
+    mfe = 0.0; hit_sl = False; hit_tp = False
+    for k in range(fill_i, len(fwd)):
+        if direction == "LONG":
+            mfe = max(mfe, H[k] - entry)
+            sl_hit = L[k] <= sl; tp_hit = H[k] >= tp
+        else:
+            mfe = max(mfe, entry - L[k])
+            sl_hit = H[k] >= sl; tp_hit = L[k] <= tp
+        # tie в одном баре → консервативно SL раньше (anti-optimism)
+        if sl_hit:
+            hit_sl = True; break
+        if tp_hit:
+            hit_tp = True; break
+    # после выхода MFE может расти дальше только до конца окна — для grade 5
+    # дотягиваем MFE по оставшимся барам (потенциал «держать дальше»)
+    if hit_tp:
+        for k in range(k, len(fwd)):
+            if direction == "LONG":
+                mfe = max(mfe, H[k] - entry)
+                if L[k] <= sl: break
+            else:
+                mfe = max(mfe, entry - L[k])
+                if H[k] >= sl: break
+    achieved_r = mfe / risk if risk > 0 else 0.0
+    if hit_sl and not hit_tp:
+        return {"grade": 1, "achieved_r": achieved_r, "hit_tp": False, "hit_sl": True}
+    return {"grade": r_to_grade(achieved_r, False), "achieved_r": achieved_r,
+            "hit_tp": hit_tp, "hit_sl": hit_sl}
 
 
 def gen_signals_and_grades():
@@ -146,7 +196,7 @@ def gen_signals_and_grades():
     for s in s112: s["strategy_id"] = 1
     print(f"  1.1.2: {len(s112)}", flush=True)
     print("[detect] 1.1.3 ...", flush=True)
-    s113 = detect_strategy_1_1_3_signals(df_1d, df_12h, df_4h, df_6h, df_1h, df_2h, df_15m, df_20m)
+    s113 = detect_strategy_1_1_3_signals(df_1d, df_12h, df_4h, df_6h, df_1h, df_2h)
     for s in s113: s["strategy_id"] = 2
     print(f"  1.1.3: {len(s113)}", flush=True)
     all_sigs = s111 + s112 + s113
@@ -172,7 +222,8 @@ def gen_signals_and_grades():
             "direction_long": 1 if s["direction"] == "LONG" else 0,
             "entry": s["entry"], "sl": s["sl"], "risk": s["risk"],
             "risk_pct": abs(s["entry"] - s["sl"]) / s["entry"] * 100,
-            "grade": out["grade"], "achieved_r": out["achieved_r"], "hit_sl": int(out["hit_sl"]),
+            "grade": out["grade"], "achieved_r": out["achieved_r"],
+            "hit_tp": int(out["hit_tp"]), "hit_sl": int(out["hit_sl"]),
         })
     g = pd.DataFrame(rows)
     print(f"[graded] {len(g)} сигналов с исходом", flush=True)
@@ -208,6 +259,8 @@ def build_features_for_signals(graded, dfs):
         d["sig_direction_long"] = sig["direction_long"]
         d["sig_risk_pct"] = sig["risk_pct"]
         d["grade"] = int(sig["grade"])
+        d["achieved_r"] = float(sig["achieved_r"])
+        d["hit_tp"] = int(sig["hit_tp"])
         d["signal_time"] = sig["signal_time"]
         rows.append(d)
     out = pd.DataFrame(rows).set_index("signal_time").sort_index()
@@ -308,8 +361,9 @@ def main():
         print(f"[ERR] мало сигналов: {len(graded)}"); return
     print("\n[grade distribution]", flush=True)
     print(graded["grade"].value_counts().sort_index().to_string(), flush=True)
-    print(f"  WR (grade>=2, дошёл хоть куда): {(graded['grade']>=2).mean()*100:.1f}%", flush=True)
-    print(f"  mean achieved_R: {graded['achieved_r'].mean():.2f}", flush=True)
+    print(f"  WR по TP=2.2R (grade>=4, ВЗЯЛ TP): {(graded['grade']>=4).mean()*100:.1f}%", flush=True)
+    print(f"  WR дошёл хоть куда (grade>=2): {(graded['grade']>=2).mean()*100:.1f}%", flush=True)
+    print(f"  mean achieved_R (MFE/risk): {graded['achieved_r'].mean():.2f}", flush=True)
 
     ds, feats = build_features_for_signals(graded, dfs)
     ds = ds[ds[feats].notna().all(axis=1)]
@@ -345,13 +399,17 @@ def main():
         sub = te2[te2["pred_grade"] == pg]
         if len(sub) >= 3:
             print(f"  pred={pg}: n={len(sub):4d}  real_grade_mean={sub['grade'].mean():.2f}  "
-                  f"WR(>=3)={ (sub['grade']>=3).mean()*100:.0f}%  mean_R={sub['achieved_r'].mean():.2f}", flush=True)
+                  f"WR_TP(grade>=4)={ (sub['grade']>=4).mean()*100:.0f}%  "
+                  f"mean_R={sub['achieved_r'].mean():.2f}", flush=True)
 
-    # топ-бакет: сигналы где сеть говорит 4-5 — какой реальный R/winrate
+    # топ-бакет: сигналы где сеть говорит 4-5 — реальный winrate по TP=2.2R
     top = te2[te2["score"] >= 3.5]
+    base_tp = (te2["grade"] >= 4).mean()
     if len(top) >= 5:
-        print(f"\n[TOP сигналы score>=3.5] n={len(top)}  real_grade_mean={top['grade'].mean():.2f}  "
-              f"WR(>=3)={(top['grade']>=3).mean()*100:.0f}%  mean_R={top['achieved_r'].mean():.2f}", flush=True)
+        wr_top = (top["grade"] >= 4).mean()
+        print(f"\n[TOP сигналы score>=3.5] n={len(top)}  WR_TP={wr_top*100:.0f}% "
+              f"(baseline {base_tp*100:.0f}%, lift ×{wr_top/base_tp:.2f})  "
+              f"mean_R={top['achieved_r'].mean():.2f}", flush=True)
 
     # SANITY: shuffle grade
     rng = np.random.RandomState(0); gsh = gtr.copy(); rng.shuffle(gsh)
