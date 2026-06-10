@@ -49,3 +49,6 @@ vault/.obsidian/graph.json
 # pivot research venv + NN artifacts
 .venv-pivot/
 research/elements_study/output/etap17*.npy
+
+# neural bot state
+state/neural_bot/
