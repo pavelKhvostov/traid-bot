@@ -33,6 +33,7 @@ from data_manager import load_df, compose_from_base
 from strategies.strategy_1_1_1 import detect_strategy_1_1_1_signals
 from strategies.strategy_1_1_2 import detect_strategy_1_1_2_signals
 from strategies.strategy_1_1_3 import detect_strategy_1_1_3_signals
+from strategies.strategy_1_1_4 import detect_strategy_1_1_4_signals  # Extended-7 (EMA-фильтр в backtest), WR 67%
 
 # переиспуем etap_178 (метка/оценка/сеть) и etap_177 (арсенал-фичи/CV)
 _s178 = _ilu.spec_from_file_location("e178", _ROOT / "research/elements_study/etap_178_signal_grade_1to5_ordinal_nn.py")
@@ -107,9 +108,13 @@ def gen_signals_for_symbol(sym, asset_id):
     for s in s112: s["strategy_id"] = 1
     s113 = detect_strategy_1_1_3_signals(df_1d, df_12h, df_4h, df_6h, df_1h, df_2h)
     for s in s113: s["strategy_id"] = 2
-    sfr = gen_fractal_signals(df_12h)      # ← НОВОЕ: фракталы Андрея (strategy_id=3)
-    alls = s111 + s112 + s113 + sfr
-    print(f"  [{sym}] 1.1.1={len(s111)} 1.1.2={len(s112)} 1.1.3={len(s113)} FRACTAL={len(sfr)}", flush=True)
+    sfr = gen_fractal_signals(df_12h)      # фракталы Андрея (strategy_id=3)
+    for s in sfr: s["strategy_id"] = 3
+    s114 = detect_strategy_1_1_4_signals(df_1d, df_12h, df_4h, df_6h, df_1h, df_2h, df_15m, df_20m)  # Extended-7, WR 67%
+    for s in s114: s["strategy_id"] = 4
+    alls = s111 + s112 + s113 + sfr + s114
+    print(f"  [{sym}] 1.1.1={len(s111)} 1.1.2={len(s112)} 1.1.3={len(s113)} "
+          f"FRACTAL={len(sfr)} 1.1.4={len(s114)}", flush=True)
 
     seen, uniq = set(), []
     for s in alls:
