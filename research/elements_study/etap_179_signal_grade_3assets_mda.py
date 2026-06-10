@@ -47,6 +47,51 @@ EMBARGO_KF = _e178.EMBARGO_KF
 OUT_DIR = _e178.OUT_DIR
 
 
+FRACTAL_N = 2          # Williams (подтверждается через 2 бара)
+FRACTAL_SL_DEPTH = 0.15  # SL чуть за экстремум: 15% диапазона свечи фрактала
+TARGET_RR = 2.2        # как у стратегий 1.1.x
+
+
+def gen_fractal_signals(df_12h):
+    """Фрактал-развороты Андрея как 4-й источник сигналов (strategy_id=3).
+
+    Сигнал на 12h: свеча i — подтверждённый Williams-фрактал N=2.
+    [lookahead-safe] вход на close свечи i+N (момент ПОДТВЕРЖДЕНИЯ фрактала —
+    раньше его нельзя знать). LL→LONG, HH→SHORT.
+      entry = close[i+N]
+      SL    = low[i] - depth (LONG) / high[i] + depth (SHORT), depth=15% диапазона i
+      risk  = |entry - SL|;  TP = entry ± risk*2.2
+    fvg_tf='12h' → fill-scan стартует через 12h (после закрытия entry-свечи i+N).
+    """
+    H = df_12h["high"].values; L = df_12h["low"].values; C = df_12h["close"].values
+    idx = df_12h.index
+    sigs = []
+    N = FRACTAL_N
+    for i in range(N, len(df_12h) - N):
+        is_fl = L[i] < L[i-N:i].min() and L[i] < L[i+1:i+1+N].min()
+        is_fh = H[i] > H[i-N:i].max() and H[i] > H[i+1:i+1+N].max()
+        if not (is_fl or is_fh):
+            continue
+        conf = i + N                       # бар подтверждения
+        entry_time = idx[conf]             # open-time свечи подтверждения
+        entry = C[conf]                    # вход на её close
+        rng = H[i] - L[i]
+        depth = rng * FRACTAL_SL_DEPTH
+        if is_fl:
+            direction = "LONG"; sl = L[i] - depth
+        else:
+            direction = "SHORT"; sl = H[i] + depth
+        risk = abs(entry - sl)
+        if risk <= 0:
+            continue
+        sigs.append({
+            "strategy_id": 3, "direction": direction,
+            "signal_time": entry_time, "entry": float(entry), "sl": float(sl),
+            "risk": float(risk), "fvg_tf": "12h",   # fill-scan через 12h после open
+        })
+    return sigs
+
+
 def gen_signals_for_symbol(sym, asset_id):
     df_1d = load_df(sym, "1d"); df_12h = load_df(sym, "12h")
     df_4h = load_df(sym, "4h"); df_1h = load_df(sym, "1h")
@@ -62,8 +107,9 @@ def gen_signals_for_symbol(sym, asset_id):
     for s in s112: s["strategy_id"] = 1
     s113 = detect_strategy_1_1_3_signals(df_1d, df_12h, df_4h, df_6h, df_1h, df_2h)
     for s in s113: s["strategy_id"] = 2
-    alls = s111 + s112 + s113
-    print(f"  [{sym}] 1.1.1={len(s111)} 1.1.2={len(s112)} 1.1.3={len(s113)}", flush=True)
+    sfr = gen_fractal_signals(df_12h)      # ← НОВОЕ: фракталы Андрея (strategy_id=3)
+    alls = s111 + s112 + s113 + sfr
+    print(f"  [{sym}] 1.1.1={len(s111)} 1.1.2={len(s112)} 1.1.3={len(s113)} FRACTAL={len(sfr)}", flush=True)
 
     seen, uniq = set(), []
     for s in alls:

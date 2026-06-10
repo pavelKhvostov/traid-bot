@@ -128,7 +128,7 @@ def achieved_r_outcome(sig, df_1m):
         return None
     tp = entry + risk * TARGET_RR if direction == "LONG" else entry - risk * TARGET_RR
     fvg_tf = sig.get("fvg_tf", "15m")
-    tf_min = {"15m": 15, "20m": 20, "1h": 60, "2h": 120}.get(fvg_tf, 15)
+    tf_min = {"15m": 15, "20m": 20, "1h": 60, "2h": 120, "12h": 720}.get(fvg_tf, 15)
     t0 = pd.Timestamp(sig["signal_time"]) + pd.Timedelta(minutes=tf_min)  # close c2
     t_end = t0 + pd.Timedelta(days=MAX_HOLD_DAYS)
     fwd = df_1m[(df_1m.index >= t0) & (df_1m.index < t_end)]
