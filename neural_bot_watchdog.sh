@@ -8,5 +8,9 @@ while true; do
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] bot down — restarting"
     OMP_NUM_THREADS=1 nohup "$PY" -u neural_bot.py >> /tmp/neural_bot.log 2>&1 &
   fi
+  if ! pgrep -f "neural_signals_live.py" > /dev/null; then
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] live-inference down — restarting"
+    OMP_NUM_THREADS=1 nohup "$PY" -u neural_signals_live.py >> /tmp/neural_live.log 2>&1 &
+  fi
   sleep 30
 done

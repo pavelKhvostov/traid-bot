@@ -25,8 +25,9 @@ import numpy as np
 import pandas as pd
 
 INTERVAL_SEC = 1800          # как часто проверять новые сигналы (30 мин)
-LOOKBACK_DAYS = 10           # окно поиска свежих сигналов
-MIN_GRADE = 4                # слать только class>=4 (взял TP)
+LOOKBACK_DAYS = 30           # окно поиска свежих сигналов
+MIN_GRADE = 4                # слать class>=4 (взял TP). Фильтр etap_179 слабый
+                             # (ρ~0.06), но class>=4 = лучшая часть; на топе lift ~×1.2
 MODEL_DIR = _ROOT / "research" / "elements_study" / "output" / "etap179_model"
 SENT_CACHE = _ROOT / "state" / "neural_bot" / "live_sent.json"
 
@@ -82,7 +83,7 @@ def gen_recent_signals():
     if not parts:
         return pd.DataFrame(), []
     ds = pd.concat(parts).sort_index()
-    feats = [f for f in _e179.make_feature_list(list(_e177.BULK_ALL.keys())) if f in ds.columns] \
+    feats = [f for f in _e177.make_feature_list(list(_e177.BULK_ALL.keys())) if f in ds.columns] \
             + ["sig_strategy_id", "sig_direction_long", "sig_risk_pct", "sig_asset_id"]
     feats = [f for f in feats if f in ds.columns]
     ds = ds[ds[feats].notna().all(axis=1)]
@@ -153,6 +154,15 @@ def run():
     print(f"[live] модель загружена: {meta['n_folds']} фолдов, {len(model_feats)} фич, "
           f"CV ρ={meta.get('cv_rho'):.3f}, device={device}", flush=True)
     print(f"[live] цикл каждые {INTERVAL_SEC}s, шлю class>={MIN_GRADE}", flush=True)
+    # уведомить подписчиков, что нейро-инференс запущен (видно что живой)
+    try:
+        for u in nb.active_users():
+            nb.send_message(u["chat_id"],
+                f"🧠 Нейро-инференс запущен.\nМодель: {meta['n_folds']} фолдов, "
+                f"{len(model_feats)} фич. Шлю сигналы класса ≥{MIN_GRADE} по BTC/ETH/SOL "
+                f"(5 стратегий + фракталы Андрея). Проверка каждые {INTERVAL_SEC//60} мин.")
+    except Exception as e:
+        print(f"[live] startup notify failed: {e!r}", flush=True)
     while True:
         try:
             run_once(nets, scalers, model_feats, device)
