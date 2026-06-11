@@ -25,9 +25,12 @@ import numpy as np
 import pandas as pd
 
 INTERVAL_SEC = 1800          # как часто проверять новые сигналы (30 мин)
-LOOKBACK_DAYS = 30           # окно поиска свежих сигналов
-MIN_GRADE = 4                # слать class>=4 (взял TP). Фильтр etap_179 слабый
-                             # (ρ~0.06), но class>=4 = лучшая часть; на топе lift ~×1.2
+# ⚠️ РЕАЛЬНЫЙ сигнал = signal_time на ПОСЛЕДНЕЙ закрытой 12h-свече от РЕАЛЬНОГО now,
+# а не за N дней истории. Окно = FRESH_BARS последних 12h-баров (1 = только самый
+# свежий). Без этого бот слал старьё (22 мая, 10 июня) как «свежее» — это был баг.
+FRESH_BARS_12H = 1           # сколько последних 12h-баров считать «свежими»
+MIN_GRADE = 4                # слать class>=4 (взял TP). Фильтр etap_179 слабый (ρ~0.06)
+REFRESH_DATA = True          # дозагружать данные с Binance перед каждым прогоном
 MODEL_DIR = _ROOT / "research" / "elements_study" / "output" / "etap179_model"
 SENT_CACHE = _ROOT / "state" / "neural_bot" / "live_sent.json"
 
@@ -67,10 +70,33 @@ def score_signals(ds_feat, feats, nets, scalers, device):
     return np.mean(preds, axis=0)
 
 
+def _refresh_data():
+    """Дозагрузить свежие бары с Binance (иначе бот работает на устаревшей истории)."""
+    from data_manager import update_df_incrementally
+    for sym in _e179.SYMBOLS:
+        for tf in ["1d", "12h", "4h", "1h", "15m", "1m"]:
+            try:
+                update_df_incrementally(sym, tf)
+            except Exception as e:
+                print(f"[refresh] {sym} {tf}: {e!r}", flush=True)
+
+
 def gen_recent_signals():
-    """Свежие сигналы всех стратегий за LOOKBACK_DAYS по 3 активам с фичами."""
-    cutoff = pd.Timestamp.utcnow().tz_localize("UTC") if pd.Timestamp.utcnow().tz is None else pd.Timestamp.utcnow()
-    cutoff = cutoff - pd.Timedelta(days=LOOKBACK_DAYS)
+    """ТОЛЬКО реально свежие сигналы — на последней закрытой 12h-свече от now.
+
+    Фильтр: signal_time >= (последняя ЗАКРЫТАЯ 12h-свеча) − (FRESH_BARS_12H−1)·12h.
+    Это значит «сигнал появился прямо сейчас», а не где-то в истории.
+    """
+    if REFRESH_DATA:
+        print("[refresh] дозагрузка данных...", flush=True)
+        _refresh_data()
+    now = pd.Timestamp.utcnow()
+    if now.tz is None:
+        now = now.tz_localize("UTC")
+    # последняя ЗАКРЫТАЯ 12h-свеча: 12h-бары открываются в 00:00 и 12:00 UTC
+    last_closed_open = now.floor("12h") - pd.Timedelta("12h")
+    cutoff = last_closed_open - pd.Timedelta("12h") * (FRESH_BARS_12H - 1)
+    print(f"[fresh] now={now:%Y-%m-%d %H:%M} → беру сигналы с signal_time>={cutoff:%Y-%m-%d %H:%M}", flush=True)
     parts = []
     for aid, sym in enumerate(_e179.SYMBOLS):
         g = _e179.gen_signals_for_symbol(sym, aid)
