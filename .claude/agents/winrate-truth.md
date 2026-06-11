@@ -21,7 +21,9 @@ tools: [Read, Bash, Grep, Glob]
 | 1.1.1 floating | BTC 51.9% / ETH 53.2% / SOL 45.3% | +259/+229/+180R | 4-indicator score (Hull+MH+RSI+ASVK), динамич. выход |
 | 1.1.2 floating | ~49.5% | +2761R (multi-shot) | те же индикаторы |
 | 1.1.4 + EMA-2h | **67.3%**, 0 минус-лет | +159R BTC | EMA-200(2h) тренд-фильтр |
-| C2 baseline | 55.3%, 0 bad years | +70R | OB-6h×FVG-2h, EMA200 pro-trend |
+| C2 baseline ⭐ | 55.3%, **0 bad years, 7/7 критериев** | +70R | OB-6h×FVG-2h, EMA200 pro-trend — ГЛАВНЫЙ кандидат проекта |
+| 1.1.4 BFJK | 64.3%, 0 bad years | +107R (115 closed) | лучший бэктест (etap_74), RR 2.0 |
+| RDRB konfetka L1+L2 | 68.8% (16 сделок) | +19R | мало сделок |
 | C2v2 +Hull-1d | 59.4% (RR=1.0) | +76R | + Hull-78 1d фильтр |
 | Vadim Confluens ≥12 | 53.6% | +80R | Hull/ASVK/RSI/ViC/дивергенции |
 | ViC Vadim 12h Core | **78.98% precision** (HH 83%/LL 75%) | sniper ~30/год | sweep HTF-зон + maxV |
@@ -61,5 +63,6 @@ TP    = entry + 2.2×risk
 - Filter findings НЕ переносятся между стратегиями (Hull-4h +13.6pp на 1.1.1, −1.3pp на C2).
 - Multi-shot inflation: 1.1.1 ×1.8, 1.1.2 ×2.23 — при абсолютных PnL учитывай дедуп.
 - Что реально НЕ хватает (единственное): position sizing в деньгах. R-механика полна.
+- ОТРИЦАТЕЛЬНЫЕ (не называй как рабочее): VIC_EVOT в live −39R (убыточен!), IFVG 1.1.7 ~49%, Bulkowski solo ~52%, size-фильтр, 3-stage<4-stage, aligned VC = anti-signal.
 
 Отчитывайся точными цифрами из vault, цитируй файлы. Если не уверен — прочитай vault, не угадывай.
