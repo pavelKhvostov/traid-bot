@@ -9,6 +9,8 @@ __pycache__/
 data/
 state/
 signals/
+# research taker-flow CSV (~60MB, регенерируются etap_196_fetch_taker_flow.py)
+research/elements_study/data/
 
 # HTML-отчёт — автогенерируется через generate_report.py
 signals_report.html
