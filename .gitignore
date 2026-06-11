@@ -37,6 +37,10 @@ research/elements_study/output/*
 !.claude/agents/backtest-auditor.md
 !.claude/agents/pitfall-checker.md
 !.claude/agents/smc-reviewer.md
+!.claude/agents/ml-validator.md
+!.claude/agents/winrate-truth.md
+!.claude/agents/bot-vault-guardian.md
+!.claude/agents/README.md
 
 # Obsidian — личные настройки разработчика
 vault/.obsidian/workspace
