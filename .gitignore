@@ -39,6 +39,10 @@ research/elements_study/output/*
 !.claude/agents/backtest-auditor.md
 !.claude/agents/pitfall-checker.md
 !.claude/agents/smc-reviewer.md
+!.claude/agents/ml-validator.md
+!.claude/agents/winrate-truth.md
+!.claude/agents/bot-vault-guardian.md
+!.claude/agents/README.md
 
 # Obsidian — личные настройки разработчика
 vault/.obsidian/workspace
@@ -47,3 +51,20 @@ vault/.obsidian/workspace-mobile.json
 vault/.obsidian/cache
 vault/.obsidian/graph.json
 .DS_Store
+
+# pivot research venv + NN artifacts
+.venv-pivot/
+research/elements_study/output/etap17*.npy
+
+# neural bot state
+state/neural_bot/
+
+# trained model + live cache
+research/elements_study/output/etap179_model/
+state/neural_bot/live_sent.json
+
+# DL books (большие PDF, не в git)
+vault/research/deep-learning-books/*.pdf
+
+research/elements_study/output/etap182_*
+research/elements_study/output/etap183_*
