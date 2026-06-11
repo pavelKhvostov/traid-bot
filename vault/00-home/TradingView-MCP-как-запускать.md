@@ -41,6 +41,17 @@ MCP-инструменты подгружаются при старте сесс
 - `draw_clear` / `draw_list` / `draw_remove_one` → **сломаны** (`getChartApi is not defined`).
   Обход для очистки графика: `ui_evaluate` →
   `window.TradingViewApi.activeChart().removeAllShapes()`.
+  Если remove не убирает createShape-стрелки (рисуются как entity, не shape):
+  `var ids=c.getAllShapes(); ids.forEach(function(s){c.removeEntity(s.id||s);})`.
+- **Баг рендера после переключений ТФ/visible_range:** фигуры создаются (createShape
+  возвращает success, getAllShapes их видит), НО визуально НЕ рендерятся на скриншоте.
+  Лечится **перезагрузкой страницы TradingView (Cmd+R / F5)** — после неё draw_shape
+  рендерится нормально. CDP-связь при F5 не рвётся, MCP-инструменты продолжают работать.
+- **Смена ТФ (chart_set_timeframe) рассинхронизирована:** chart_get_state показывает
+  новый ТФ, но визуально график может остаться на старом. Для MTF-анализа надёжнее:
+  считать зоны Python-кодом (точно), давать текстом, пользователь сам переключает ТФ.
+- **Рисовать зоны:** правый край ставить на ПОСЛЕДНИЙ реальный бар (не в будущее) —
+  иначе зона уходит за правый край видимой области.
 - Твои индикаторы (Hull/ViC/RSI/Money Hands) рисуются через line.new/защищённые методы → `data_get_study_values` их НЕ отдаёт (только WICK.ED). Зоны считать Python-кодом проекта (smc-lib), а не читать с графика.
 
 ## Твой график (layout XnWnFhZo)
