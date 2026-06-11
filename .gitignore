@@ -59,3 +59,5 @@ state/neural_bot/live_sent.json
 
 # DL books (большие PDF, не в git)
 vault/research/deep-learning-books/*.pdf
+
+research/elements_study/output/etap182_*
