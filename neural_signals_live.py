@@ -40,6 +40,10 @@ _e179 = _ilu.module_from_spec(_s179); _s179.loader.exec_module(_e179)
 _e178 = _e179._e178
 _e177 = _e179._e177
 
+# etap_180: знаниевые "почему"-фичи (модель в боте обучена с ними)
+_s180 = _ilu.spec_from_file_location("e180", _ROOT / "research/elements_study/etap_180_signal_grade_knowledge_features.py")
+_e180 = _ilu.module_from_spec(_s180); _s180.loader.exec_module(_e180)
+
 import neural_bot as nb
 
 SNAME = {0: "1.1.1", 1: "1.1.2", 2: "1.1.3", 3: "FRACTAL", 4: "1.1.4"}
@@ -112,6 +116,9 @@ def gen_recent_signals():
     feats = [f for f in _e177.make_feature_list(list(_e177.BULK_ALL.keys())) if f in ds.columns] \
             + ["sig_strategy_id", "sig_direction_long", "sig_risk_pct", "sig_asset_id"]
     feats = [f for f in feats if f in ds.columns]
+    # знаниевые "почему"-фичи (модель etap_180 обучена с ними)
+    ds, why_feats = _e180.add_knowledge_features(ds)
+    feats = feats + [f for f in why_feats if f not in feats]
     ds = ds[ds[feats].notna().all(axis=1)]
     return ds, feats
 
