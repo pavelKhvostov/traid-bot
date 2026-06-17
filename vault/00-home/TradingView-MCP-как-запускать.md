@@ -32,6 +32,45 @@ curl -s http://localhost:9222/json/version
 **ПОЧЕМУ `pkill -9` (не -f без -9):** SIGTERM приложение перехватывает; single-instance lock передаёт активацию старому инстансу без флага. Нужен SIGKILL.
 **Штатный скрипт `~/tradingview-mcp/scripts/launch_tv_debug_mac.sh` НЕ работает** из окружения Claude (наследует ELECTRON_RUN_AS_NODE + использует pkill -f). Запускать командой выше.
 
+## 🪟 WINDOWS (машина Andrew, настроено 2026-06-11)
+
+Репо склонировано в `C:\Users\Andrew\tradingview-mcp` (npm install через socks-прокси —
+см. ниже). Рабочая копия TradingView — **standalone `D:\games\TradingView\TradingView.exe`**
+(НЕ Store-версия! Store/UWP `C:\Program Files\WindowsApps\TradingView.Desktop_*` **не
+принимает** `--remote-debugging-port`, CDP не поднимается).
+
+**Запуск с CDP (PowerShell):**
+```powershell
+powershell -ExecutionPolicy Bypass -File C:\Users\Andrew\tradingview-mcp\scripts\launch_tv_debug_win.ps1
+```
+Скрипт: снимает `ELECTRON_RUN_AS_NODE` (как `env -u` на Mac — иначе TV стартует как Node и
+игнорит флаг), `taskkill /F /IM TradingView.exe`, `Start-Process D:\games\...\TradingView.exe
+--remote-debugging-port=9222`, ждёт CDP. ⚠️ TV первые ~20-30с на splash-экране (astronaut) —
+`state`/`symbol` отдают ошибку `Value is null` / `_activeChartWidgetWV undefined`, пока график
+не догрузил данные; подождать и повторить.
+
+**Launcher репо пропатчен** (`src/core/health.js`): в win32-кандидаты добавлен путь
+`D:\games\TradingView\TradingView.exe`, и при `spawn` удаляется `ELECTRON_RUN_AS_NODE` —
+теперь `tv_launch` из Claude работает на Windows.
+
+**npm install через socks-прокси:** на этой машине Binance/инет идёт через системный
+SOCKS5 `127.0.0.1:10808` (v2rayN, в реестре Windows). npm не умеет SOCKS из реестра —
+ставить так: `$env:HTTPS_PROXY="socks5://127.0.0.1:10808"; npm install` (npm 7+ поддерживает
+socks5-схему). См. [[binance-rest-прокси-зависит-от-машины-vps-vs-local-windows]].
+
+**Регистрация MCP в Claude:** Claude НЕ даёт агенту самому править `~/.claude.json`
+(автозагрузка внешнего кода — защита). Пользователь регистрирует вручную: добавить в
+`~/.claude.json` в `"mcpServers"`:
+```json
+"tradingview": { "type": "stdio", "command": "node",
+  "args": ["C:\\Users\\Andrew\\tradingview-mcp\\src\\server.js"] }
+```
+затем **перезапустить Claude** (MCP-инструменты грузятся при старте сессии).
+
+**Проверка без MCP-инструментов (через CLI сервера):**
+`cd ~/tradingview-mcp; node src/cli/index.js status` (и `state`, `symbol`, `quote`, `screenshot`...).
+CDP — localhost, прокси не нужен. 2026-06-11 проверено: читает live BINANCE:BTCUSDT с layout XnWnFhZo.
+
 ## Проверка связи в начале сессии
 
 MCP-инструменты подгружаются при старте сессии. Проверить: `tv_health_check` → должен вернуть `cdp_connected: true` + текущий символ.

@@ -175,7 +175,7 @@ class MultiStrategyScanner:
         fvg_b, fvg_t = sig["fvg_zone"]
         tp = sig.get("tp")
         risk_pct = abs(sig["entry"] - sig["sl"]) / sig["entry"] * 100
-        return (
+        msg = (
             f"₿ <b>{symbol}</b> · 🔬 Strategy <b>{self.name}</b>\n"
             f"{dir_icon} <b>{sig['direction']}</b> · "
             f"{sig.get('top_tf', '?')} → {sig.get('ob_htf_tf', '?')} → "
@@ -187,6 +187,19 @@ class MultiStrategyScanner:
             + f"FVG:     {fvg_b:.2f} – {fvg_t:.2f}\n"
             f"Время:   {sig_time.strftime('%Y-%m-%d %H:%M')} UTC"
         )
+
+        # Авто-контекст рынка (тип дня + вердикт + магниты). include_stats=False:
+        # исторические цифры ячеек посчитаны на сделках 1.1.1 и для
+        # 1.1.2/1.1.3/1.1.6 не валидированы. Сбой контекста не ломает сигнал.
+        try:
+            from signal_context import build_context
+            ctx = build_context(symbol, sig, rr=self.rr, include_stats=False)
+            if ctx:
+                msg += "\n" + ctx
+        except Exception:
+            pass
+
+        return msg
 
     def on_closed_1h(self, symbol: str) -> None:
         for tf in NATIVE_TFS:

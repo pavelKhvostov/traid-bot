@@ -146,4 +146,16 @@ def format_signal_message(symbol: str, sig: dict, confluence: dict) -> str:
         f"POI: {top_label} OB + {sig['fvg_macro_tf']} FVG\n"
         f"Volume confirmation: {sig['ob_htf_tf']} OB + {sig['fvg_tf']} FVG"
     )
+
+    # Авто-контекст рынка (тип дня + confluence + зоны/цели/магниты).
+    # Изолирован try/except внутри build_context — сбой → пустая строка,
+    # сам сигнал не страдает. См. signal_context.py.
+    try:
+        from signal_context import build_context
+        ctx = build_context(symbol, sig)
+        if ctx:
+            msg = msg + "\n" + ctx
+    except Exception:
+        pass
+
     return msg
