@@ -14,7 +14,28 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
-## Свежее (2026-05-31) — **Phase 3 PC1 results + Phase 4 «Force × Liquidity» framework (5 принципов)**
+## Свежее (2026-06-17) — **Раздел библиотеки «поиск-элементов» + PC1 upgrade (Ryzen 9 9950X)**
+
+См. [[2026-06-17-поиск-элементов-library-section-pc-upgrade]] + [[универсальная-библиотека-поиск-элементов-snapshot-агностик]].
+
+- **PC1 апгрейд:** Ryzen 7 7700 → **Ryzen 9 9950X (16c/32t)**, RAM 32→64GB. LAN IP сменился. `.wslconfig` `processors=14 → 30`.
+- **Новый раздел `~/smc-lib/поиск-элементов/`** = universal: `event_detector_v11.py` + `snapshot_generator_v6.py` + `ошибки.md` (19 ошибок процесса). Sync Mac ↔ PC1.
+- **Decision:** library snapshot инвариантен (только active zones в ±20% досягаемости). Past/forward/cluster features — на baseline-уровне конкретного проекта.
+- **Удалено из snapshot_v6** project-specific: `in_2pct` per-zone, `ctx_n_active/in_zone_{tf}` × 16, `ctx_n_{role}_in2pct` × 3, ±2% context scope.
+- **Storage rule PC1:** все ML-артефакты отныне на **G: (1.9 TB free)**. C: только система. WSL distribution мигрировать на G:.
+
+## Старое (2026-06-09) — **ob_vc ML lookahead bug + honest production walk-forward**
+
+См. [[2026-06-09-ob-vc-ml-lookahead-bug-honest-results]].
+
+- **Lookahead bug найден** в `hma_at_entry.py` — features читали FINAL close in-progress HTF бара (до 72h в будущем для 3d TF).
+- v3.3 production canon (WR 72.4%, +1288R, AUC 0.79) был основан на этом баге — реальный AUC 0.54.
+- Fix реализован: INTRADAY partial-bar update (PineScript-style live). См. [[ob-vc-hma-features-lookahead-fix]].
+- Stage 2A: добавлены 60 cross-TF crosses (15 пар × 4 derivs) — PBO упал 0.55 → 0.30 (генерализация улучшилась).
+- Production walk-forward (4y train, retrain 6mo) на 660 honest features: +6R/year vs random — marginal edge.
+- Lesson: tabular ML видит snapshot, не trajectory. См. [[ml-snapshot-not-trajectory]].
+
+## Старое (2026-05-31) — **Phase 3 PC1 results + Phase 4 «Force × Liquidity» framework (5 принципов)**
 
 См. [[2026-05-31-phase3-results-phase4-force-framework]].
 

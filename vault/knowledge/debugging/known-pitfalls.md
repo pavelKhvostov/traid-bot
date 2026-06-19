@@ -15,6 +15,22 @@ status: living-document
 
 ---
 
+### ob_vc HMA features читали FINAL close in-progress бара (lookahead)
+
+Что было: `features/hma_at_entry.py` builder использовал
+`closes[idx_at_event]` где idx = бар, СОДЕРЖАЩИЙ entry_ms (в процессе формирования).
+Для 1d TF это означало чтение close в 24:00 UTC при entry в 14:00 — 10 часов
+в будущем. Для 3d TF — до 72h future leak.
+Симптом: v3.3 strategy production canon (WR 72.4%, +1288R, AUC 0.79) был основан
+на lookahead. После fix реальный AUC = 0.54, WR ~38%.
+Reproduce: для entry_ms посреди 1d бара (например 14:00 UTC):
+  bug: closes[idx] = close at 24:00 (FUTURE)
+  fix: closes[searchsorted(ts, entry_ms - tf_ms, side="right") - 1] = last CLOSED bar
+Правило избегания: feature от HTF при entry_ms младше close TF — обязан использовать
+INTRADAY partial-bar: closed_HTF_bars + 1m_close_at_entry_ms как virtual partial close.
+Любой ML AUC > 0.65 на 14-day directional crypto target — подозревать lookahead.
+Источник: [[ob-vc-hma-features-lookahead-fix]]
+
 ### Instant-fill simulator завышает PnL в 3-7×
 
 Что было: etap_42 PDF использовал `simulate_fixed_rr` без ожидания касания
