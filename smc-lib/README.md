@@ -42,7 +42,9 @@ elements/<element_name>/
 - `patterns/` — полные setup-паттерны с entry/SL/TP (в отличие от `elements/` где только canon zone):
   - `patterns/run_3candles_sweep/` — 3-свечный liquidity grab continuation (3 same direction + c2 wick ≥2.5×body + **sweep c1 high/low**). Setup: Entry=0.3×wick c2, SL=c2 extremum, TP=c3 opposite extremum. Эталон: BTC 8h 2026-05-26.
   - `patterns/i_rdrb_fvg/` — **i-RDRB с последующим FVG**. 5-свечный композит: i-RDRB (C1-C4) + FVG (C3-C4-C5) одного направления. Основной паттерн forensic-стенда (1h BTC, baseline 780 сделок).
-- `ob_sweep_liq_4candles/` — **Снятие ликвидности Williams-фрактала**. Reference = Williams FH/FL anchor любой давности. Sweep candle Y: открытие по другую сторону от фрактала + wick через уровень + close за close фрактал-бара. SHORT/LONG mirror. Имя `_4candles` — историческое. Эталон: BTC 6h SHORT, anchor 2026-05-25 15:00 MSK FH 77906, y 2026-05-26 15:00.
+  - `patterns/inducement/` — 8-шаговая структурная закономерность OB+FVG → CHoCH → IDM → BOS → return + sweep. Перенесён 2026-06-14.
+  - `patterns/rdrbx/` — RDRB extended с delayed Cn. Перенесён 2026-06-14.
+  - `patterns/ob_sweep_liq_4candles/` — **Снятие ликвидности Williams-фрактала**. Reference = Williams FH/FL anchor любой давности. Sweep candle Y: открытие по другую сторону от фрактала + wick через уровень + close за close фрактал-бара. SHORT/LONG mirror. Перенесён 2026-06-14 (retrospective event-marker, не atomic zone).
 
 ## Candle patterns (вне elements/ и patterns/)
 
@@ -50,7 +52,7 @@ elements/<element_name>/
 
 ## Predicate (вне elements/)
 
-- `vc/` — **VC (Volume Confirmation)**. **Не зона интереса, а предикат** над HTF-зоной. Расположен на top-level (а не в `elements/`), т.к. это семейство boolean-проверок, не SMC primitive. Канонические варианты — см. Правило 3 в `rules.md`. API: `has_vc(ob, fvg) → bool`, `find_vc_confirmations(ob, ltf_fvgs) → list[FVG]`.
+- `vc/` — **VC (Volume Confirmation)**. **Не зона интереса, а предикат** над HTF-зоной. Расположен на top-level (а не в `elements/`), т.к. это семейство boolean-проверок, не SMC primitive. Канонические варианты — см. Правило 3 [ARCHIVED 2026-06-14] в `~/smc-lib/projects/_корзина/rule_3_vc_volume_confirmation.md`. API: `has_vc(ob, fvg) → bool`, `find_vc_confirmations(ob, ltf_fvgs) → list[FVG]`.
 
 ## Планируется
 
@@ -59,8 +61,8 @@ elements/<element_name>/
 
 ## Справочники
 
-- [`zone_of_interest.md`](./zone_of_interest.md) — что считать «зоной интереса» для каждого элемента (OB, FVG, RDRB, ob_liq, фракталы и др.). Главный лукап, когда пользователь говорит «зона интереса».
-- [`rules.md`](./rules.md) — общие рыночные правила, применимые ко всем элементам. **Правило 1** — закрепление цены за уровнем (2 close = пробой).
+- [`elements/zone_of_interest.md`](./elements/zone_of_interest.md) — что считать «зоной интереса» для каждого элемента (OB, FVG, RDRB, ob_liq, фракталы и др.). Главный лукап, когда пользователь говорит «зона интереса».
+- [`rules.md`](./rules.md) — общие рыночные правила, применимые ко всем элементам. **Правило 1** — закрепление цены за уровнем (пробойная + 3 подтверждающие свечи с open и close за уровнем).
 - [`chart_format.md`](./chart_format.md) — канонический шаблон прорисовки графиков (формат, цвета, layout, какие индикаторы / зоны / маркеры). 🟡 в разработке.
 - [`expert/`](./expert/) — **Экспертный слой**: каноничный композит-чарт + multi-TF cascade-заключение. Содержит `chart.md` + `chart.py` (триггер «экспертный график») и `opinion.md` + `opinion.py` (триггер «экспертное заключение»).
 

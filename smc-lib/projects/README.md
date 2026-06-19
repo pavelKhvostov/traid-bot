@@ -9,30 +9,31 @@
 - `scripts/` — одноразовые research/backtest (НЕ canon)
 - **`projects/`** — целостные прикладные пайплайны, использующие canon (semi-canon, документируются как фиксированные пайплайны)
 
-## Текущие проекты
+## 4 активных проекта
 
-| Проект | Описание | Статус |
-|---|---|---|
-| [pred12h-fractal-three-candles](pred12h-fractal-three-candles.md) | Прогнозирование Williams-фрактала на 12h по строго causal (i-2, i-1, i) сигналам. Cascade F1-F3 + OR-basket С1-С7 | active |
-| [bounce-or-break](bounce-or-break.md) | ML classifier P(bounce) при касании зоны интереса. Per-element series, первая модель = ob_vc(1h+2h). 8 design-вопросов закрыты 2026-05-29 | **approved**, готов к coding |
-| [prediction-algo](prediction-algo.md) | Зональный калибратор P_hit_12h/D. v1 в production (top-5 hit_D 87%). v2 на PC1 сейчас | production v1 / v2 wf |
-| [pivot](pivot.md) | Selectivity-эксперимент 2026-06-01. Подтвердил: (1.1.1 SWEPT cascade ∩ 12h Williams ≥2%) → WR 62% / PF 3.47 на BTC 6y. Доработка перенесена в pred12h | **validated → merged** |
-| [sync](sync.md) | Синхронизация BTC × TOTAL × USDT.D в окне 2025-01 → сейчас. Главный TF 2h. Цель — найти sync/divergence паттерны для отбора качественных setups | **active design** |
+| # | Имя | Папка | Тип | Состояние |
+|---|---|---|---|---|
+| **1** | **12h фракталы** | `12h-фракталы/` | Pure rule-based prediction | ✅ Зафиксирован: (sweep_FH ∪ OB_sweep) ∩ sweep_maxV[i] → 82% HH / 73% LL на BTC 6y |
+| **2** | **Скользящие (MA-EMA-HMA ML)** | `скользящие/` | ML на 1h closes | 🔄 Production canon. Phase 1 holdout 82% top-0.5% LONG_3 out-of-sample. Phase 2 sim +6.4%/мес net. CPCV в работе на PC2 |
+| **3** | **ob_vc ML** | `ob-vc-ml/` | ML на ob_vc events с wait-window | 🔄 vc_lean s43 в работе на PC1. Two entry types n_FVG=1/≥2 |
+| **4** | **ob_vc 2h** | `ob-vc-2h/` | Классическая стратегия 24 типа (T1-T16 × a/b) | ✅ Зафиксирован: +329R/6y, cascade A1+B1 WR 64.5% EV +0.290R |
 
-> **Strategy 1.1.1** (v1/v2 + Floating TP reference) переехала в [`strategies/strategy_1_1_1/`](../strategies/strategy_1_1_1/). Ссылка из [bounce-or-break.md](bounce-or-break.md) на `[[strategy-1-1-1-v2]]` теперь указывает туда.
+## Корзина
+
+`_корзина/` — артефакты старых/слитых проектов (pred12h, bounce-or-break, pivot, sync, prediction-algo, andrey-12h, maxv-force-model, PHASE4_SPEC, correlations, bb_dataset). Если понадобится — найти можно там, отголоски былой работы сохранены.
 
 ## Структура проекта-документа
 
 Каждый проект включает:
 1. **Цель** — что прогнозируем
-2. **Ground truth** — на чём измеряем (BTC 6y in-sample, 18 imp)
-3. **Methodology** — архитектура (cascade / OR-basket / иное)
+2. **Ground truth** — на чём измеряем
+3. **Methodology** — архитектура (cascade / ML / иное)
 4. **Этапы / условия** — таблицы с числами
-5. **Текущая корзина** — состояние basket
-6. **Открытые задачи** — что осталось
+5. **Текущее состояние** — что в работе
 
 ## Связи
 
-- Правила: [`rules.md`](../rules.md)
-- Зоны: [`zone_of_interest.md`](../zone_of_interest.md)
-- Элементы: [`elements/`](../elements/)
+- Правила: [`../rules.md`](../rules.md)
+- Зоны: [`../zone_of_interest.md`](../zone_of_interest.md)
+- Элементы: [`../elements/`](../elements/)
+- Литература: [`../literature/`](../literature/) + `pavel-notes/`

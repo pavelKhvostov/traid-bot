@@ -18,7 +18,7 @@ from elements.ob.code import detect_ob
 from elements.rb.code import detect_rb
 from elements.marubozu.code import detect_marubozu
 from elements.rdrb.code import detect_rdrb
-from vc.code import has_vc
+from elements.ob_vc.vc_predicate import has_vc
 
 CSV = pathlib.Path.home() / "traid-bot/data/BTCUSDT_1m_vic_vadim.csv"
 MSK = timezone(timedelta(hours=3))

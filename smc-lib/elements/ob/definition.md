@@ -29,42 +29,41 @@ Canon из vault: `~/traid-bot/vault/knowledge/smc/универсальные о
 
 ## Зона интереса
 
-OB — частный случай `block_orders` с `(N₁, N₂) = (1, 1)`. Геометрия зоны зависит от того, был ли **полный структурный пробой** prev candle:
+OB — частный случай `block_orders` с `(N₁, N₂) = (1, 1)`. **Зона интереса OB = drop/rally area, ВСЕГДА, без breaker block.** Breaker block — самостоятельный элемент со своей зоной (см. `elements/breaker_block/definition.md`).
 
-### Условие существования Breaker Block
+### Геометрия
 
-**Breaker block существует только при полном пробое prev структуры:**
-
-| Направление | Условие наличия breaker |
+| Направление | **Зона интереса OB** |
 |---|---|
-| **LONG OB** | `cur.close > prev.high` (закрытие cur ВЫШЕ всего prev) |
-| **SHORT OB** | `cur.close < prev.low` (закрытие cur НИЖЕ всего prev) |
+| **LONG OB** | `[min(prev.low, cur.low), prev.open]` (drop area) |
+| **SHORT OB** | `[prev.open, max(prev.high, cur.high)]` (rally area) |
 
-Если условие не выполнено (cur.close в диапазоне prev), **breaker отсутствует** — есть только drop/rally area.
+**Drop area** (LONG) / **Rally area** (SHORT) — отвергнутое движение `prev`, cancelled реакцией `cur`. **Институциональная зона исполнения** — где крупный игрок исполнил ордера ПРОТИВ retail-движения.
 
-### Геометрия зон
+### Полный пробой prev и breaker
 
-| Направление | Drop/Rally area (всегда) | Breaker (если cur.close > prev.high для LONG / cur.close < prev.low для SHORT) | **Full ZoI** |
-|---|---|---|---|
-| **LONG OB**, без breaker | `[min(prev.low, cur.low), prev.open]` | — | **= drop area** |
-| **LONG OB**, с breaker | `[min(prev.low, cur.low), prev.open]` | `[prev.open, cur.close]` | `[min(prev.low, cur.low), cur.close]` (drop + breaker) |
-| **SHORT OB**, без breaker | `[prev.open, max(prev.high, cur.high)]` | — | **= rally area** |
-| **SHORT OB**, с breaker | `[prev.open, max(prev.high, cur.high)]` | `[cur.close, prev.open]` | `[cur.close, max(prev.high, cur.high)]` (rally + breaker) |
+Если `cur.close > prev.high` (LONG) или `cur.close < prev.low` (SHORT) — выполняется условие полного структурного пробоя prev. **Это триггер формирования отдельного элемента `breaker_block`** (зона = проткнутый фитиль prev). Сам OB ZoI от этого не меняется.
 
-**Breaker block** = body синтетической свечи `[min(prev.open, cur.close), max(prev.open, cur.close)]` — где бывшая сторона ордеров была «сломана» структурным пробоем. Институциональный анкор уровня.
+| Условие полного пробоя | Что формируется |
+|---|---|
+| `cur.close > prev.high` (LONG) | OB (ZoI = drop area) + Breaker Block (ZoI = верхний фитиль prev = `[prev.open, prev.high]`) |
+| `cur.close < prev.low` (SHORT) | OB (ZoI = rally area) + Breaker Block (ZoI = нижний фитиль prev = `[prev.low, prev.open]`) |
 
-**Drop area** (LONG) / **Rally area** (SHORT) = всегда существует. Это отвергнутое движение `prev`, которое cancelled реакцией `cur`. Институциональная зона исполнения — где крупный игрок исполнил ордера ПРОТИВ retail-движения.
+См. `elements/breaker_block/definition.md` для канонической геометрии breaker zone и mitigation-модели.
 
-> ⚠ Раньше canon фиксировал breaker всегда. С 2026-05-29 уточнено: breaker требует **полный пробой prev** (`cur.close > prev.high` для LONG). Без полного пробоя — ZoI = только drop/rally area.
+> ⚠ **2026-05-29**: формализовано условие полного пробоя prev (`cur.close > prev.high` / `cur.close < prev.low`).
+> ⚠ **2026-06-14 (первая правка)**: breaker block — это проткнутый фитиль prev, не body синтетической свечи (deprecated).
+> ⚠ **2026-06-14 (вторая правка)**: breaker block **вынесен из OB ZoI** в самостоятельный элемент со своей зоной интереса. OB ZoI теперь = drop/rally area, всегда, регардлесс от полного пробоя.
 
 ### Альтернативные варианты (не дефолт)
 
 | Вариант | Формула LONG | Формула SHORT | Когда уместен |
 |---|---|---|---|
-| **breaker-only** | `[prev.open, cur.close]` | `[cur.close, prev.open]` | если хотим только тело синтетической свечи (без отвергнутого экстремума) |
 | **body-only prev** | `[prev.close, prev.open]` | `[prev.open, prev.close]` | если хотим максимально узкую зону (только тело prev) |
 | **single-candle** | `[prev.low, prev.open]` | `[prev.open, prev.high]` | если не хотим расширять зону за счёт `cur` |
 | **full prev** | `[prev.low, prev.high]` | `[prev.low, prev.high]` | если включаем оба фитиля prev |
+
+> Старый «breaker-only» и «synthetic-body» — больше НЕ варианты OB ZoI; breaker block теперь самостоятельный элемент. См. `elements/breaker_block/definition.md`.
 
 Дефолт справочника — **полная зона** (первая таблица).
 
@@ -81,9 +80,10 @@ OB — частный случай `block_orders` с `(N₁, N₂) = (1, 1)`. Г
 - `cur.close (104) > cur.open (96)` ✓ cur bull
 - `cur.close (104) > prev.open (100)` ✓ реакция вверх
 
-**Зона интереса** = `[min(95, 94), 104]` = **`[94, 104]`** (высота 10)
-- breaker block (подзона): `[100, 104]` (h=4) — сверху
-- drop area (подзона): `[94, 100]` (h=6) — снизу
+**Зона интереса OB** = drop area = `[min(95, 94), 100]` = **`[94, 100]`** (h=6).
+
+Также формируется отдельный элемент **Breaker Block** (т.к. cur.close=104 > prev.high=102):
+- Breaker Block ZoI = верхний фитиль prev = **`[100, 102]`** (h=2). См. `elements/breaker_block/definition.md`.
 
 ### SHORT OB — синтетический
 
@@ -96,9 +96,10 @@ OB — частный случай `block_orders` с `(N₁, N₂) = (1, 1)`. Г
 - `cur.close (96) < cur.open (104)` ✓ cur bear
 - `cur.close (96) < prev.open (100)` ✓ реакция вниз
 
-**Зона интереса** = `[96, max(105, 106)]` = **`[96, 106]`** (высота 10)
-- breaker block (подзона): `[96, 100]` (h=4) — снизу
-- rally area (подзона): `[100, 106]` (h=6) — сверху
+**Зона интереса OB** = rally area = `[100, max(105, 106)]` = **`[100, 106]`** (h=6).
+
+Также формируется отдельный элемент **Breaker Block** (т.к. cur.close=96 < prev.low=98):
+- Breaker Block ZoI = нижний фитиль prev = **`[98, 100]`** (h=2). См. `elements/breaker_block/definition.md`.
 
 ## Правила
 

@@ -91,7 +91,8 @@ def test_sweep_open_marubozu_long():
 # ── Scanners на синтетике ────────────────────────────────────
 
 def test_scan_ob_long():
-    # prev bear (открытие выше закрытия), cur bull, cur.close > prev.open
+    # prev bear, cur bull, cur.close > prev.open
+    # OB canon zone (2026-06-14): [min(prev.low, cur.low), prev.open] = drop area
     df = _df([
         ("2024-01-01 00:00", 110, 110, 100, 100),  # bear
         ("2024-01-01 01:00", 100, 120, 100, 115),  # bull, close=115 > prev.open=110
@@ -100,7 +101,7 @@ def test_scan_ob_long():
     assert len(zs) == 1
     assert zs[0]["direction"] == "long"
     assert zs[0]["lo"] == 100  # min(prev.low, cur.low)
-    assert zs[0]["hi"] == 115  # cur.close
+    assert zs[0]["hi"] == 110  # prev.open (canon 2026-06-14: drop area)
     assert zs[0]["born_idx"] == 1
 
 
@@ -181,13 +182,27 @@ def test_apply_wick_fill_long_compress_then_consume():
 
 
 def test_apply_first_touch_rb():
+    """RB canon 2026-06-15: consume на entry-level 0.5 (mid wick), не на zone boundary."""
     df = _df([
-        ("2024-01-01 00:00", 100, 130, 99, 101),  # TOP RB, zone=(101,130)
-        ("2024-01-01 01:00", 101, 105, 100, 102),  # high=105 ≥ zone_lo=101 → consumed
+        ("2024-01-01 00:00", 100, 130, 99, 101),  # TOP RB, zone=(101,130), mid=115.5
+        # high=120 ≥ 115.5 → consumed
+        ("2024-01-01 01:00", 105, 120, 104, 110),
     ])
     ev = _scan_rb(df)[0]
     res = _apply_mitigation(ev, df, cut_off_idx=2)
     assert res is None
+
+
+def test_apply_first_touch_rb_not_consumed_at_boundary():
+    """RB canon 2026-06-15: касание края zone (но не до 0.5) — НЕ consumed."""
+    df = _df([
+        ("2024-01-01 00:00", 100, 130, 99, 101),  # TOP RB, zone=(101,130), mid=115.5
+        # high=105 ≥ zone_lo=101 (touches) но < mid=115.5 → NOT consumed
+        ("2024-01-01 01:00", 101, 105, 100, 102),
+    ])
+    ev = _scan_rb(df)[0]
+    res = _apply_mitigation(ev, df, cut_off_idx=2)
+    assert res is not None  # zone жива
 
 
 def test_apply_sweep_fractal_high():

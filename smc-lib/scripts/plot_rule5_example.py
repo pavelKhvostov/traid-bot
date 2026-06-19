@@ -17,7 +17,7 @@ sys.path.insert(0, str(pathlib.Path.home() / "smc-lib"))
 from candle import Candle
 from elements.ob.code import detect_ob
 from elements.fvg.code import detect_fvg
-from vc.code import has_vc
+from elements.ob_vc.vc_predicate import has_vc
 
 CSV = pathlib.Path.home() / "traid-bot/data/BTCUSDT_1m_vic_vadim.csv"
 OUT = pathlib.Path.home() / "Desktop/i-rdrb-charts/rule5_asvk_example.png"

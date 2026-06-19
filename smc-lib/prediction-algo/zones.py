@@ -51,7 +51,8 @@ ZoneType = Literal[
     "OB", "FVG", "fractal", "marubozu",
     "block_orders", "RDRB", "iRDRB", "iFVG", "ob_liq", "ob_vc",
     # SKIP as prediction target:
-    #   ob_sweep_liq_4candles — retrospective event, not forward-looking zone (feature only)
+    #   ob_sweep_liq_4candles — retrospective event, not forward-looking zone (feature only).
+    #     Перенесён 2026-06-14 из elements/ в patterns/ob_sweep_liq_4candles/
     #   RB — исключён 2026-05-29 решением пользователя (детектор остаётся, но не в ALL_TYPES)
 ]
 ALL_TYPES: tuple[ZoneType, ...] = (
@@ -115,9 +116,33 @@ def _mit_wick_fill_short(zone_lo: float, zone_hi: float, bar_high: float) -> tup
     return bar_high, zone_hi
 
 
-def _mit_first_touch(zone_lo: float, zone_hi: float, bar_low: float, bar_high: float) -> bool:
-    """True если любое касание wick'ом зоны → consumed."""
-    return bar_high >= zone_lo and bar_low <= zone_hi
+def _mit_first_touch(zone_lo: float, zone_hi: float, bar_low: float, bar_high: float,
+                      fraction: float = 1.0, direction: str = "long") -> bool:
+    """True если wick дошёл до consume-level (с предварительным контактом zone) → consumed.
+
+    Сначала проверяем что bar реально касается zone (wick пересекает).
+    Затем — что глубина касания достигла consume_level.
+
+    fraction:
+        1.0 = внешний край (default, ob_liq канон) — любой touch zone consume'ит.
+        0.5 = середина wick'a (RB канон 2026-06-15: entry-level).
+    direction:
+        'long' / 'bottom' (support below): touch = bar_high ≥ zone_lo, consume = bar_low ≤ consume_level
+        'short' / 'top' (resist above):    touch = bar_low ≤ zone_hi, consume = bar_high ≥ consume_level
+    """
+    is_support_below = direction in ("long", "bottom")
+    if is_support_below:
+        # bar must touch zone (wick down into zone)
+        if bar_high < zone_lo:
+            return False
+        consume_level = zone_lo + (zone_hi - zone_lo) * fraction
+        return bar_low <= consume_level
+    else:
+        # bar must touch zone (wick up into zone)
+        if bar_low > zone_hi:
+            return False
+        consume_level = zone_hi - (zone_hi - zone_lo) * fraction
+        return bar_high >= consume_level
 
 
 def _mit_sweep_high(level: float, bar_high: float) -> bool:
@@ -282,10 +307,12 @@ def _scan_i_rdrb(df: pd.DataFrame) -> list[dict]:
     return out
 
 
-def _scan_i_fvg(df: pd.DataFrame, max_gap: int = 30) -> list[dict]:
-    """Скан i-FVG.
-    Идея: пробежать по всем FVG-A, и для каждой искать FVG-B opposite direction в окне max_gap.
-    Условия проверяет detect_i_fvg (untouched between, B-touches-A, overlap).
+def _scan_i_fvg(df: pd.DataFrame, max_gap: int = 300) -> list[dict]:
+    """Скан i-FVG (canon v2 2026-06-15).
+
+    canon v2: detect_i_fvg сам шринкает A.zone через between bars wick-fill'ом.
+    ZoI = overlap(shrunk_A, B.zone). Если A полностью consumed между — i-FVG None.
+    max_gap=300 канонически (real BTC 12h кейс: 115 between).
     born_idx = индекс B.c3.
     """
     # Сначала найдём ВСЕ FVG в df с их позициями.
@@ -464,8 +491,12 @@ def _apply_mitigation(zone_event: dict, df: pd.DataFrame, cut_off_idx: int) -> d
         return {"lo": lo, "hi": hi, "level": level}
 
     if mit == "first-touch":
+        # Per-element fraction (canon 2026-06-15)
+        # RB: 0.5 = entry-level mid wick (Bug fix); ob_liq и др. = 1.0 (внешний край)
+        elem_type = zone_event.get("type", "")
+        fraction = 0.5 if elem_type == "RB" else 1.0
         for bh, bl in zip(highs, lows):
-            if _mit_first_touch(lo, hi, bl, bh):
+            if _mit_first_touch(lo, hi, bl, bh, fraction=fraction, direction=direction):
                 return None
         return {"lo": lo, "hi": hi, "level": level}
 

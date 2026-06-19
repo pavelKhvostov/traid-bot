@@ -4,7 +4,38 @@
 
 > ⚠ **Критичное условие:** LTF FVG **обязательно сонаправлен** HTF OB (`fvg.direction == ob.direction`). Противонаправленный FVG в зоне OB → это **НЕ** `ob_vc`, это другая структура (потенциально `i_fvg`-like sequence). Несовпадение направлений автоматически дисквалифицирует кандидата на ранней стадии детекции.
 
-Canon зафиксирован 2026-05-29.
+Canon зафиксирован 2026-05-29, обновлён 2026-06-16 (ZoI + эволюция).
+
+## Canon 2026-06-16 — ZoI + эволюция в OB
+
+**ZoI ob_vc = union ВСЕХ fvg_components (LTF FVG inefficiencies)**, НЕ wide canon-OB drop/rally area.
+
+Если ob_vc валидирован N FVGs (на разных LTF или разных моментах), все N представляют ZoI как **отдельные узкие полосы**. Каждая FVG живёт независимо со своей wick_fill mitigation.
+
+| Поле | Содержимое |
+|---|---|
+| `OBVC.fvg_components` | **tuple всех валидирующих LTF FVG** ≥1 — каждая = подзона ZoI |
+| `OBVC.zone` | primary FVG (earliest, представительный для legacy кода) |
+| `OBVC.entry_zone` | canon-OB drop/rally area (wide, информационное) |
+| `OBVC.primary_fvg` | earliest FVG (= `OBVC.zone`) |
+
+### Snapshot emit pattern (event_detector)
+
+Для одного ob_vc детекта с N FVG components → emit **N born events** (по одному на FVG). Каждое событие имеет zone_lo/zone_hi = bounds той FVG.
+
+### Mitigation canon ob_vc (2026-06-16 FINAL)
+
+**Каждая FVG component отдельно tracked** через `wick_fill` (canon Правило 2 Модели 1):
+- partial: wick касается FVG.zone → shrink active_zone
+- **fill_full**: wick полностью прошёл FVG.zone → эта FVG component retired
+
+### Эволюция в OB
+
+Семантически ob_vc «жив как ob_vc» пока ≥1 fvg_component active. Когда ВСЕ FVG components dead → ob_vc semantically deactivated.
+
+В snapshot это видно через отсутствие active ob_vc rows для данного parent ob_vc.
+
+Parallel `scan_ob` детектирует canon-OB pair независимо. После deactivation всех FVG components, parallel OB остаётся active с wick_fill canon на wide drop/rally area.
 
 ## Класс зоны (по [[Правило 8]])
 
@@ -48,9 +79,13 @@ Canon зафиксирован 2026-05-29.
    Раньше канон требовал strict close-time causality (`fvg.close ≥ ob.close`) — **отменено**: FVG может формироваться внутри OB cur bar.
 6. **Actionable:** OB должен оставаться actionable (не consumed wick-fill) на момент детекции `ob_vc`. Прошлые consumed-зоны не возрождаются добавлением новых FVG.
 
-7. **Temporal lower-bound — FVG не из прошлого (уточнено 2026-05-29):** `fvg.c1.open_time ≥ ob.cur.open_time`. FVG должна **зарождаться** не раньше открытия OB cur (одновременно — допустимо). Запрещены FVG из прошлого, которые лишь случайно пересекаются с rally/drop area текущего OB.
+7. **Temporal lower-bound — FVG в окне OB pair (relaxed 2026-06-07):** `fvg.c1.open_time ≥ ob.prev.open_time`. FVG должна **зарождаться** не раньше открытия OB **prev** свечи. Окно покрывает обе свечи OB-пары: `[prev.open_time, cur.close_time]` = 2 × HTF.
 
-   **Почему `c1.open_time`, а не `c3`:** FVG-паттерн начинается с c1 (первая свеча displacement). Если c1 = open OB cur — это означает, что displacement начался в момент формирования OB. Это валидный совместный сетап. Если c1 раньше OB cur — FVG относится к более раннему институциональному движению.
+   **Почему prev, а не cur (релаксация 2026-06-07):** FVG — это **зона интереса** (institutional supply/demand artifact), не temporal pattern. В fast-engulf сетапах displacement движение делится между двумя HTF-свечами: prev = dump leg, cur = recovery+engulf leg. LTF FVG'и формируются **в prev баре на минимумах dump'а** (institutional partial-fills) и тестируются **wick'ом cur бара**. Это ОДНО displacement — нет смысла отсекать prev-bar FVG как «из чужого setup'а».
+
+   **Старый канон 2026-05-29 (strict, отменён):** требовал `c1.open ≥ cur.open` — отсекал prev-bar FVGs. Это было излишне строго: канон пропускал валидные fast-engulf setup'ы где price проходит через drop area без формирования FVG в cur bar.
+
+   **Граница назад:** FVG c1 ДО prev.open_time (т.е. > 2×HTF назад) **не учитывается** — это уже historical artifact из другого институционального движения, риск spurious matches с ancient FVG в той же price range. Если нужно поймать deeper history, перейти на «pure zone-view» (отдельный композит).
 
 8. **Temporal upper-bound — FVG в bounce-фазе (уточнено 2026-05-29):** FVG должна **полностью сформироваться** до подтверждения первого LTF Williams N=2 фрактала вне drop/rally area. Формально:
    - `fvg.c3.close_time ≤ first_FH.confirmation_time` (LONG)
@@ -59,7 +94,7 @@ Canon зафиксирован 2026-05-29.
 
    **Почему:** First FH/FL вне drop area знаменует **завершение bounce-фазы** OB. После него цена «сделала свой ход» из зоны — повторные visits представляют другие сетапы (re-entries, mitigation tests), не валидируют исходный OB. ob_vc — это **активная фаза displacement-валидации**, ограниченная временем bounce.
 
-   Условия #7 и #8 вместе определяют временное окно: `[ob.cur.open_time, first_opposite_fractal.confirmation_time]`. FVG должна **зарождаться** в нижней границе окна и **подтверждаться** в верхней.
+   Условия #7 и #8 вместе определяют временное окно: `[ob.prev.open_time, first_opposite_fractal.confirmation_time]` (после релаксации #7 2026-06-07). FVG должна **зарождаться** в нижней границе окна (=prev.open) и **подтверждаться** в верхней (=fract.confirm).
 
 9. **FVG actionable к моменту FH confirmation (добавлено 2026-05-29):** К моменту подтверждения first opposite fractal FVG **не должна быть полностью consumed** (по wick-fill mitigation, см. Правило 2). Если FVG потеряла актуальность (полное заполнение), ob_vc **переквалифицируется в OB** — компонент VC утрачен.
 
@@ -82,7 +117,7 @@ Canon зафиксирован 2026-05-29.
 - LONG OB ожидает upward reaction → LONG FVG = доказательство upward displacement → confluence
 - LONG OB + SHORT FVG = противоречие: HTF говорит «отскок вверх», LTF говорит «sell-side displacement» → это совсем другой сетап (потенциально inverse-FVG-like sequence, не VC)
 
-См. также [[Правило 3]] — там же direction = aligned в каноне VC.
+См. также [[Правило 3 (ARCHIVED)]] — там же direction = aligned в каноне VC.
 
 ## HTF → LTF mapping (канонические пары)
 
@@ -122,7 +157,7 @@ LTF FVG **не** mitigated независимо в рамках `ob_vc` — мы
 
 ## Композитная природа и связь с VC
 
-`ob_vc` — это **зональная реализация** концепции [[Правило 3]] (VC — Volume Confirmation).
+`ob_vc` — это **зональная реализация** концепции [[Правило 3 (ARCHIVED)]] (VC — Volume Confirmation).
 
 | | `vc/` | `ob_vc/` |
 |---|---|---|
@@ -215,7 +250,7 @@ def detect_ob_vc(
 
 ## Связи
 
-- [[Правило 3]] — VC канон (предикатная форма этой же концепции)
+- [[Правило 3 (ARCHIVED)]] — VC канон (предикатная форма этой же концепции)
 - [[Правило 8]] — таксономия классов
 - [[Правило 2]] — wick-fill mitigation
 - `~/smc-lib/elements/ob/` — базовый OB

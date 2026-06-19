@@ -21,7 +21,20 @@ Continuation-кейсы (C4 в ту же сторону, что C2: наприм
 
 ## Зоны
 
-Все зоны (POI, block, liq) наследуются из подлежащего RDRB без изменений. C4 не модифицирует геометрию — только подтверждает разворот.
+**block наследуется** из подлежащего RDRB без изменений (intersection виков C1∩C3, см. RDRB canon).
+
+**liq в i-RDRB переопределяется** относительно RDRB — инвертируется в неотработанную зону между фитилём C3 и противоположным экстремумом C1 (canon 2026-06-14):
+
+| i-RDRB direction | liq (canon i-RDRB) |
+|---|---|
+| **LONG i-RDRB** (на SHORT RDRB) | `[C3.body_top, C1.low]` — ниже block (НЕ `[block.top, C1.body_bottom]` как в SHORT RDRB) |
+| **SHORT i-RDRB** (на LONG RDRB) | `[C1.high, C3.body_bottom]` — выше block (НЕ `[C1.body_top, block.bottom]` как в LONG RDRB) |
+
+**POI** в i-RDRB = block ∪ liq (с обновлённым liq).
+
+Семантика: liq в i-RDRB — это зона «обманутой ликвидности» в сторону разворота (где стопы шортов/лонгов в направлении C2 displacement), а не остаток фитиля C1 как в обычном RDRB.
+
+⚠ Старый канон («все зоны наследуются») deprecated с 2026-06-14.
 
 ## Эталонный пример — LONG i-RDRB на SHORT RDRB
 

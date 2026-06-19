@@ -23,12 +23,18 @@ class OBLiq:
     direction: Direction
     prev: Candle           # OB candle (с выраженным фитилём)
     cur: Candle            # reaction
-    zone: Interval         # canon-OB зона входа
-    liq_zone: Interval     # маркер ликвидности
+    zone: Interval         # ZoI ob_liq = LIQ marker (canon 2026-06-16, narrow)
+    entry_zone: Interval   # trade entry zone = canon-OB drop/rally area (wide, для размещения ордера)
 
 
 def detect_ob_liq(prev: Candle, cur: Candle) -> OBLiq | None:
     """Возвращает OBLiq или None.
+
+    ZoI ob_liq (canon 2026-06-16) = LIQ marker (narrow):
+      LONG: [prev.low, cur.low]
+      SHORT: [cur.high, prev.high]
+
+    Trade entry zone (информационное поле) = canon-OB drop/rally area.
 
     Условия:
       LONG: prev bear, cur bull, cur.close > prev.open
@@ -45,9 +51,9 @@ def detect_ob_liq(prev: Candle, cur: Candle) -> OBLiq | None:
             return None
         if prev_lower <= prev_body:
             return None
-        zone = (min(prev.low, cur.low), prev.open)
-        liq_zone = (prev.low, cur.low)
-        return OBLiq("long", prev, cur, zone, liq_zone)
+        liq_marker = (prev.low, cur.low)                        # narrow ZoI (canon 2026-06-16)
+        entry_zone = (min(prev.low, cur.low), prev.open)        # wide trade entry
+        return OBLiq("long", prev, cur, liq_marker, entry_zone)
 
     # SHORT OB
     if prev.is_bull and cur.is_bear and cur.close < prev.open:
@@ -58,8 +64,8 @@ def detect_ob_liq(prev: Candle, cur: Candle) -> OBLiq | None:
             return None
         if prev_upper <= prev_body:
             return None
-        zone = (prev.open, max(prev.high, cur.high))
-        liq_zone = (cur.high, prev.high)
-        return OBLiq("short", prev, cur, zone, liq_zone)
+        liq_marker = (cur.high, prev.high)                       # narrow ZoI (canon 2026-06-16)
+        entry_zone = (prev.open, max(prev.high, cur.high))       # wide trade entry
+        return OBLiq("short", prev, cur, liq_marker, entry_zone)
 
     return None

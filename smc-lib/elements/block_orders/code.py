@@ -96,11 +96,14 @@ def detect_block_orders(candles: list[Candle] | tuple[Candle, ...]) -> BlockOrde
     cl = block_candles[-1].close
     hi = max(c.high for c in block_candles)
     lo = min(c.low for c in block_candles)
-    # Зона интереса: от pattern.low/high до block.close (включает breaker-block + drop/rally area)
+    # Зона интереса (canon 2026-06-15): ТОЛЬКО drop/rally area, без breaker block.
+    # LONG:  zone = [block.low,  body_top initial #1 = block.open]
+    # SHORT: zone = [body_bot initial #1 = block.open, block.high]
+    # Breaker block (между block.open и block.close) — отдельный элемент, не часть Block Orders.
     if direction == "long":
-        zone: Interval = (lo, cl)
+        zone: Interval = (lo, op)
     else:
-        zone: Interval = (cl, hi)
+        zone: Interval = (op, hi)
 
     return BlockOrders(
         direction=direction,

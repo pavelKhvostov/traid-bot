@@ -35,11 +35,24 @@ body       = |open - close|
 | TOP RB | `[max(open, close), high]` |
 | BOTTOM RB | `[low, min(open, close)]` |
 
+## Mitigation canon (2026-06-15 — FINAL)
+
+**First-touch по entry-level 0.5** (середина wick'a), а НЕ по внешнему краю зоны.
+
+| Направление | Consume trigger |
+|---|---|
+| **BOTTOM RB** (LONG support) | `bar.low ≤ (low + body_bottom) / 2` (= mid wick = entry-level) |
+| **TOP RB** (SHORT resist) | `bar.high ≥ (body_top + high) / 2` (= mid wick = entry-level) |
+
+**Обоснование:** RB считается «отработанным» когда цена дала возможность взять сделку (= entry-level), а не когда просто слегка коснулась внешнего края wick'a. Согласовано с торговой моделью (см. ниже: Entry = mid wick).
+
+⚠ Старый канон (zone-boundary, consumed на любой touch wick'ом) — DEPRECATED 2026-06-15.
+
 ## Базовая торговая модель (mean-reversion)
 
 | Параметр | TOP RB (SHORT) | BOTTOM RB (LONG) |
 |---|---|---|
-| **Entry** | `(body_top + high) / 2` (мid вика) | `(low + body_bottom) / 2` |
+| **Entry** | `(body_top + high) / 2` (мid вика = consume trigger) | `(low + body_bottom) / 2` (mid wick = consume trigger) |
 | **SL** | `high` | `low` |
 | **TP** | `low` | `high` |
 

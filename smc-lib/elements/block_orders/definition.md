@@ -52,14 +52,21 @@ block.low   = min(c.low  for c in candles)   # = pattern.low
 
 Полная зона возврата — от экстремума отвергнутого движения до закрытия counter-run:
 
-| Направление | **Зона интереса** | Состоит из |
+> **Canon update 2026-06-15:** Зона интереса = ТОЛЬКО drop/rally area, без breaker block. Breaker block = отдельный элемент (`~/smc-lib/elements/breaker_block/`), не часть Block Orders.
+
+| Направление | **Зона интереса** | Геометрия |
 |---|---|---|
-| **LONG** | `[block.low, block.close]` | breaker block `[block.open, block.close]` сверху + drop area `[block.low, block.open]` снизу |
-| **SHORT** | `[block.close, block.high]` | breaker block `[block.close, block.open]` снизу + rally area `[block.open, block.high]` сверху |
+| **LONG** | `[block.low, block.open]` | от lowest low паттерна до body top initial #1 (= block.open) |
+| **SHORT** | `[block.open, block.high]` | от body bottom initial #1 (= block.open) до highest high паттерна |
 
-**Breaker block** = body синтетической свечи `[min(open, close), max(open, close)]` — **подзона** внутри зоны интереса (не сама зона). Это область, где бывшая сторона была «сломана» (broken side).
+**Семантика:** drop area (LONG) / rally area (SHORT) — отвергнутое движение, которое cancelled counter-run'ом. Зона интереса = эта область, где институционал «съел» retail (накопил позицию против них), и куда цена возвращается за реакцией.
 
-**Drop / rally area** = расширение зоны до экстремума паттерна (lowest low для LONG, highest high для SHORT) — отвергнутое движение, которое cancelled counter-run'ом.
+**Body top/bottom initial #1:** initial #1 = первая свеча initial run. Для LONG она bear → body_top = open. Для SHORT она bull → body_bot = open. В обоих случаях верхняя/нижняя граница zone = `block.open` (= `candles[1].open` в slice с preceding).
+
+**Почему НЕ включать breaker block:**
+- Breaker block = «broken side» (структурный пробой) — отдельный канонический элемент со своим жизненным циклом.
+- Block Orders фокусируется на drop/rally area — точка отвергнутого движения, чёткая granularity для торговли.
+- Объединение делает zone слишком широкой, размывает RR.
 
 ## Допустимые (N₁, N₂)
 
@@ -85,11 +92,12 @@ block.low   = min(c.low  for c in candles)   # = pattern.low
 - first cross @ counter #2 (80352 > 80259.18) ✓
 
 **Геометрия**:
-- `open = 80259.18`, `close = 80352.00`
-- `high = 80397.19`, `low = 79744.91`
-- **Зона интереса = [79744.91, 80352.00]** (h=607.09)
-  - breaker block (подзона): [80259.18, 80352.00] (h=92.82) — сверху
-  - drop area (подзона): [79744.91, 80259.18] (h=514.27) — снизу
+- `block.open = 80259.18` (= open initial #1, body_top для bear)
+- `block.close = 80352.00` (= close last counter, first-crossed)
+- `block.high = 80397.19`, `block.low = 79744.91`
+- **Зона интереса (canon 2026-06-15) = `[block.low, block.open]` = [79744.91, 80259.18]** (h=514.27)
+  - старый канон давал [79744.91, 80352.00] (h=607.09) — был включён breaker block sub
+  - новый канон узкий: только drop area
 
 ## Связанные элементы
 

@@ -40,9 +40,16 @@ def fetch_klines(start_ms: int, end_ms: int) -> list:
     cursor = start_ms
     while cursor < end_ms:
         url = f"{BINANCE_URL}?symbol={SYMBOL}&interval=1m&startTime={cursor}&limit=1000"
-        result = subprocess.run(["curl", "-sS", url], capture_output=True, text=True, timeout=20)
-        if result.returncode != 0:
-            raise RuntimeError(f"curl failed: {result.stderr}")
+        for attempt in range(5):
+            try:
+                result = subprocess.run(["curl", "-sS", "--retry", "3", "--retry-delay", "2", "--connect-timeout", "10", "--max-time", "30", url], capture_output=True, text=True, timeout=45)
+                if result.returncode == 0 and result.stdout.strip().startswith("["):
+                    break
+            except subprocess.TimeoutExpired:
+                pass
+            time.sleep(2 * (attempt + 1))
+        else:
+            raise RuntimeError(f"curl failed after 5 attempts on cursor {cursor}: {result.stderr if result else 'no result'}")
         chunk = json.loads(result.stdout)
         if not chunk:
             break

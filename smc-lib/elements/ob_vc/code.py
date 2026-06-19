@@ -6,12 +6,14 @@ Canon: see definition.md.
 (LONG) / rally area (SHORT). FVG.zone лежит между low_ob_vc (drop area low) и
 первым LTF Williams N=2 фракталом вне drop/rally area.
 
-Принципы (refined 2026-05-29):
+Принципы (refined 2026-05-29, #7 relaxed 2026-06-07):
   - Сонаправленность (первый и обязательный фильтр)
   - HTF/LTF пары — фиксированная таблица (см. HTF_TO_LTF)
   - Spatial overlap с drop/rally area (обязательно хотя бы частично)
   - Spatial range FVG.zone ⊆ [low_ob_vc, first_opposite_fractal_level]
-  - Time-causality не проверяется
+  - Temporal lower-bound (relaxed 2026-06-07): FVG c1.open ≥ ob.prev.open_time
+    (окно = OB pair = 2×HTF, prev-bar FVGs допустимы). Раньше было ≥ cur.open.
+  - Temporal upper-bound: FVG c3.close ≤ first_opposite_fractal.confirmation_time
 """
 from __future__ import annotations
 
@@ -59,16 +61,18 @@ HTF_TO_LTF: dict[str, tuple[str, ...]] = {
 
 @dataclass(frozen=True)
 class OBVC:
-    """Композитный элемент OB+FVG (зональная реализация VC)."""
+    """Композитный элемент OB+FVG. Canon 2026-06-16: ZoI = LTF FVG (узкая)."""
     direction: Direction
     htf: str
     ob: OB
-    zone: Interval                  # = ob.zone (full ZoI, см. canon ob/definition.md)
+    zone: Interval                  # ZoI ob_vc = FVG зона (canon 2026-06-16, narrow LTF inefficiency)
+    entry_zone: Interval            # canon-OB drop/rally area (wide, информационное)
     drop_or_rally_area: Interval    # drop area (LONG) или rally area (SHORT)
     low_ob_vc: float                # = drop area low (LONG) / rally area high (SHORT)
     first_opposite_fractal_level: float  # high первого FH вне drop area (LONG) / low первого FL вне rally area (SHORT)
     allowed_fvg_range: Interval     # [low_ob_vc, first_opp_fractal_level] LONG / [first_opp_fractal_level, high_ob_vc] SHORT
     fvg_components: tuple[tuple[str, FVG], ...]  # ((ltf_tf, fvg), ...) — все валидирующие LTF FVG
+    primary_fvg: FVG                # earliest FVG (used as primary ZoI)
 
 
 def _has_breaker(ob: OB) -> bool:
@@ -187,11 +191,13 @@ def detect_ob_vc(
             # Условие #8: temporal upper-bound = first FH confirmation = center.open + (N+1)*LTF
             fh_center = first_fractals[ltf]
             fh_confirm_ms = (fh_center.open_time or 0) + (n_fractal + 1) * ltf_ms
+            ob_prev_open_ms = ob.prev.open_time or 0
             for fvg in ltf_fvgs.get(ltf, ()):
                 if fvg.direction != "long":
                     continue
-                # Условие #7: FVG не из прошлого
-                if (fvg.c1.open_time or 0) < ob_cur_open_ms:
+                # Условие #7 (relaxed 2026-06-07): FVG в окне OB pair (prev+cur).
+                # Раньше: c1.open ≥ ob.cur.open_time (strict).
+                if (fvg.c1.open_time or 0) < ob_prev_open_ms:
                     continue
                 # Условие #8: FVG закрывается до подтверждения first FH
                 fvg_close_ms = (fvg.c3.open_time or 0) + ltf_ms
@@ -217,16 +223,21 @@ def detect_ob_vc(
 
         # Для общего allowed_fvg_range берём минимальный upper по всем LTF
         global_upper = min(best_upper_per_ltf.values())
+        # Canon 2026-06-16: ZoI = earliest FVG (smallest c3.open_time)
+        primary_fvg = min((fvg for _, fvg in components),
+                          key=lambda f: f.c3.open_time or 0)
         return OBVC(
             direction="long",
             htf=htf_norm,
             ob=ob,
-            zone=ob.zone,
+            zone=primary_fvg.zone,        # ZoI = FVG (narrow)
+            entry_zone=ob.zone,           # canon-OB drop area (wide)
             drop_or_rally_area=drop_area,
             low_ob_vc=low_ob_vc,
             first_opposite_fractal_level=global_upper,
             allowed_fvg_range=(low_ob_vc, global_upper),
             fvg_components=tuple(components),
+            primary_fvg=primary_fvg,
         )
 
     # SHORT
@@ -257,11 +268,12 @@ def detect_ob_vc(
         # Условие #8: temporal upper-bound = first FL confirmation = center.open + (N+1)*LTF
         fl_center = first_fractals_short[ltf]
         fl_confirm_ms = (fl_center.open_time or 0) + (n_fractal + 1) * ltf_ms
+        ob_prev_open_ms = ob.prev.open_time or 0
         for fvg in ltf_fvgs.get(ltf, ()):
             if fvg.direction != "short":
                 continue
-            # Условие #7: FVG не из прошлого
-            if (fvg.c1.open_time or 0) < ob_cur_open_ms:
+            # Условие #7 (relaxed 2026-06-07): FVG в окне OB pair (prev+cur).
+            if (fvg.c1.open_time or 0) < ob_prev_open_ms:
                 continue
             # Условие #8: FVG закрывается до подтверждения first FL
             fvg_close_ms = (fvg.c3.open_time or 0) + ltf_ms
@@ -286,14 +298,19 @@ def detect_ob_vc(
         return None
 
     global_lower = max(best_lower_per_ltf.values())
+    # Canon 2026-06-16: ZoI = earliest FVG
+    primary_fvg = min((fvg for _, fvg in components_s),
+                      key=lambda f: f.c3.open_time or 0)
     return OBVC(
         direction="short",
         htf=htf_norm,
         ob=ob,
-        zone=ob.zone,
+        zone=primary_fvg.zone,        # ZoI = FVG (narrow)
+        entry_zone=ob.zone,           # canon-OB rally area (wide)
         drop_or_rally_area=drop_area,
         low_ob_vc=high_ob_vc,  # для SHORT семантически "high"; имя поля наследие LONG-case
         first_opposite_fractal_level=global_lower,
         allowed_fvg_range=(global_lower, high_ob_vc),
         fvg_components=tuple(components_s),
+        primary_fvg=primary_fvg,
     )

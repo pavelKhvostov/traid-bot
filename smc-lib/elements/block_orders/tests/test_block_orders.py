@@ -24,7 +24,8 @@ def test_reference_long_block_2026_05_05_1h():
     assert r.close == 80352.00
     assert r.high == 80397.19
     assert r.low == 79744.91
-    assert r.zone == (79744.91, 80352.00)  # [pattern.low, block.close] для LONG
+    # Canon 2026-06-15: LONG zone = [block.low, block.open] (drop area only)
+    assert r.zone == (79744.91, 80259.18)
     assert r.preceding == preceding
     assert len(r.candles) == 4
 
@@ -43,7 +44,8 @@ def test_short_block_synthetic():
     assert r.n_counter == 1
     assert r.open == 100
     assert r.close == 98
-    assert r.zone == (98, 112)  # [block.close, pattern.high] для SHORT, pattern.high=112 (initial #2)
+    # Canon 2026-06-15: SHORT zone = [block.open, block.high] (rally area only)
+    assert r.zone == (100, 112)
 
 
 def test_long_n1_1_n2_2_valid():
@@ -58,8 +60,9 @@ def test_long_n1_1_n2_2_valid():
     assert r.direction == "long"
     assert r.n_initial == 1
     assert r.n_counter == 2
-    # pattern.low = min(85, 85, 87) = 85, block.close = 94 → zone=[85, 94]
-    assert r.zone == (85, 94)
+    # Canon 2026-06-15: LONG zone = [block.low, block.open]
+    # pattern.low = min(85, 85, 87) = 85, block.open = 90 → zone=[85, 90]
+    assert r.zone == (85, 90)
 
 
 def test_long_n1_3_n2_1_valid():
@@ -74,8 +77,9 @@ def test_long_n1_3_n2_1_valid():
     assert r is not None
     assert r.n_initial == 3
     assert r.n_counter == 1
-    # pattern.low = min(95, 92, 89, 89) = 89, block.close = 108 → zone=[89, 108]
-    assert r.zone == (89, 108)
+    # Canon 2026-06-15: LONG zone = [block.low, block.open]
+    # pattern.low = min(95, 92, 89, 89) = 89, block.open = 100 → zone=[89, 100]
+    assert r.zone == (89, 100)
 
 
 def test_fails_n1_1_n2_1_canon_ob():
@@ -141,8 +145,9 @@ def test_extra_candles_after_cross_ignored():
     assert r.n_counter == 2
     assert r.close == 94
     assert len(r.candles) == 3   # 1 initial + 2 counter
-    # pattern.low = min(85, 85, 87) = 85, block.close = 94 → zone=[85, 94]
-    assert r.zone == (85, 94)
+    # Canon 2026-06-15: LONG zone = [block.low, block.open]
+    # pattern.low = 85, block.open = 90 → zone=[85, 90]
+    assert r.zone == (85, 90)
 
 
 def test_too_few_candles():
