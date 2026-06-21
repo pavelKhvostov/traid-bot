@@ -1,7 +1,7 @@
 """OB с явно выраженным уровнем ликвидности. Спецификация: definition.md.
 
-Composite: canon-OB (пара prev/cur) + 3-условный маркер ликвидности на prev.
-Маркер подтверждается на закрытии cur+1 → требуется 5-свечная окно.
+Composite: canon-OB (пара prev/cur) + 2-условный маркер ликвидности на prev.
+Williams-фрактальность УБРАНА (2026-05-27).
 """
 from __future__ import annotations
 
@@ -23,18 +23,24 @@ class OBLiq:
     direction: Direction
     prev: Candle           # OB candle (с выраженным фитилём)
     cur: Candle            # reaction
-    zone: Interval         # canon-OB зона входа
-    liq_zone: Interval     # маркер ликвидности
+    zone: Interval         # ZoI ob_liq = LIQ marker (canon 2026-06-16, narrow)
+    entry_zone: Interval   # trade entry zone = canon-OB drop/rally area (wide, для размещения ордера)
 
 
-def detect_ob_liq(
-    prev_minus2: Candle, prev_minus1: Candle,
-    prev: Candle, cur: Candle, cur_plus1: Candle,
-) -> OBLiq | None:
+def detect_ob_liq(prev: Candle, cur: Candle) -> OBLiq | None:
     """Возвращает OBLiq или None.
 
-    LONG: prev bear, cur bull, cur.close > prev.open + 3 условия маркера.
-    SHORT — зеркально.
+    ZoI ob_liq (canon 2026-06-16) = LIQ marker (narrow):
+      LONG: [prev.low, cur.low]
+      SHORT: [cur.high, prev.high]
+
+    Trade entry zone (информационное поле) = canon-OB drop/rally area.
+
+    Условия:
+      LONG: prev bear, cur bull, cur.close > prev.open
+            + нижний wick(prev) > 3×нижний wick(cur)
+            + нижний wick(prev) > body(prev)
+      SHORT — зеркально.
     """
     # LONG OB
     if prev.is_bear and cur.is_bull and cur.close > prev.open:
@@ -45,12 +51,9 @@ def detect_ob_liq(
             return None
         if prev_lower <= prev_body:
             return None
-        neighbors = (prev_minus2.low, prev_minus1.low, cur.low, cur_plus1.low)
-        if not all(prev.low < lo for lo in neighbors):
-            return None
-        zone = (min(prev.low, cur.low), prev.open)
-        liq_zone = (prev.low, cur.low)
-        return OBLiq("long", prev, cur, zone, liq_zone)
+        liq_marker = (prev.low, cur.low)                        # narrow ZoI (canon 2026-06-16)
+        entry_zone = (min(prev.low, cur.low), prev.open)        # wide trade entry
+        return OBLiq("long", prev, cur, liq_marker, entry_zone)
 
     # SHORT OB
     if prev.is_bull and cur.is_bear and cur.close < prev.open:
@@ -61,11 +64,8 @@ def detect_ob_liq(
             return None
         if prev_upper <= prev_body:
             return None
-        neighbors = (prev_minus2.high, prev_minus1.high, cur.high, cur_plus1.high)
-        if not all(prev.high > hi for hi in neighbors):
-            return None
-        zone = (prev.open, max(prev.high, cur.high))
-        liq_zone = (cur.high, prev.high)
-        return OBLiq("short", prev, cur, zone, liq_zone)
+        liq_marker = (cur.high, prev.high)                       # narrow ZoI (canon 2026-06-16)
+        entry_zone = (prev.open, max(prev.high, cur.high))       # wide trade entry
+        return OBLiq("short", prev, cur, liq_marker, entry_zone)
 
     return None

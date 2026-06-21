@@ -1,6 +1,6 @@
 {
   "reference_long_i_rdrb_2026_05_18_4h": {
-    "description": "BTCUSDT 4h, 2026-05-18 11:00-23:00 MSK, LONG i-RDRB на SHORT RDRB (reversal вверх)",
+    "description": "BTCUSDT 4h, 2026-05-18 11:00-23:00 MSK, LONG i-RDRB на SHORT RDRB (reversal вверх). C3.body_top > C1.low → i-RDRB liq пустой (V2).",
     "candles": [
       {"open_time_msk": "2026-05-18 11:00", "open": 77073.69, "high": 77403.48, "low": 76668.58, "close": 77285.83},
       {"open_time_msk": "2026-05-18 15:00", "open": 77285.83, "high": 77800.00, "low": 76051.00, "close": 76409.46},
@@ -13,7 +13,11 @@
       "rdrb_variant": "V1",
       "rdrb_poi": [76928.00, 77073.69],
       "rdrb_block": [76928.00, 76995.00],
-      "rdrb_liq": [76995.00, 77073.69]
+      "rdrb_liq": [76995.00, 77073.69],
+      "i_rdrb_variant": "V2",
+      "i_rdrb_poi": [76928.00, 76995.00],
+      "i_rdrb_block": [76928.00, 76995.00],
+      "i_rdrb_liq": null
     }
   }
 }

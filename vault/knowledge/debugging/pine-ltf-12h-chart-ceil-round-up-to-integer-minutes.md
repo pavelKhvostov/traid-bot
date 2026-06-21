@@ -69,9 +69,12 @@ ltf_minutes = math.ceil(rs / 60)
 1. При репликации Pine на не-D chart: использовать `ceil(rs/60)` для LTF.
 2. Просить у пользователя 2-3 контрольных значения из TV для сверки на
    первой свече до прогона на всём окне.
-3. Для **D-chart** правило ДРУГОЕ — closest valid из {5m, 10m, 15m, ...}.
-   См. родительский pitfall
-   [[vic-maxv-расходился-с-pine-индикатором-из-за-1m-вместо-15m]].
+3. Для **D-chart** правило **уточнено 2026-06-04**:
+   - `rs/60` IS integer → exact `rs/60`m custom TF (как 12h-chart rule)
+   - `rs/60` NOT integer → closest valid из {1,3,5,10,15,30,45,60,...}m
+   - Пример integer: mlt=45 + D → rs=1920, rs/60=32 → **LTF=32m** (НЕ 30m!)
+   - Пример non-integer: mlt=100 + D → rs=864, rs/60=14.4 → LTF=15m closest
+   См. [[vic-maxv-расходился-с-pine-индикатором-из-за-1m-вместо-15m]] (non-integer case).
 
 ## Связи
 

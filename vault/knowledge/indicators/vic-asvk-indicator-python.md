@@ -1,6 +1,7 @@
 ---
 tags: [indicator, vic-asvk, volume, smc]
 date: 2026-05-13
+last_updated: 2026-06-04
 ---
 
 # ViC ASVK — Volume in Candle (Python реализация)
@@ -10,27 +11,61 @@ Python-перевод Pine-индикатора `Volume in Candle (ViC ASVK)` о
 ## Что считает
 
 Для каждого HTF бара вычисляет:
-1. **maxV** — close LTF-свечи с максимальным dirVolume (volume-based S/R level)
+1. **maxV** ⭐ — close LTF-бара с **АБСОЛЮТНЫМ максимумом объёма** среди всех LTF-баров в HTF candle (независимо от bull/bear направления)
 2. **bullV** — суммарный volume где LTF close > open
 3. **bearV** — суммарный volume где LTF close < open
 4. **delta** = bullV - bearV (net imbalance)
 5. **norm** = delta / total_volume (нормализованный, -1..+1)
 
-## Pine settings (auto=true, mlt=100, prem=false)
+⚠️ **2026-06-04 fix:** maxV = ABSOLUTE max-vol bar, NOT "max-vol bar in dominant (bull or bear) group". Раньше в `vic_asvk.py:calculate_vic_bar()` была ошибка (использовался sided max). Verified 2026-06-04 на 3 D-свечах:
+- 2026-02-06: bear bar V=11906, close=61,734 (user ✓ 61,733)
+- 2026-02-24: bear bar V=1904, close=62,966 (user ✓ 62,962, Δ=4)
+- 2026-02-28: bear bar V=2009, close=63,264 (user ✓ 63,266, Δ=2)
+
+```python
+# CORRECT:
+max_bar = max(ltf_bars, key=lambda b: b.volume)
+maxV = max_bar.close
+
+# WRONG (legacy bug in vic_asvk.py):
+# dom = "bull" if bullV >= bearV else "bear"
+# max_bar = max((b for b in ltf_bars if dir_matches(b, dom)), key=lambda b: b.volume)
+```
+
+## Pine settings (auto=true, mlt=N, prem=false)
 
 LTF выбирается автоматически по формуле:
 ```
 tfC = HTF в секундах
 rs_raw = tfC / mlt
 rs = max(60, rs_raw)  # non-premium минимум 60 секунд
-LTF = timeframe.from_seconds(min(tfC, rs))  # closest valid TF
+LTF = timeframe.from_seconds(min(tfC, rs))
 ```
 
-| HTF chart | tfC | rs_raw | rs (non-prem) | LTF |
-|-----------|-----|--------|---------------|-----|
-| 1h | 3600 | 36 | 60 | **1m** |
-| 4h | 14400 | 144 | 144 | ~3m |
-| 1d | 86400 | 864 | 864 | **15m** |
+### Refined LTF rule (verified 2026-06-04)
+
+`timeframe.from_seconds(s)` поведение:
+
+| Условие | Что возвращает |
+|---|---|
+| **`s/60` IS integer** | exact `s/60` minute custom TF |
+| **`s/60` NOT integer** | closest valid TF из {1, 3, 5, 10, 15, 30, 45, 60, 120, 180, 240, 360, 480, 720, 1440}m |
+
+### Примеры
+
+| HTF chart | mlt | tfC | rs | rs/60 | integer? | LTF |
+|---|---|---|---|---|---|---|
+| 1h | 100 | 3600 | 60 | 1 | ✓ | **1m** |
+| 4h | 100 | 14400 | 144 | 2.4 | ✗ | 3m (closest) |
+| 12h | 100 | 43200 | 432 | 7.2 | ✗ | 8m? но Pine ceil → 8m custom |
+| 12h | 45 | 43200 | 960 | 16 | ✓ | **16m** (используется в стратегии) |
+| 1d | 100 | 86400 | 864 | 14.4 | ✗ | 15m (closest, default) |
+| **1d** | **45** | **86400** | **1920** | **32** | **✓** | **32m** ⭐ |
+| 1d | 144 | 86400 | 600 | 10 | ✓ | **10m** |
+
+⭐ **mlt=45 + D-chart → LTF=32m** — критично для C1 condition в pred12h.
+
+См. [[pine-ltf-12h-chart-ceil-round-up-to-integer-minutes]] для деталей.
 
 ## Эталонная сверка с TradingView
 
@@ -85,4 +120,11 @@ def calculate_vic_d(df_1m, day, ltf_minutes=15) -> float | None:
 
 - [[vic-asvk-as-filter-for-cascade-strategies]]
 - [[vic-maxv-расходился-с-pine-индикатором-из-за-1m-вместо-15m]] — pitfall про LTF
+- [[pine-ltf-12h-chart-ceil-round-up-to-integer-minutes]] — 12h-chart canon + D-chart integer rule (refined 2026-06-04)
 - [[2026-05-13-live-bot-vic-ifvg-strategies-117-118]] — session
+
+## Pitfalls
+
+1. **maxV ≠ sided/dominant max** — это absolute max (fix 2026-06-04, см. выше)
+2. **LTF integer rule** — для mlt=45 + D → 32m (не 30m closest!)
+3. **LTF anchor** — `request.security_lower_tf` aligns LTF к HTF bar start, не epoch (для custom TFs типа 32m, 16m где не делит сутки чисто)

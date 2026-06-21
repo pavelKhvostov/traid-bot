@@ -3,6 +3,9 @@
 Reference: ~/traid-bot/research/asvk_trend_line/plot_asvk_trend_line.py
 Canon: ~/traid-bot/vault/knowledge/indicators/asvk-trend-line-hull.md
 
+Каноничные длины (см. Правило 7 в rules.md): 78 и 200.
+Helpers: trend_line_hma_78(closes), trend_line_hma_200(closes).
+
 Default: length=49, lengthMult=1.6 → effective length = int(49*1.6) = 78.
 mode = 'Hma' (default), 'Ehma', 'Thma'.
 
@@ -136,3 +139,22 @@ def trend_line_asvk(
         color[i] = "up" if closes[i] > shull[i] else "down"
 
     return {"mhull": hull, "shull": shull, "color": color, "effective_length": effective_len, "mode": mode}
+
+
+# ── Каноничные helper'ы (Правило 7) ─────────────────────────────────────────
+
+def trend_line_hma_78(closes: list[float]) -> dict:
+    """TrendLine ASVK с канонической length=78 (Hma mode).
+
+    Default основной TrendLine: применяется на 12h и D в проекте Pred-12h.
+    Pine эквивалент: length=49, lengthMult=1.6 → effective=78.
+    """
+    return trend_line_asvk(closes, length=78, length_mult=1.0, mode="Hma")
+
+
+def trend_line_hma_200(closes: list[float]) -> dict:
+    """TrendLine ASVK с канонической length=200 (Hma mode).
+
+    Медленный TrendLine: используется на D как HTF-уровень.
+    """
+    return trend_line_asvk(closes, length=200, length_mult=1.0, mode="Hma")

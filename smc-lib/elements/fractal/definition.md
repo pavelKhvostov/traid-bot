@@ -4,7 +4,7 @@
 
 Canon — **Williams Bill (BW) 5-bar fractal** с `N=2` (как в проекте по умолчанию). Параметр `N` — настраиваемый для совместимости с другими определениями (Pine WICK.ED поддерживает N=1 и N=2; LuxAlgo Liquidity Swings использует N=14 для своих внутренних целей — см. примечание ниже).
 
-> **Класс зоны**: **liquidity** (см. [[zone-class-liquidity-inefficiency-efficiency]]). За FH накапливаются sell-stops LONG-позиций; за FL — buy-stops SHORT. Магнит-логика отличается от inefficiency: цена тянется не из-за "непроторговки", а из-за **collected stops** — институционалам нужна ликвидность.
+> **Класс зоны**: **liquidity** (см. [[zone-class-liquidity-inefficiency-block]]). За FH накапливаются sell-stops LONG-позиций; за FL — buy-stops SHORT. Магнит-логика отличается от inefficiency: цена тянется не из-за "непроторговки", а из-за **collected stops** — институционалам нужна ликвидность.
 
 ## Свечи
 

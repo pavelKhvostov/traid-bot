@@ -22,24 +22,32 @@ class OB:
     direction: Direction
     prev: Candle
     cur: Candle
-    zone: Interval            # полная зона интереса: [pattern.low, cur.close] LONG / [cur.close, pattern.high] SHORT
-    breaker_block: Interval   # подзона тела синтетической свечи: [prev.open, cur.close] LONG / [cur.close, prev.open] SHORT
+    zone: Interval            # ZoI OB = drop/rally area, всегда: [min(prev.low, cur.low), prev.open] LONG / [prev.open, max(prev.high, cur.high)] SHORT
+
+
+def is_full_break(ob: "OB") -> bool:
+    """Проткнул ли cur prev целиком — триггер для отдельного элемента Breaker Block.
+
+    LONG: cur.close > prev.high; SHORT: cur.close < prev.low.
+    Сам OB.zone от этого не зависит. См. elements/breaker_block/.
+    """
+    if ob.direction == "long":
+        return ob.cur.close > ob.prev.high
+    return ob.cur.close < ob.prev.low
 
 
 def detect_ob(prev: Candle, cur: Candle) -> OB | None:
     """Возвращает OB или None.
 
-    LONG: prev bear, cur bull, cur.close > prev.open
-    SHORT: prev bull, cur bear, cur.close < prev.open
+    LONG: prev bear, cur bull, cur.close > prev.open. ZoI = drop area = [min(prev.low, cur.low), prev.open].
+    SHORT: prev bull, cur bear, cur.close < prev.open. ZoI = rally area = [prev.open, max(prev.high, cur.high)].
 
-    Геометрия совпадает с (N₁, N₂) = (1, 1) случаем block_orders:
-    block.open = prev.open, block.close = cur.close, block.low/high = min/max(prev, cur).
-    Зона интереса = breaker_block + drop/rally area (см. definition.md).
+    Breaker block — самостоятельный элемент со своей ZoI (canon 2026-06-14), см. elements/breaker_block/.
     """
     if prev.is_bear and cur.is_bull and cur.close > prev.open:
-        pattern_low = min(prev.low, cur.low)
-        return OB("long", prev, cur, (pattern_low, cur.close), (prev.open, cur.close))
+        drop_low = min(prev.low, cur.low)
+        return OB("long", prev, cur, (drop_low, prev.open))
     if prev.is_bull and cur.is_bear and cur.close < prev.open:
-        pattern_high = max(prev.high, cur.high)
-        return OB("short", prev, cur, (cur.close, pattern_high), (cur.close, prev.open))
+        rally_high = max(prev.high, cur.high)
+        return OB("short", prev, cur, (prev.open, rally_high))
     return None
