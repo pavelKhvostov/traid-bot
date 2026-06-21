@@ -69,8 +69,24 @@ Middle-tier strategy. **0 bad years** — лучший stability metric.
 
 **Backtest-only**, NOT approved, NOT live. Pending решения пользователя по утверждению.
 
+## Cross-asset гейт (2026-06-19) — BTC-ONLY
+
+Прогон V2c (4h-only) на ПОЛНОЙ истории cross-asset (`research/elements_study/backtest_117_cross_asset_gate.py`):
+
+| Символ | RR2.5 closed | WR% | totalR | avgR | LONG R | SHORT R | +лет |
+|---|---|---|---|---|---|---|---|
+| BTC | 225 | 35.6% | **+55.0** | +0.244 | +24.5 | +30.5 | 6/7 |
+| ETH | 215 | 24.7% | **−29.5** | −0.137 | −12.0 | −17.5 | 2/7 |
+| SOL | 157 | 35.7% | +39.0 | +0.248 | +3.5 | +35.5 | 4/7 (всё из 2022) |
+
+- BTC: реальный middle-tier, на 6y даже лучше прежних 2.3y (+55R vs +37.5R), двусторонне.
+- ETH: **НЕ переносится** (−29.5R, 2/7, обе стороны−). SOL «+39R» = артефакт 2022 (снять → ноль).
+- Вердикт: **iFVG-continuation BTC-specific** (как 1.1.4 BFJK / 1.1.5). Не cross-asset цепочка.
+  На BTC — скромный add (decision-pending без изменений). См. [[2026-06-19-цепочки-A-irdrb-fvg-B-ifvg-C-rdrb-htf]].
+
 ## Связи
 
 - [[inverse-fvg-definition]] — концепция iFVG
 - [[ifvg-7-concepts-tested]] — 7 альтернативных концепций
 - [[2026-05-13-live-bot-vic-ifvg-strategies-117-118]] — session note
+- [[i-rdrb-fvg-cross-asset-live-candidate]] — A: цепочка, которая ПЕРЕНОСИТСЯ cross-asset

@@ -15,6 +15,35 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
+## ⚠️ Движки монетизации (2026-06-21) — ОПРОВЕРГНУТЫ (entry-bar lookahead)
+- [[htf-sweep-reclaim-reversal-engine]] — ❌ **REFUTED**: «победитель» +0.216R был артефактом entry-bar lookahead (вход=close, управление с того же бара). Честно: sweep+reclaim −0.05R, MR-у-экстремумов +0.60R→**−0.18R** (WR68%→36%, год7/7→0/7). Новые движки честного edge НЕ дали. Чисто (вход на open[i+1]) остаётся ТОЛЬКО arc+конфлюэнс +0.309R / arc +0.164R.
+
+## 🔀 Интеграция ветки Vadim — «живой рынок» (2026-06-21)
+Внедрены наработки Vadim (Обсидиан + smc-канон), без потери нашего контекста. Связь с нашими TA-законами: [[vadim-integration-living-market-laws]].
+- **Законы рынка (принципы):** [[FRESH_LOOK_PRINCIPLE]] (план=гипотеза, ✗-метка→сброс) · [[REALISTIC_TARGET_PRINCIPLE]] (достижимая трейдером цель, не физ. max = НАШ «measured-move 1× завышен→~0.49×») · [[DIRECTIONS]] (3 цели проекта).
+- **Наработки/ML:** [[force-model-v3-architecture]] (сила зон→reversal force, 344 коэф.) · [[2026-06-19-живой-рынок-B8-series-confluence-principles]] (B8 TWB-MEM, физика цены, 24h MAE 0.74%) · [[12h-fractal-prediction-final-strategy]] (82% HH/73% LL) · [[2026-06-14-canon-refactor-session]] (smc-канон 13 элементов).
+- **Его Обсидиан:** ~55 заметок в [[claude-memory/MEMORY|claude-memory]] (force-model, pred12h, zone-taxonomy, VIC maxV, lookahead-уроки) + его сессии 2026-05-30…06-19. Канон-код в `smc-lib/` (поиск-элементов v11, проекты живой-рынок/промеры/12h-фрактал).
+- **Урок-грабля:** [[ob-vc-hma-features-lookahead-fix]] — HTF-фичи читали FINAL close in-progress бара (lookahead до 72ч); ML AUC>0.65 = подозревать.
+
+## Свежее (2026-06-21)
+- [[ta-curved-patterns-arcs-and-data-discovered-shapes]] — арки/округления: детектор кривизны (curves.py, фит параболы, тесты 6/6); голая арка=нейтральна, НО условный mean-revert (изогнутость+apex+против контекста, 3/3); **открытие паттернов из данных** (KMeans форм) → BULL J-launch + BEAR купол/blow-off (независимо переоткрыл истощение).
+- [[ta-pattern-taxonomy-direction-vs-extent]] — таксономия паттернов: **направление и дальность управляются РАЗНЫМИ факторами** (сетка 2×). КУДА=контекст (mtf/htf align, не форма); ДОКУДА=масштаб обратно (мелк 0.77×/крупн 0.24×)+природа; «одна цель» 0.49× скрывала разброс 0.40×–1.85×. pattern_taxonomy.py, η²+null+дерево.
+
+## Свежее (2026-06-19)
+- [[2026-06-19-цепочки-грид-декорреляция-нейромодуль-законов-та]] — СЕССИЯ: цепочки A/B/C cross-asset; грид 64 каскадов (12 робастных); декоррелированная корзина для фьючерсов; НЕЙРО-МОДУЛЬ законов ТА.
+- [[ta-chart-pattern-continuation-folklore]] — континуация флага/клина=ФОЛЬКЛОР; **✅ ЗАКОН «fade the flag»** (коррекция чаще продолжается, fade +0.252, все гейты+pivot-null, год 7/7).
+- [[ta-figure-laws-direction-and-extent]] — законы фигур: куда раскроется (реверсивные слабо+по тренду, ASC_TRIANGLE опровергнут) + докуда (медиана 0.49× высоты, размер обратный фактор).
+- [[ta-fade-law-deep-factors]] — глубокие факторы fade: короткая коррекция + рассогласование мульти-ТФ главные; ОБЪЁМ не влияет; мультивариат OOS AUC 0.70 бьёт shuffle.
+- [[i-rdrb-fvg-cross-asset-live-candidate]] — A i-RDRB+FVG ✅ live-кандидат (cross-asset, двусторонний, +127R BTC).
+- [[cascade-grid-64-cross-asset-robust-shortlist]] — грид 64 каскадов → 12 робастных; новый cand2=FVG-якорь.
+- [[decorrelated-chain-basket-for-futures]] — корзина РАЗНЫХ цепочек (A+1.1.2+cand2+1.1.5+3.2), Sharpe 0.55→0.88.
+- [[rdrb-htf-1-1-1-high-conviction-subset]] — C RDRB-htf = грейд-бустер, не замена.
+
+## Свежее (2026-06-18)
+- [[2026-06-18-reversal-слой-грейд-sizing-level-engine-pdf-стратегии]] — СЕССИЯ: reversal-слой; грейд как size-rule; level-strength engine (descriptive, предиктив KILL); PDF-стратегии (ViC-Vadim/ICT-2022) KILL.
+- [[level-strength-engine-описательный-предиктив-kill]] — мульти-TF карта S/R + сила 1-10 + аргументы (research/level_engine, 7 модулей, причинна). Предиктив УБИТ (AUC 0.531, density-null p=0.467); v2.1 8 факторов + order-flow; #8 кластеризация отвергнута. Едет ОПИСАТЕЛЬНО.
+- [[грейд-как-правило-размера-pnl-и-непереносимость-на-1-1-2]] — грейд=риск-рычаг (1.1.1 просадка 13.6R→3.0R, +7/7 лет); на 1.1.2 НЕ переносится.
+
 ## Свежее (2026-06-16)
 - [[reversal-структура-дня-недели-описательный-слой]] — 2026-06-16: модуль теперь ПОМЕЧАЕТ точку разворота дня (rev_up/down + пивот ▲/▼) и недели (свип PWH/PWL); направление=монетка, fill%/магнит=конфаунд/убито → ОПИСАТЕЛЬНО, без прогноза. reversal.py + etap_255, 100 тестов.
 - [[2026-06-16-frontier-v2-интеграция-1.1.1-грейд-ict-fvg]] — СЕССИЯ: 3 волны фронтира → 3 KEEP интегрированы; 1.1.1 грейд (BTC); CatBoost=стена; зоны дашборда расхардкожены; ICT double-FVG.

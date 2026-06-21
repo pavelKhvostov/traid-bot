@@ -77,3 +77,8 @@ new/
 research/zone_reactor/*.csv
 research/zone_reactor/*.parquet
 *.parquet
+
+# level_engine validation artifacts (regenerated)
+research/level_engine/_val_*.csv
+research/level_engine/__pycache__/
+research/level_engine/tests/__pycache__/
