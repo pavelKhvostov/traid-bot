@@ -1,0 +1,23 @@
+#2 TF-sweep CHoCH/BOS -> OB (структурный слом Вадима на всех ТФ)
+
+=== CHoCH -> OB (pooled BTC+ETH+SOL) ===
+    1h: n= 5139 signed@6=+0.008 null_p=0.40 best_grid(max-asset)=-0.023 пусто
+    2h: n= 2567 signed@6=-0.145 null_p=1.00 best_grid(max-asset)=+0.022 пусто
+    4h: n= 1248 signed@6=-0.058 null_p=0.84 best_grid(max-asset)=+0.047 пусто
+    6h: n=  866 signed@6=-0.111 null_p=0.96 best_grid(max-asset)=+0.264 пусто
+    8h: n=  662 signed@6=-0.024 null_p=0.60 best_grid(max-asset)=+0.110 пусто
+   12h: n=  434 signed@6=-0.087 null_p=0.82 best_grid(max-asset)=+0.115 пусто
+    1d: n=  205 signed@6=-0.154 null_p=0.89 best_grid(max-asset)=+0.288 пусто
+
+=== BOS -> OB (pooled BTC+ETH+SOL) ===
+    1h: n= 5088 signed@6=+0.026 null_p=0.13 best_grid(max-asset)=-0.029 пусто
+    2h: n= 2630 signed@6=+0.102 null_p=0.00 best_grid(max-asset)=+0.062 ИНФА?
+    4h: n= 1362 signed@6=+0.140 null_p=0.01 best_grid(max-asset)=+0.213 ИНФА?
+    6h: n=  865 signed@6=-0.022 null_p=0.61 best_grid(max-asset)=+0.146 пусто
+    8h: n=  637 signed@6=-0.136 null_p=0.96 best_grid(max-asset)=+0.152 пусто
+   12h: n=  449 signed@6=+0.100 null_p=0.18 best_grid(max-asset)=+0.326 пусто
+    1d: n=  210 signed@6=+0.206 null_p=0.09 best_grid(max-asset)=+0.191 ИНФА?
+
+=== ВЕРДИКТ #2 ===
+  Если CHoCH/BOS->OB даёт signed бьёт null + плюс-grid на HTF (как breaker) -> ещё кандидат-диверсификатор.
+  Если пусто/анти на HTF -> только breaker из структурных элементов Вадима живой.

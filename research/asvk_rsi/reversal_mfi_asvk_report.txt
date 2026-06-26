@@ -1,0 +1,56 @@
+================================================================
+ MFI×ASVK above/below как детектор разворотов (методология Магнитуды)
+================================================================
+
+================================================================
+  LONG (8h) — n=14209, base reversal-rate=0.292, ср.net-R=-0.153
+================================================================
+  фича      Cohen d  lift_hi  lift_lo  (lift=P(rev|дециль)/base)
+  d_os       +0.087     1.20     0.98
+  d_ob       +0.086     1.21     0.97
+  pos        +0.083     1.21     0.98
+  mfi        +0.068     1.23     1.03
+  below      -0.057     1.01     1.22
+  above      -0.052     1.02     1.21
+  bw         +0.009     1.02     1.18
+
+  ЛУЧШИЕ ЗНАЧЕНИЯ-КОМБО (бакет pos) — reversal-rate, lift, net-R, cross-asset:
+    pos<10%      n= 1421 rev-rate=0.286 (lift 0.98) net-R=-0.257  per-asset BTC0.24/ETH0.29/SOL0.35
+    pos 10-25%   n= 2132 rev-rate=0.275 (lift 0.94) net-R=-0.237  per-asset BTC0.22/ETH0.30/SOL0.31
+    pos 25-75%   n= 7104 rev-rate=0.283 (lift 0.97) net-R=-0.173  per-asset BTC0.24/ETH0.27/SOL0.34
+    pos 75-90%   n= 2131 rev-rate=0.301 (lift 1.03) net-R=-0.083  per-asset BTC0.25/ETH0.29/SOL0.35
+    pos>90%      n= 1421 rev-rate=0.353 (lift 1.21) net-R=+0.066  per-asset BTC0.30/ETH0.38/SOL0.37
+
+  ЯВНО (mfi vs полосы):
+    mfi<below (OS)         n= 1613 rev-rate=0.285 (lift 0.98) net-R=-0.227
+    mfi>above (OB)         n= 1420 rev-rate=0.353 (lift 1.21) net-R=+0.067
+    глубокий OS d_os<10%   n= 1421 rev-rate=0.286 (lift 0.98) net-R=-0.257
+    глубокий OB d_ob>90%   n= 1421 rev-rate=0.353 (lift 1.21) net-R=+0.066
+
+================================================================
+  SHORT (12h) — n=10619, base reversal-rate=0.313, ср.net-R=-0.173
+================================================================
+  фича      Cohen d  lift_hi  lift_lo  (lift=P(rev|дециль)/base)
+  mfi        -0.128     0.90     1.19
+  d_os       -0.099     0.88     1.09
+  pos        -0.095     0.90     1.09
+  d_ob       -0.094     0.90     1.08
+  above      -0.048     1.04     1.12
+  below      -0.041     1.04     1.13
+  bw         -0.030     1.04     1.09
+
+  ЛУЧШИЕ ЗНАЧЕНИЯ-КОМБО (бакет pos) — reversal-rate, lift, net-R, cross-asset:
+    pos<10%      n= 1062 rev-rate=0.342 (lift 1.09) net-R=-0.225  per-asset BTC0.28/ETH0.39/SOL0.40
+    pos 10-25%   n= 1593 rev-rate=0.366 (lift 1.17) net-R=-0.031  per-asset BTC0.32/ETH0.34/SOL0.46
+    pos 25-75%   n= 5309 rev-rate=0.304 (lift 0.97) net-R=-0.170  per-asset BTC0.26/ETH0.30/SOL0.37
+    pos 75-90%   n= 1593 rev-rate=0.293 (lift 0.94) net-R=-0.238  per-asset BTC0.23/ETH0.27/SOL0.39
+    pos>90%      n= 1062 rev-rate=0.281 (lift 0.90) net-R=-0.247  per-asset BTC0.20/ETH0.30/SOL0.34
+
+  ЯВНО (mfi vs полосы):
+    mfi<below (OS)         n= 1035 rev-rate=0.348 (lift 1.11) net-R=-0.214
+    mfi>above (OB)         n= 1060 rev-rate=0.280 (lift 0.90) net-R=-0.248
+    глубокий OS d_os<10%   n= 1062 rev-rate=0.342 (lift 1.09) net-R=-0.225
+    глубокий OB d_ob>90%   n= 1062 rev-rate=0.281 (lift 0.90) net-R=-0.247
+
+  Сравнение с Магнитудой: там CatBoost на 22 фичах дал reversal cross-asset, но net-R≈0 (вола-RR).
+  Здесь смотрим, добавляет ли MFI×ASVK-комбо selectivity/net-R сверх базы — и cross-asset ли это.

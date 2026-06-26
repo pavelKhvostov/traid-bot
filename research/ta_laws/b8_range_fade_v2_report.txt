@@ -1,0 +1,20 @@
+B8 range-fade v2: УМНЫЙ уровень (канон-зона Вадима) vs плоский ATR=0.5 — BTC/ETH/SOL, фьюч нетто.
+Зоны ('12h', '1d') ('OB', 'FVG', 'RDRB', 'ob_liq', 'fractal'), полоса [0.2,1.3]·ATR_d, каузально. Косты 0.14%RT.
+
+=== ZONE-уровень vs ATR-уровень (нетто-R/сделку) ===
+  ZONE все:          n= 5336 exp=+0.010R WR=  60% PF=1.03 tot=  +54.4R sym2/3 год5/7
+  ATR  все (v1-база): n= 5091 exp=+0.021R WR=  54% PF=1.06 tot= +107.2R sym2/3 год5/7
+
+=== по стороне ===
+  [zone] SHORT (fade HIGH): n= 2697 exp=-0.005R WR=  58% PF=0.99 tot=  -12.5R sym2/3 год4/7
+  [zone] LONG  (fade LOW):  n= 2639 exp=+0.025R WR=  61% PF=1.08 tot=  +66.9R sym3/3 год4/7
+  [atr] SHORT (fade HIGH): n= 2534 exp=+0.001R WR=  52% PF=1.00 tot=   +2.2R sym1/3 год3/7
+  [atr] LONG  (fade LOW):  n= 2557 exp=+0.041R WR=  55% PF=1.12 tot= +104.9R sym3/3 год5/7
+
+=== ZONE LONG (откуп низа у зоны) — по символам/годам ===
+  BTCUSDT: n=  909 exp=+0.005R WR=  60% PF=1.02 tot=   +4.7R sym1/3 год4/7
+  ETHUSDT: n=  854 exp=+0.006R WR=  61% PF=1.02 tot=   +5.5R sym1/3 год4/7
+  SOLUSDT: n=  876 exp=+0.065R WR=  63% PF=1.24 tot=  +56.7R sym1/3 год6/7
+
+=== ВЕРДИКТ ===
+  ZONE-уровень exp=+0.010R vs ATR-уровень exp=+0.021R -> зоны НЕ лучше плоского ATR

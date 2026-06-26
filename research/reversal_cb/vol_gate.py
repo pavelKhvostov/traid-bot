@@ -54,7 +54,7 @@ def main():
     df = pd.DataFrame(rows)
     df["exit"] = pd.to_datetime(df.exit, utc=True)
     df["yr"] = df.exit.dt.year
-    full_idx = pd.date_range(df.exit.min().to_period("M").to_timestamp(tz="UTC"),
+    full_idx = pd.date_range(df.exit.min().to_period("M").to_timestamp().tz_localize("UTC"),
                              df.exit.max(), freq="MS")
     A(f"\n  всего сигналов: {len(df)} (8h long + 12h short), период {full_idx.min():%Y-%m}…{full_idx.max():%Y-%m}")
     for thr in [1.01, 0.70, 0.50, 0.30]:

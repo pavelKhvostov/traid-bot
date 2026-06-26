@@ -1,0 +1,112 @@
+======================================================================
+ CatBoost-МОДУЛЬ РАЗВОРОТОВ: purged WF + мета + net-R
+======================================================================
+ косты RT=10bps, TP=±3%, SL=свой low/high, CAP=120 баров
+
+======================================================================
+  НАПРАВЛЕНИЕ: LONG
+======================================================================
+
+--- TF 8h ---
+
+ BTCUSDT: OOS n=2851 base=0.254
+  [primary p>0.55] флагов=603  precision=0.430 (base 0.254, lift 1.69)  recall=0.358  net-R/сделку=+0.058  ΣR=+35
+  [+meta-фильтр] флагов=587  precision=0.433 (base 0.254, lift 1.71)  recall=0.351  net-R/сделку=+0.070  ΣR=+41
+     permutation-null precision=0.254 (vs primary 0.430)
+     год net-R: 2023:+0.65  2024:+0.11  2025:+0.11  2026:-0.27
+     природа ошибок (TP vs FP): c2l: TP +0.026 vs FP +0.020 | ret1: TP +0.013 vs FP +0.010 | range_exp: TP +1.514 vs FP +1.314 | vol_z: TP +0.797 vs FP +0.459 | rsi: TP +53.971 vs FP +54.258 | dist_ema50: TP +0.010 vs FP +0.008
+
+ ETHUSDT: OOS n=2851 base=0.310
+  [primary p>0.55] флагов=712  precision=0.458 (base 0.310, lift 1.48)  recall=0.369  net-R/сделку=-0.021  ΣR=-15
+  [+meta-фильтр] флагов=693  precision=0.462 (base 0.310, lift 1.49)  recall=0.362  net-R/сделку=-0.010  ΣR=-7
+     permutation-null precision=0.307 (vs primary 0.458)
+     год net-R: 2023:-0.00  2024:-0.01  2025:+0.00  2026:-0.10
+     природа ошибок (TP vs FP): c2l: TP +0.033 vs FP +0.025 | ret1: TP +0.015 vs FP +0.010 | range_exp: TP +1.458 vs FP +1.222 | vol_z: TP +0.753 vs FP +0.423 | rsi: TP +51.795 vs FP +50.410 | dist_ema50: TP +0.001 vs FP -0.003
+
+ SOLUSDT: OOS n=2851 base=0.340
+  [primary p>0.55] флагов=754  precision=0.528 (base 0.340, lift 1.55)  recall=0.411  net-R/сделку=-0.039  ΣR=-29
+  [+meta-фильтр] флагов=733  precision=0.523 (base 0.340, lift 1.54)  recall=0.395  net-R/сделку=-0.048  ΣR=-35
+     permutation-null precision=0.340 (vs primary 0.528)
+     год net-R: 2023:+0.02  2024:-0.07  2025:+0.02  2026:-0.17
+     природа ошибок (TP vs FP): c2l: TP +0.045 vs FP +0.033 | ret1: TP +0.024 vs FP +0.013 | range_exp: TP +1.378 vs FP +1.200 | vol_z: TP +0.771 vs FP +0.392 | rsi: TP +54.129 vs FP +53.418 | dist_ema50: TP +0.032 vs FP +0.026
+
+  ИТОГ 8h: cross-asset net-R>0: 1/3  средн.precision=0.472 средн.net-R=-0.001
+
+--- TF 12h ---
+
+ BTCUSDT: OOS n=2742 base=0.274
+  [primary p>0.55] флагов=590  precision=0.464 (base 0.274, lift 1.70)  recall=0.365  net-R/сделку=+0.004  ΣR=+2
+  [+meta-фильтр] флагов=580  precision=0.469 (base 0.274, lift 1.71)  recall=0.362  net-R/сделку=+0.017  ΣR=+10
+     permutation-null precision=0.274 (vs primary 0.464)
+     год net-R: 2022:-0.08  2023:+0.06  2024:+0.08  2025:+0.04  2026:-0.36
+     природа ошибок (TP vs FP): c2l: TP +0.031 vs FP +0.024 | ret1: TP +0.016 vs FP +0.011 | range_exp: TP +1.694 vs FP +1.405 | vol_z: TP +0.950 vs FP +0.536 | rsi: TP +57.937 vs FP +56.092 | dist_ema50: TP +0.032 vs FP +0.022
+
+ ETHUSDT: OOS n=1825 base=0.353
+  [primary p>0.55] флагов=501  precision=0.499 (base 0.353, lift 1.41)  recall=0.388  net-R/сделку=-0.011  ΣR=-5
+  [+meta-фильтр] флагов=373  precision=0.507 (base 0.353, lift 1.43)  recall=0.293  net-R/сделку=+0.024  ΣR=+9
+     permutation-null precision=0.352 (vs primary 0.499)
+     год net-R: 2023:-0.37  2024:+0.04  2025:+0.04  2026:-0.22
+     природа ошибок (TP vs FP): c2l: TP +0.039 vs FP +0.029 | ret1: TP +0.018 vs FP +0.010 | range_exp: TP +1.429 vs FP +1.140 | vol_z: TP +0.662 vs FP +0.371 | rsi: TP +52.200 vs FP +52.312 | dist_ema50: TP +0.008 vs FP +0.007
+
+ SOLUSDT: OOS n=1825 base=0.378
+  [primary p>0.55] флагов=529  precision=0.577 (base 0.378, lift 1.52)  recall=0.442  net-R/сделку=-0.033  ΣR=-18
+  [+meta-фильтр] флагов=343  precision=0.557 (base 0.378, lift 1.47)  recall=0.277  net-R/сделку=-0.031  ΣR=-11
+     permutation-null precision=0.377 (vs primary 0.577)
+     год net-R: 2023:-0.06  2024:-0.01  2025:-0.01  2026:-0.16
+     природа ошибок (TP vs FP): c2l: TP +0.053 vs FP +0.039 | ret1: TP +0.027 vs FP +0.014 | range_exp: TP +1.351 vs FP +1.177 | vol_z: TP +0.774 vs FP +0.393 | rsi: TP +54.008 vs FP +52.429 | dist_ema50: TP +0.040 vs FP +0.027
+
+  ИТОГ 12h: cross-asset net-R>0: 1/3  средн.precision=0.513 средн.net-R=-0.013
+
+======================================================================
+  НАПРАВЛЕНИЕ: SHORT
+======================================================================
+
+--- TF 8h ---
+
+ BTCUSDT: OOS n=2851 base=0.224
+  [primary p>0.55] флагов=558  precision=0.419 (base 0.224, lift 1.87)  recall=0.366  net-R/сделку=+0.030  ΣR=+17
+  [+meta-фильтр] флагов=521  precision=0.405 (base 0.224, lift 1.80)  recall=0.330  net-R/сделку=+0.002  ΣR=+1
+     permutation-null precision=0.227 (vs primary 0.419)
+     год net-R: 2023:-0.50  2024:-0.07  2025:+0.07  2026:+0.26
+     природа ошибок (TP vs FP): c2l: TP +0.009 vs FP +0.009 | ret1: TP -0.016 vs FP -0.011 | range_exp: TP +1.497 vs FP +1.315 | vol_z: TP +0.766 vs FP +0.477 | rsi: TP +44.348 vs FP +47.812 | dist_ema50: TP -0.020 vs FP -0.009
+
+ ETHUSDT: OOS n=2851 base=0.273
+  [primary p>0.55] флагов=702  precision=0.464 (base 0.273, lift 1.70)  recall=0.419  net-R/сделку=-0.041  ΣR=-29
+  [+meta-фильтр] флагов=660  precision=0.461 (base 0.273, lift 1.69)  recall=0.391  net-R/сделку=-0.040  ΣR=-26
+     permutation-null precision=0.275 (vs primary 0.464)
+     год net-R: 2023:-0.22  2024:-0.20  2025:+0.03  2026:+0.13
+     природа ошибок (TP vs FP): c2l: TP +0.013 vs FP +0.012 | ret1: TP -0.022 vs FP -0.012 | range_exp: TP +1.465 vs FP +1.188 | vol_z: TP +0.812 vs FP +0.363 | rsi: TP +43.806 vs FP +47.692 | dist_ema50: TP -0.033 vs FP -0.013
+
+ SOLUSDT: OOS n=2851 base=0.332
+  [primary p>0.55] флагов=866  precision=0.509 (base 0.332, lift 1.53)  recall=0.466  net-R/сделку=-0.028  ΣR=-25
+  [+meta-фильтр] флагов=847  precision=0.514 (base 0.332, lift 1.55)  recall=0.459  net-R/сделку=-0.017  ΣR=-15
+     permutation-null precision=0.332 (vs primary 0.509)
+     год net-R: 2023:-0.38  2024:-0.05  2025:+0.03  2026:+0.09
+     природа ошибок (TP vs FP): c2l: TP +0.015 vs FP +0.013 | ret1: TP -0.023 vs FP -0.014 | range_exp: TP +1.336 vs FP +1.087 | vol_z: TP +0.497 vs FP +0.092 | rsi: TP +45.368 vs FP +48.090 | dist_ema50: TP -0.012 vs FP -0.000
+
+  ИТОГ 8h: cross-asset net-R>0: 1/3  средн.precision=0.464 средн.net-R=-0.013
+
+--- TF 12h ---
+
+ BTCUSDT: OOS n=2742 base=0.237
+  [primary p>0.55] флагов=489  precision=0.431 (base 0.237, lift 1.82)  recall=0.324  net-R/сделку=-0.044  ΣR=-22
+  [+meta-фильтр] флагов=406  precision=0.438 (base 0.237, lift 1.85)  recall=0.273  net-R/сделку=-0.031  ΣR=-13
+     permutation-null precision=0.238 (vs primary 0.431)
+     год net-R: 2022:+0.13  2023:-0.09  2024:-0.18  2025:-0.04  2026:+0.17
+     природа ошибок (TP vs FP): c2l: TP +0.012 vs FP +0.011 | ret1: TP -0.021 vs FP -0.013 | range_exp: TP +1.530 vs FP +1.288 | vol_z: TP +0.746 vs FP +0.408 | rsi: TP +45.551 vs FP +47.036 | dist_ema50: TP -0.020 vs FP -0.011
+
+ ETHUSDT: OOS n=1825 base=0.316
+  [primary p>0.55] флагов=513  precision=0.481 (base 0.316, lift 1.53)  recall=0.429  net-R/сделку=-0.050  ΣR=-25
+  [+meta-фильтр] флагов=352  precision=0.511 (base 0.316, lift 1.62)  recall=0.312  net-R/сделку=-0.009  ΣR=-3
+     permutation-null precision=0.316 (vs primary 0.481)
+     год net-R: 2023:-0.39  2024:-0.09  2025:+0.07  2026:-0.12
+     природа ошибок (TP vs FP): c2l: TP +0.015 vs FP +0.014 | ret1: TP -0.024 vs FP -0.012 | range_exp: TP +1.345 vs FP +1.094 | vol_z: TP +0.588 vs FP +0.185 | rsi: TP +46.262 vs FP +50.109 | dist_ema50: TP -0.026 vs FP -0.005
+
+ SOLUSDT: OOS n=1825 base=0.369
+  [primary p>0.55] флагов=560  precision=0.571 (base 0.369, lift 1.55)  recall=0.475  net-R/сделку=+0.008  ΣR=+5
+  [+meta-фильтр] флагов=360  precision=0.578 (base 0.369, lift 1.56)  recall=0.309  net-R/сделку=+0.036  ΣR=+13
+     permutation-null precision=0.369 (vs primary 0.571)
+     год net-R: 2023:-0.26  2024:+0.03  2025:+0.08  2026:-0.10
+     природа ошибок (TP vs FP): c2l: TP +0.018 vs FP +0.018 | ret1: TP -0.029 vs FP -0.016 | range_exp: TP +1.302 vs FP +1.096 | vol_z: TP +0.382 vs FP +0.090 | rsi: TP +47.457 vs FP +48.717 | dist_ema50: TP +0.000 vs FP +0.010
+
+  ИТОГ 12h: cross-asset net-R>0: 1/3  средн.precision=0.495 средн.net-R=-0.029

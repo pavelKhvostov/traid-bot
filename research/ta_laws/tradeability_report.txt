@@ -1,0 +1,47 @@
+ТОРГОВОСПОСОБНОСТЬ arc-паттернов НА ФЬЮЧЕРСАХ — BTC/ETH/SOL, 1h->D, с 2020.
+СЕТАП: форма (изогнутость+apex) + АНАЛИТИКА-КОНФЛЮЭНС (откат разворачивается ОБРАТНО в мульти-ТФ тренд).
+Костов: taker 0.050%/side + slip 0.020%/side = 0.14% RT + funding 0.010%/8ч. Тай-брейк = стоп.
+Всего arc-сигналов: 2833 | прошло условия (sag>=2.5, apex>=0.4, контекст СОВПАДАЕТ): 277
+
+=== 1) GRID SL×RR (реальные косты, условный сетап) — нет cherry-pick ===
+SL/RR    RR1.0                              RR1.5                              RR2.0                             
+SL0.8    exp-0.217 PF0.64 tot-60            exp-0.083 PF0.88 tot-23            exp+0.037 PF1.05 tot+10           
+SL1.0    exp-0.086 PF0.84 tot-24            exp+0.045 PF1.07 tot+12            exp+0.124 PF1.19 tot+34           
+SL1.5    exp+0.082 PF1.19 tot+23            exp+0.121 PF1.22 tot+34            exp+0.164 PF1.26 tot+45           
+
+Лучшая ячейка по экспектации: SL=1.5 RR=2.0
+  условный сетап             n= 277 WR=  43% exp=+0.164R PF=1.26 total=  +45.4R DD= -22.6R Sharpe=+0.11
+  ВСЕ арки (без условий)     n=2833 WR=  36% exp=-0.071R PF=0.90 total= -200.7R DD=-223.5R Sharpe=-0.05
+  RANDOM-ENTRY null (30 прогонов): exp медиана -0.252R, P(null>=стратегия)=0.000 -> СТРАТЕГИЯ БЬЁТ random
+
+=== 2) COST-SENSITIVITY (лучшая ячейка) ===
+  0× (без костов)            n= 277 WR=  43% exp=+0.297R PF=1.53 total=  +82.1R DD= -14.5R Sharpe=+0.20
+  1× (реальные)              n= 277 WR=  43% exp=+0.164R PF=1.26 total=  +45.4R DD= -22.6R Sharpe=+0.11
+  2× (стресс)                n= 277 WR=  43% exp=+0.031R PF=1.04 total=   +8.7R DD= -40.2R Sharpe=+0.02
+
+=== 3) РАЗБИВКИ (лучшая ячейка, реальные косты) ===
+  -- по символам:
+  BTCUSDT                    n= 112 WR=  46% exp=+0.198R PF=1.31 total=  +22.2R DD= -12.1R Sharpe=+0.13
+  ETHUSDT                    n= 105 WR=  34% exp=-0.088R PF=0.88 total=   -9.3R DD= -14.8R Sharpe=-0.06
+  SOLUSDT                    n=  60 WR=  55% exp=+0.542R PF=2.15 total=  +32.5R DD=  -5.9R Sharpe=+0.37
+  -- по направлению:
+  LONG (fade купола вверх)   n= 122 WR=  46% exp=+0.235R PF=1.39 total=  +28.7R DD= -13.3R Sharpe=+0.16
+  SHORT (fade чаши вниз)     n= 155 WR=  41% exp=+0.108R PF=1.16 total=  +16.8R DD= -18.8R Sharpe=+0.07
+  -- по годам:
+  2020                       n=  16 WR=  38% exp=+0.033R PF=1.05 total=   +0.5R DD=  -5.5R Sharpe=+0.02
+  2021                       n=  21 WR=  48% exp=+0.344R PF=1.61 total=   +7.2R DD=  -5.3R Sharpe=+0.23
+  2022                       n=  67 WR=  49% exp=+0.357R PF=1.64 total=  +23.9R DD=  -6.7R Sharpe=+0.24
+  2023                       n=  64 WR=  34% exp=-0.160R PF=0.79 total=  -10.3R DD= -24.5R Sharpe=-0.11
+  2024                       n=  44 WR=  45% exp=+0.262R PF=1.44 total=  +11.5R DD=  -6.8R Sharpe=+0.18
+  2025                       n=  47 WR=  40% exp=+0.049R PF=1.07 total=   +2.3R DD= -11.4R Sharpe=+0.03
+  2026                       n=  18 WR=  56% exp=+0.566R PF=2.38 total=  +10.2R DD=  -3.5R Sharpe=+0.42
+  -- по ТФ:
+  1h                         n= 153 WR=  47% exp=+0.252R PF=1.42 total=  +38.6R DD=  -9.8R Sharpe=+0.17
+  2h                         n=  69 WR=  45% exp=+0.220R PF=1.35 total=  +15.2R DD=  -7.7R Sharpe=+0.15
+  4h                         n=  34 WR=  32% exp=-0.121R PF=0.83 total=   -4.1R DD= -18.5R Sharpe=-0.09
+  6h                         n=  12 WR=  42% exp=+0.192R PF=1.31 total=   +2.3R DD=  -2.1R Sharpe=+0.13
+  12h                        n=   8 WR=  12% exp=-0.688R PF=0.26 total=   -5.5R DD=  -5.4R Sharpe=-0.69
+  1d                         n=   1 WR=   0% exp=-1.034R PF=0.00 total=   -1.0R DD=  +0.0R Sharpe=+0.00
+
+=== ВЕРДИКТ ===
+  Нетто-экспектация +0.164R | бьёт random p=0.000 | символы+ 2/3 | годы+ 6/7 -> ТОРГОВОСПОСОБНО (с оговорками)

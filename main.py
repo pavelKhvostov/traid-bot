@@ -12,6 +12,7 @@ Live-режим: Strategy 1.1.1 (с confluence) + 1.1.2 + 1.1.3 + 1.1.6 (без 
 from __future__ import annotations
 
 import asyncio
+import os
 
 from config import TELEGRAM_BOT_TOKEN, load_admins
 from state import load_users, log_event
@@ -64,6 +65,16 @@ async def main() -> None:
     await s113.startup()
     await s116.startup()
 
+    # Стратегия «Магнитуда» — ADMIN-only, за флагом MAGNITUDE_ENABLED (по умолчанию OFF).
+    # Сигналы идут ТОЛЬКО админам через DASHBOARD_BOT_TOKEN, НЕ подписчикам. Подписка на 8h/12h по BTC/ETH/SOL.
+    mag_on = os.getenv("MAGNITUDE_ENABLED", "").lower() in ("1", "true", "yes", "on")
+    s_mag = None
+    if mag_on:
+        from magnitude_scanner import MagnitudeScanner
+        s_mag = MagnitudeScanner()
+        await s_mag.startup()
+        log_event("INFO", "Magnitude scanner ENABLED (ADMIN-only, 8h/12h, BTC/ETH/SOL)")
+
     users_count = len(load_users())
     admins = load_admins()
 
@@ -75,6 +86,7 @@ async def main() -> None:
         f"Подписчиков: <b>{users_count}</b>\n"
         "1.1.1 — с confluence (BTC1!/TOTALES/USDT.D)\n"
         "1.1.2/1.1.3/1.1.6 — без confluence, RR=2.2 в сообщении"
+        + ("\n🧲 Магнитуда: ВКЛ (ADMIN-only тест, 8h/12h)" if mag_on else "")
     )
     for admin_id in admins:
         try:
@@ -84,14 +96,18 @@ async def main() -> None:
 
     log_event("INFO", f"all scanners ready, users={users_count}, admins={len(admins)}")
 
-    await asyncio.gather(
+    coros = [
         s111.ws_loop(),         # Binance WS — 1.1.1 detection
         s111.tv_refresh_loop(), # TV REST — confluence data
         s112.ws_loop(),         # 1.1.2 own WS session
         s113.ws_loop(),         # 1.1.3 own WS session
         s116.ws_loop(),         # 1.1.6 own WS session
         polling_loop(),         # Telegram bot polling
-    )
+    ]
+    if s_mag is not None:
+        coros.append(s_mag.ws_loop())  # Магнитуда own WS (8h/12h), ADMIN-only
+
+    await asyncio.gather(*coros)
 
 
 if __name__ == "__main__":

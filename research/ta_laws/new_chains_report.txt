@@ -1,0 +1,17 @@
+НОВЫЕ ЦЕПОЧКИ (не 1.1.x) — BTC/ETH/SOL 4h, фьюч нетто, вход open[t+1], RR2.
+
+=== ① STRUCTURE BREAK-RETEST (CHoCH/BOS) ===
+  все:   n= 1958 exp=-0.198R WR=  31% PF=0.74 tot=-386.8R sym0/3 год0/7
+  SHORT: n=  898 exp=-0.231R WR=  30% PF=0.71 tot=-207.7R sym0/3 год0/7
+  LONG:  n= 1060 exp=-0.169R WR=  32% PF=0.78 tot=-179.1R sym0/3 год2/7
+  NULL: exp -0.198R vs random -0.123R, P(rnd>=)=0.987 -> НЕ бьёт null
+
+=== ② MARUBOZU OPEN-MAGNET ===
+  все:   n=  205 exp=+0.019R WR=  51% PF=1.03 tot=  +3.9R sym2/3 год4/7
+  LONG:  n=   91 exp=+0.121R WR=  55% PF=1.22 tot= +11.0R sym2/3 год5/7
+  SHORT: n=  114 exp=-0.062R WR=  48% PF=0.91 tot=  -7.1R sym1/3 год3/7
+  NULL: exp +0.019R vs random -0.119R, P(rnd>=)=0.083 -> НЕ бьёт null
+
+=== ВЕРДИКТ ===
+  ① break-retest: exp -0.198R sym0/3 год0/7 -> ❌ нет чистого edge
+  ② marubozu: exp +0.019R sym2/3 год4/7 -> ❌ нет чистого edge

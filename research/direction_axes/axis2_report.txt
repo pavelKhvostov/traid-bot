@@ -1,0 +1,26 @@
+================================================================
+ ОСЬ 2 — FUNDING RATE -> направление BTC (8h)
+================================================================
+BTC: 4775 8h-баров, 2022-01-30 -> 2026-06-10
+OOS>=2024: 2674 баров
+
+majority=0.515
+own-AR:            acc=0.502  signed-ret=+0.000283
+funding-only:      acc=0.479  signed-ret=+0.000043
+FULL(own+funding): acc=0.491  signed-ret=+0.000127   -> funding над own: -0.011
+permutation-null: 0.495±0.009  p=0.708
+год OOS: 2024:0.483  2025:0.494  2026:0.503
+
+КВАНТИЛЬ-КОНДИШН (экстрим funding -> следующий 8h BTC):
+  top10% (перегрев лонгов)   n=1658  P(down)=0.496  meanFwd=-0.000034
+  bot10% (перегрев шортов)   n= 478  P(down)=0.475  meanFwd=+0.001855
+  z>+2 (резкий перегрев)     n=  98  P(down)=0.449  meanFwd=+0.000290
+  z<-2                       n= 189  P(down)=0.466  meanFwd=+0.003115
+
+1d-ГОРИЗОНТ: дневной funding -> знак BTC[t+1d]
+  own-AR acc=0.495 | +funding acc=0.498 (+0.003)  null 0.498 p=0.518
+  top10% funding -> P(down завтра)=0.493 meanFwd=+0.00148 | bot10% -> P(down)=0.481 meanFwd=+0.00266
+
+CROSS-ASSET (funding -> свой знак, 8h, OOS>=2024):
+  ETHUSDT: own=0.508 +funding=0.514 (+0.006)  ret_full=+0.000438
+  SOLUSDT: own=0.514 +funding=0.513 (-0.001)  ret_full=+0.000153

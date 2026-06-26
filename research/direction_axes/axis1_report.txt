@@ -1,0 +1,34 @@
+
+====================================================================
+ ОСЬ 1 — CROSS-ASSET LEAD-LAG, ТФ=1d
+====================================================================
+выборка: 2087 баров, 2020-08-14 -> 2026-05-01; OOS-тест >= 2024 (852 баров)
+
+БАЗЛАЙНЫ OOS:  majority=0.509   persistence(знак=вчера)=0.488
+own-AR(цена BTC):   acc=0.514  signed-ret=+0.00027
+cross-only:         acc=0.491  signed-ret=-0.00010
+FULL(own+cross):    acc=0.486  signed-ret=-0.00004
+-> ПРИБАВКА cross над own-AR: acc -0.028, ret -0.00031
+permutation-null: acc_full=0.486 vs null 0.502±0.018  p=0.816
+год-стабильность (acc OOS): 2024:0.489  2025:0.485  2026:0.479
+  cross-target fwd_eth: acc=0.498 ret=+0.00003
+  cross-target fwd_sol: acc=0.466 ret=-0.00193
+
+ГИПОТЕЗА USDT.D: рост доминации (top20%) -> BTC next: P(down)=0.440  meanFwd=+0.00313 | падение домин.(bot20%): P(down)=0.536 meanFwd=+0.00025
+
+====================================================================
+ ОСЬ 1 — CROSS-ASSET LEAD-LAG, ТФ=4h
+====================================================================
+выборка: 2913 баров, 2025-01-01 -> 2026-05-01; OOS-тест >= 2024 (2913 баров)
+
+БАЗЛАЙНЫ OOS:  majority=0.504   persistence(знак=вчера)=0.475
+own-AR(цена BTC):   acc=0.496  signed-ret=+0.00002
+cross-only:         acc=0.496  signed-ret=+0.00002
+FULL(own+cross):    acc=0.496  signed-ret=+0.00002
+-> ПРИБАВКА cross над own-AR: acc +0.000, ret +0.00000
+permutation-null: acc_full=0.496 vs null 0.496±0.000  p=1.000
+год-стабильность (acc OOS): 2025:0.495  2026:0.499
+  cross-target fwd_eth: acc=0.494 ret=+0.00002
+  cross-target fwd_sol: acc=0.503 ret=+0.00014
+
+ГИПОТЕЗА USDT.D: рост доминации (top20%) -> BTC next: P(down)=0.479  meanFwd=-0.00103 | падение домин.(bot20%): P(down)=0.532 meanFwd=+0.00030

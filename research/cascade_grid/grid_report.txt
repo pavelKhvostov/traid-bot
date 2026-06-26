@@ -1,0 +1,37 @@
+CASCADE GRID — 64 конфигов, 782s
+Гейты: min_n + cross-asset(>=2/3) + two-sided(BTC) + year(>=5/N) + OOS(обе половины).
+RR гейтинга=2.0 (фикс, без cherry-pick).
+
+=== ПРОШЛИ ВСЕ ГЕЙТЫ: 15 ===
+  topOB-macOB-htfOB-deep         BTC R=+246.0 (L+173/S+73) yrs=7/7 OOS h1+134/h2+112 ETH=+315 SOL=+118 null_p=0.000
+  topOB-macFVG-htfOB-deep        BTC R=+156.0 (L+120/S+36) yrs=6/7 OOS h1+85/h2+71 ETH=+193 SOL=+68 null_p=0.000
+  topFVG-macFVG-htfOB-deep       BTC R=+145.0 (L+77/S+68) yrs=6/7 OOS h1+65/h2+80 ETH=+225 SOL=+166 null_p=0.000
+  topOB-macOB-htfRDRB-deep       BTC R=+143.0 (L+96/S+47) yrs=6/7 OOS h1+132/h2+11 ETH=+221 SOL=+151 null_p=0.000
+  topFVG-macOB-htfOB-deep        BTC R=+100.0 (L+54/S+46) yrs=5/7 OOS h1+54/h2+46 ETH=+107 SOL=+86 null_p=0.000
+  topFVG-macFVG-htfOB-deep-SW    BTC R=+89.0 (L+36/S+53) yrs=6/7 OOS h1+26/h2+63 ETH=+94 SOL=+75 null_p=0.000
+  topOB-macRDRB-htfOB-deep       BTC R=+86.0 (L+80/S+6) yrs=6/7 OOS h1+34/h2+52 ETH=+149 SOL=+36 null_p=0.010
+  topFVG-macFVG-htfRDRB-deep     BTC R=+79.0 (L+16/S+63) yrs=6/7 OOS h1+23/h2+56 ETH=+104 SOL=+217 null_p=0.003
+  topOB-macOB-htfOB-deep-SW      BTC R=+75.0 (L+56/S+19) yrs=6/7 OOS h1+45/h2+30 ETH=+83 SOL=-29 null_p=0.030
+  topFVG-macOB-htfOB-deep-SW     BTC R=+59.0 (L+34/S+25) yrs=7/7 OOS h1+23/h2+36 ETH=+31 SOL=+48 null_p=0.000
+  topOB-macOB-htfOB-sametf       BTC R=+48.0 (L+36/S+12) yrs=5/7 OOS h1+42/h2+6 ETH=+95 SOL=+56 null_p=0.003
+  topFVG-maciFVG-htfOB-deep      BTC R=+33.0 (L+20/S+13) yrs=6/7 OOS h1+19/h2+14 ETH=+55 SOL=+7 null_p=0.037
+  topFVG-maciFVG-htfOB-deep-SW   BTC R=+28.0 (L+11/S+17) yrs=6/7 OOS h1+12/h2+16 ETH=+26 SOL=+4 null_p=0.040
+  topOB-macRDRB-htfOB-sametf     BTC R=+25.0 (L+23/S+2) yrs=6/7 OOS h1+17/h2+8 ETH=+36 SOL=+15 null_p=0.037
+  topOB-macFVG-htfOB-sametf      BTC R=+21.0 (L+17/S+4) yrs=6/7 OOS h1+11/h2+10 ETH=+18 SOL=+21 null_p=0.093
+
+=== ТОП-15 по BTC ΣR (все) ===
+  topOB-macOB-htfOB-deep         BTC R=+246.0 closed=1680 cross=1 two_sided=1 oos=1 PASS=1
+  topOB-macFVG-htfOB-deep        BTC R=+156.0 closed=813 cross=1 two_sided=1 oos=1 PASS=1
+  topFVG-macFVG-htfOB-deep       BTC R=+145.0 closed=1031 cross=1 two_sided=1 oos=1 PASS=1
+  topOB-macOB-htfRDRB-deep       BTC R=+143.0 closed=967 cross=1 two_sided=1 oos=1 PASS=1
+  topFVG-macOB-htfOB-deep        BTC R=+100.0 closed=431 cross=1 two_sided=1 oos=1 PASS=1
+  topFVG-macFVG-htfOB-deep-SW    BTC R=+89.0 closed=499 cross=1 two_sided=1 oos=1 PASS=1
+  topOB-macRDRB-htfOB-deep       BTC R=+86.0 closed=772 cross=1 two_sided=1 oos=1 PASS=1
+  topFVG-macFVG-htfRDRB-deep     BTC R=+79.0 closed=533 cross=1 two_sided=1 oos=1 PASS=1
+  topOB-macOB-htfOB-deep-SW      BTC R=+75.0 closed=792 cross=1 two_sided=1 oos=1 PASS=1
+  topOB-macFVG-htfOB-deep-SW     BTC R=+66.0 closed=378 cross=1 two_sided=1 oos=1 PASS=0
+  topOB-macFVG-htfRDRB-deep      BTC R=+63.0 closed=405 cross=1 two_sided=1 oos=0 PASS=0
+  topFVG-macOB-htfOB-deep-SW     BTC R=+59.0 closed=214 cross=1 two_sided=1 oos=1 PASS=1
+  topOB-macOB-htfRDRB-deep-SW    BTC R=+51.0 closed=303 cross=1 two_sided=1 oos=0 PASS=0
+  topOB-macOB-htfOB-sametf       BTC R=+48.0 closed=252 cross=1 two_sided=1 oos=1 PASS=1
+  topFVG-maciFVG-htfRDRB-deep    BTC R=+40.0 closed=158 cross=1 two_sided=0 oos=1 PASS=0

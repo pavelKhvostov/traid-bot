@@ -15,6 +15,26 @@ date: 2026-04-29
 - [[стек и зависимости]] — Python 3.13, pandas, websockets, requests.
 - [[структура CSV]] — `data/<SYMBOL>_<TF>.csv`, native vs composed ТФ.
 
+## 🧲 Сессия 2026-06-25 (Магнитуда reversal-стратегия + live + оси направления + MFI×ASVK)
+- [[2026-06-25-magnituda-strategy-built-live-integrated-direction-axes-mfi-asvk]] — СЕССИЯ: «Магнитуда» (reversal CatBoost) построена/названа/доведена/заведена в live ADMIN-only; оси направления=coin; микроструктура≤cost-floor; MFI×ASVK исчерпан.
+- [[magnituda-reversal-strategy]] — ⭐ РЕШЕНИЕ: навык реален но net-R≈0(вола-RR); 2 робастные ячейки (8h long RR2.5-4 / 12h short RR1.5-4); corr≈0 → диверсификатор (Sharpe 3.82→4.30); maker ✅, гейты ❌. Скромный/режим-зависимый → ~15% слив, не машина.
+- [[magnituda]] — СТРАТЕГИЯ: live-спека + интеграция (флаг MAGNITUDE_ENABLED, ADMIN-only, magnitude_hourly в etap_227 + magnitude_scanner в main.py). Воспроизв.: research/reversal_cb/MAGNITUDA_REPRODUCE.md.
+- [[direction-axes-and-microstructure-sub-cost]] — направление: экзогенные оси (cross-asset/funding/flow)=coin; rich-OHLCV микроструктура реальна (15m 0.534, топ-conv 0.61) но ≤ cost-floor = слой ликвидности.
+- [[execution-sim-lookahead-fill-vs-bracket]] — грабли: лимит-фаза vs брекет раздельно = lookahead (Sharpe 2.95 мираж).
+
+## 💰 Сессия 2026-06-24 (магнитуда + финансы RR/мес + цепочки Вадима → HTF-breaker)
+- [[2026-06-24-magnitude-financial-workflow-vadim-chains-htf-breaker]] — СЕССИЯ: фракталы/направление/развороты=монетка; магнитуда предсказуема(вола); финансы RR×месяц (Workflow); **нетто co-sim: gross→~0.4-0.5%/мес, A+3.2 net-killed**; **цепочки Вадима → ОДИН edge: HTF-breaker** (найден TF-sweep'ом).
+- [[htf-breaker-the-only-vadim-edge-found-via-tf-sweep]] — ⭐ единственный новый edge: HTF-breaker(6h/8h, 1d-CHoCH-гейт), OOS Sharpe 0.42, cross 3/3, декорр 0.07, корзина Sharpe 0.33→0.38. Остальное Вадима = монетка/cost-killed.
+- [[magnitude-is-predictable-cats-dogs-but-edge-is-vol-persistence]] — размер хода предсказуем (кошки/собаки d 0.46 vs 0.02), edge=ATR-персистентность; вола-гейт-сайзер 1.1.1 валидирован (+42%).
+- [[fractal-5pct-first-passage-direction-is-coin-self-correcting-module]] — ±5% направление=монетка; самообуч.модуль поймал мираж персистентности.
+
+## 🧭 Сессия 2026-06-22 (симбиоз Вадима + honest-negatives)
+- [[2026-06-22-vadim-интеграция-симбиоз-honest-negatives-цепочки]] — СЕССИЯ: analytics_engine (ядро) + smc_adapter; интеграция Vadim выгружена на git andrey; движки/гонка-зон/order-flow/новые-цепочки = честные негативы; деньги = каскады+корзина+arc-конфлюэнс.
+- [[ta-coverage-gap-analysis]] — gap-анализ ТА: пробелы на осях ортогональных цене; ось B (order-flow у зон) протестирована = ❌ (хуже random).
+
+## 🧠 Нейро-модуль «гонка зон» (2026-06-21)
+- [[zone-race-first-passage-distance-dominates]] — «в какую зону Вадима цена придёт первой» + само-исправление (онлайн: осознаёт ошибку→причина→аргумент.коррекция веса). Работает (~73%), но это **чистая ДИСТАНЦИЯ** (ближайшая зона первой); зона-сила/магнит/контекст НЕ добавляют — модуль сам осознал и прижал их веса. Применимость: риск-брекет, не прогноз направления.
+
 ## ⚠️ Движки монетизации (2026-06-21) — ОПРОВЕРГНУТЫ (entry-bar lookahead)
 - [[htf-sweep-reclaim-reversal-engine]] — ❌ **REFUTED**: «победитель» +0.216R был артефактом entry-bar lookahead (вход=close, управление с того же бара). Честно: sweep+reclaim −0.05R, MR-у-экстремумов +0.60R→**−0.18R** (WR68%→36%, год7/7→0/7). Новые движки честного edge НЕ дали. Чисто (вход на open[i+1]) остаётся ТОЛЬКО arc+конфлюэнс +0.309R / arc +0.164R.
 

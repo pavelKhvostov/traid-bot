@@ -1,0 +1,53 @@
+{
+  "FEATS": [
+    "c2l",
+    "clv",
+    "lwick",
+    "body",
+    "ret1",
+    "ret3",
+    "ret6",
+    "dd20",
+    "posrange20",
+    "dist_ema20",
+    "dist_ema50",
+    "dist_ema100",
+    "rsi",
+    "consec_dn",
+    "atr_pct",
+    "atr_ptile",
+    "range_exp",
+    "vol_z",
+    "vol_climax",
+    "swept",
+    "sweep_depth",
+    "left_pivot"
+  ],
+  "THR": 0.03,
+  "CAP": 120,
+  "flag_pct": 0.7,
+  "directions": {
+    "long": {
+      "tf": "8h",
+      "rr": [
+        2.5,
+        4.0
+      ],
+      "flag_thr": 0.36720345503805624,
+      "model": "magnitude_long_8h.cbm",
+      "n_train": 14242,
+      "base_rate": 0.2918129476197163
+    },
+    "short": {
+      "tf": "12h",
+      "rr": [
+        1.5,
+        4.0
+      ],
+      "flag_thr": 0.39464220570220965,
+      "model": "magnitude_short_12h.cbm",
+      "n_train": 10646,
+      "base_rate": 0.3133571294382867
+    }
+  }
+}

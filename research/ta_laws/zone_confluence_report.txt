@@ -1,0 +1,22 @@
+ZONE-CONFLUENCE (Вадим) vs MTF (наш) на arc-сетапах — BTC/ETH/SOL, фьюч нетто, SL1.5/RR2.
+Зоны: канон smc-lib (OB/FVG/fractal/RDRB/ob_liq/marubozu) на ('4h', '12h', '1d'), каузально.
+Всего сетапов: 362
+
+=== СЛОИ АНАЛИТИКИ (нетто-R) ===
+  baseline (все arc-сетапы)            n= 362 exp=+0.011R WR=  38% PF=1.02 tot=  +4.0R sym2/3 год3/7
+  наш MTF-aligned (fade в тренд >=2/3) n= 187 exp=+0.182R WR=  44% PF=1.29 tot= +34.0R sym2/3 год6/7
+  наш MTF-против (<=1/3)               n= 175 exp=-0.171R WR=  31% PF=0.77 tot= -30.0R sym0/3 год1/7
+  его ZONE-high (z>=27.4, верх трети) n= 123 exp=-0.169R WR=  33% PF=0.78 tot= -20.7R sym1/3 год4/7
+  его ZONE-low  (z<=15.0, низ трети)  n= 120 exp=+0.180R WR=  43% PF=1.29 tot= +21.6R sym2/3 год6/7
+  его ZONE block>=1 у цены             n= 321 exp=-0.043R WR=  36% PF=0.94 tot= -13.9R sym1/3 год3/7
+
+=== ДАЁТ ЛИ ЕГО СЛОЙ ЛИФТ СВЕРХ НАШЕГО MTF? ===
+  MTF-aligned ВСЕ                      n= 187 exp=+0.182R WR=  44% PF=1.29 tot= +34.0R sym2/3 год6/7
+  MTF-aligned ∩ ZONE-high             n=  42 exp=+0.038R WR=  40% PF=1.05 tot=  +1.6R sym2/3 год4/7
+  MTF-aligned ∩ ZONE-low              n=  79 exp=+0.309R WR=  48% PF=1.55 tot= +24.4R sym2/3 год6/7
+  MTF-aligned ∩ block>=1              n= 161 exp=+0.110R WR=  42% PF=1.17 tot= +17.8R sym2/3 год5/7
+
+=== ОБРАТНО: даёт ли MTF лифт сверх его ZONE? ===
+  ZONE-high ВСЕ                        n= 123 exp=-0.169R WR=  33% PF=0.78 tot= -20.7R sym1/3 год4/7
+  ZONE-high ∩ MTF-aligned             n=  42 exp=+0.038R WR=  40% PF=1.05 tot=  +1.6R sym2/3 год4/7
+  ZONE-high ∩ MTF-против              n=  81 exp=-0.276R WR=  28% PF=0.66 tot= -22.3R sym1/3 год2/7

@@ -1,0 +1,151 @@
+STAGE 2 — глубокая валидация 15 финалистов, 663s
+Робастность: min per-trade (3 символа) > 0, null<0.05, RR-кривая, per-year x3.
+
+=== topOB-macRDRB-htfOB-sametf  ROBUST
+  null_p(2000)=0.035  min_per_trade=+0.217  RR>0: 12/12
+  BTCUSDT  closed=  92 ptt=+0.272  RR1.5:+23  RR2.0:+25  RR2.5:+27  RR3.0:+24  +yrs=6/7
+           per-year: 2020:+1 2021:-2 2022:+16 2023:+2 2024:+3 2025:+2 2026:+3
+  ETHUSDT  closed=  84 ptt=+0.429  RR1.5:+36  RR2.0:+36  RR2.5:+42  RR3.0:+44  +yrs=7/7
+           per-year: 2020:+4 2021:+13 2022:+4 2023:+4 2024:+3 2025:+1 2026:+7
+  SOLUSDT  closed=  69 ptt=+0.217  RR1.5:+11  RR2.0:+15  RR2.5:+4  RR3.0:+7  +yrs=4/7
+           per-year: 2020:+1 2021:+6 2022:-3 2023:-1 2024:+6 2025:+9 2026:-3
+
+=== topFVG-macOB-htfOB-deep  ROBUST
+  null_p(2000)=0.000  min_per_trade=+0.203  RR>0: 12/12
+  BTCUSDT  closed= 431 ptt=+0.232  RR1.5:+76  RR2.0:+100  RR2.5:+89  RR3.0:+66  +yrs=5/7
+           per-year: 2020:-1 2021:+33 2022:+24 2023:-2 2024:+16 2025:+12 2026:+18
+  ETHUSDT  closed= 382 ptt=+0.280  RR1.5:+96  RR2.0:+107  RR2.5:+110  RR3.0:+113  +yrs=7/7
+           per-year: 2020:+4 2021:+40 2022:+14 2023:+7 2024:+20 2025:+17 2026:+5
+  SOLUSDT  closed= 424 ptt=+0.203  RR1.5:+91  RR2.0:+86  RR2.5:+76  RR3.0:+80  +yrs=5/7
+           per-year: 2020:-10 2021:+33 2022:-5 2023:+15 2024:+33 2025:+15 2026:+5
+
+=== topOB-macOB-htfOB-sametf  ROBUST
+  null_p(2000)=0.009  min_per_trade=+0.190  RR>0: 12/12
+  BTCUSDT  closed= 252 ptt=+0.190  RR1.5:+53  RR2.0:+48  RR2.5:+70  RR3.0:+78  +yrs=5/7
+           per-year: 2020:+10 2021:-6 2022:+12 2023:+26 2024:+2 2025:-4 2026:+8
+  ETHUSDT  closed= 220 ptt=+0.432  RR1.5:+82  RR2.0:+95  RR2.5:+84  RR3.0:+84  +yrs=7/7
+           per-year: 2020:+5 2021:+16 2022:+4 2023:+19 2024:+24 2025:+12 2026:+15
+  SOLUSDT  closed= 193 ptt=+0.290  RR1.5:+40  RR2.0:+56  RR2.5:+31  RR3.0:+31  +yrs=6/7
+           per-year: 2020:-3 2021:+11 2022:+11 2023:+8 2024:+16 2025:+4 2026:+9
+
+=== topFVG-macOB-htfOB-deep-SW  ROBUST
+  null_p(2000)=0.001  min_per_trade=+0.173  RR>0: 12/12
+  BTCUSDT  closed= 214 ptt=+0.276  RR1.5:+58  RR2.0:+59  RR2.5:+44  RR3.0:+34  +yrs=7/7
+           per-year: 2020:+6 2021:+7 2022:+6 2023:+4 2024:+4 2025:+23 2026:+9
+  ETHUSDT  closed= 179 ptt=+0.173  RR1.5:+31  RR2.0:+31  RR2.5:+16  RR3.0:+19  +yrs=5/7
+           per-year: 2020:+1 2021:+18 2022:-11 2023:+11 2024:+4 2025:+12 2026:-4
+  SOLUSDT  closed= 219 ptt=+0.219  RR1.5:+44  RR2.0:+48  RR2.5:+44  RR3.0:+41  +yrs=4/7
+           per-year: 2020:-2 2021:+13 2022:-1 2023:+8 2024:+28 2025:+6 2026:-4
+
+=== topFVG-macFVG-htfOB-deep-SW  ROBUST
+  null_p(2000)=0.002  min_per_trade=+0.169  RR>0: 12/12
+  BTCUSDT  closed= 499 ptt=+0.178  RR1.5:+76  RR2.0:+89  RR2.5:+78  RR3.0:+53  +yrs=6/7
+           per-year: 2020:+8 2021:+6 2022:+20 2023:-8 2024:+19 2025:+29 2026:+15
+  ETHUSDT  closed= 476 ptt=+0.197  RR1.5:+86  RR2.0:+94  RR2.5:+104  RR3.0:+94  +yrs=6/7
+           per-year: 2020:+11 2021:+25 2022:-7 2023:+19 2024:+10 2025:+24 2026:+12
+  SOLUSDT  closed= 444 ptt=+0.169  RR1.5:+76  RR2.0:+75  RR2.5:+58  RR3.0:+55  +yrs=6/7
+           per-year: 2020:-11 2021:+9 2022:+8 2023:+13 2024:+28 2025:+26 2026:+2
+
+=== topFVG-macFVG-htfRDRB-deep  ROBUST
+  null_p(2000)=0.003  min_per_trade=+0.148  RR>0: 12/12
+  BTCUSDT  closed= 533 ptt=+0.148  RR1.5:+94  RR2.0:+79  RR2.5:+52  RR3.0:+47  +yrs=6/7
+           per-year: 2020:+3 2021:+15 2022:-3 2023:+8 2024:+31 2025:+17 2026:+8
+  ETHUSDT  closed= 541 ptt=+0.192  RR1.5:+106  RR2.0:+104  RR2.5:+68  RR3.0:+80  +yrs=7/7
+           per-year: 2020:+2 2021:+56 2022:+12 2023:+5 2024:+23 2025:+5 2026:+1
+  SOLUSDT  closed= 479 ptt=+0.453  RR1.5:+206  RR2.0:+217  RR2.5:+240  RR3.0:+254  +yrs=7/7
+           per-year: 2020:+21 2021:+24 2022:+12 2023:+34 2024:+36 2025:+51 2026:+39
+
+=== topOB-macOB-htfRDRB-deep  ROBUST
+  null_p(2000)=0.001  min_per_trade=+0.148  RR>0: 12/12
+  BTCUSDT  closed= 967 ptt=+0.148  RR1.5:+148  RR2.0:+143  RR2.5:+106  RR3.0:+132  +yrs=6/7
+           per-year: 2020:+17 2021:+28 2022:+55 2023:+32 2024:-13 2025:+10 2026:+14
+  ETHUSDT  closed= 877 ptt=+0.252  RR1.5:+226  RR2.0:+221  RR2.5:+268  RR3.0:+239  +yrs=7/7
+           per-year: 2020:+16 2021:+69 2022:+26 2023:+10 2024:+38 2025:+50 2026:+12
+  SOLUSDT  closed= 788 ptt=+0.192  RR1.5:+152  RR2.0:+151  RR2.5:+154  RR3.0:+164  +yrs=7/7
+           per-year: 2020:+11 2021:+12 2022:+16 2023:+7 2024:+21 2025:+60 2026:+24
+
+=== topFVG-macFVG-htfOB-deep  ROBUST
+  null_p(2000)=0.000  min_per_trade=+0.141  RR>0: 12/12
+  BTCUSDT  closed=1031 ptt=+0.141  RR1.5:+136  RR2.0:+145  RR2.5:+122  RR3.0:+106  +yrs=6/7
+           per-year: 2020:-2 2021:+16 2022:+34 2023:+17 2024:+44 2025:+8 2026:+28
+  ETHUSDT  closed= 945 ptt=+0.238  RR1.5:+192  RR2.0:+225  RR2.5:+268  RR3.0:+282  +yrs=7/7
+           per-year: 2020:+18 2021:+63 2022:+12 2023:+54 2024:+30 2025:+27 2026:+21
+  SOLUSDT  closed= 902 ptt=+0.184  RR1.5:+177  RR2.0:+166  RR2.5:+126  RR3.0:+149  +yrs=6/7
+           per-year: 2020:-6 2021:+32 2022:+28 2023:+23 2024:+62 2025:+21 2026:+6
+
+=== topOB-macFVG-htfOB-deep  ROBUST
+  null_p(2000)=0.000  min_per_trade=+0.101  RR>0: 12/12
+  BTCUSDT  closed= 813 ptt=+0.192  RR1.5:+114  RR2.0:+156  RR2.5:+158  RR3.0:+184  +yrs=6/7
+           per-year: 2020:+10 2021:-1 2022:+45 2023:+31 2024:+25 2025:+35 2026:+11
+  ETHUSDT  closed= 743 ptt=+0.260  RR1.5:+161  RR2.0:+193  RR2.5:+205  RR3.0:+214  +yrs=7/7
+           per-year: 2020:+24 2021:+42 2022:+12 2023:+12 2024:+31 2025:+51 2026:+21
+  SOLUSDT  closed= 673 ptt=+0.101  RR1.5:+87  RR2.0:+68  RR2.5:+94  RR3.0:+112  +yrs=6/7
+           per-year: 2020:-4 2021:+1 2022:+22 2023:+13 2024:+5 2025:+24 2026:+7
+
+=== topOB-macOB-htfOB-deep  ROBUST
+  null_p(2000)=0.000  min_per_trade=+0.088  RR>0: 12/12
+  BTCUSDT  closed=1680 ptt=+0.146  RR1.5:+233  RR2.0:+246  RR2.5:+267  RR3.0:+267  +yrs=7/7
+           per-year: 2020:+22 2021:+42 2022:+57 2023:+13 2024:+44 2025:+57 2026:+11
+  ETHUSDT  closed=1452 ptt=+0.217  RR1.5:+293  RR2.0:+315  RR2.5:+274  RR3.0:+298  +yrs=6/7
+           per-year: 2020:+22 2021:+90 2022:-1 2023:+50 2024:+35 2025:+77 2026:+42
+  SOLUSDT  closed=1334 ptt=+0.088  RR1.5:+156  RR2.0:+118  RR2.5:+112  RR3.0:+138  +yrs=7/7
+           per-year: 2020:+13 2021:+17 2022:+17 2023:+10 2024:+15 2025:+36 2026:+10
+
+=== topOB-macRDRB-htfOB-deep  ROBUST
+  null_p(2000)=0.015  min_per_trade=+0.063  RR>0: 12/12
+  BTCUSDT  closed= 772 ptt=+0.111  RR1.5:+96  RR2.0:+86  RR2.5:+86  RR3.0:+89  +yrs=6/7
+           per-year: 2020:+20 2021:+22 2022:+14 2023:-22 2024:+18 2025:+12 2026:+22
+  ETHUSDT  closed= 670 ptt=+0.222  RR1.5:+130  RR2.0:+149  RR2.5:+152  RR3.0:+151  +yrs=6/7
+           per-year: 2020:+3 2021:+64 2022:+7 2023:+12 2024:+24 2025:+39 2026:+0
+  SOLUSDT  closed= 573 ptt=+0.063  RR1.5:+44  RR2.0:+36  RR2.5:+36  RR3.0:+20  +yrs=5/7
+           per-year: 2020:-3 2021:+9 2022:+0 2023:+13 2024:+4 2025:+8 2026:+5
+
+=== topFVG-maciFVG-htfOB-deep-SW  ROBUST
+  null_p(2000)=0.025  min_per_trade=+0.033  RR>0: 10/12
+  BTCUSDT  closed= 125 ptt=+0.224  RR1.5:+28  RR2.0:+28  RR2.5:+29  RR3.0:+16  +yrs=6/7
+           per-year: 2020:+1 2021:+8 2022:+4 2023:-1 2024:+6 2025:+7 2026:+3
+  ETHUSDT  closed= 142 ptt=+0.183  RR1.5:+10  RR2.0:+26  RR2.5:+24  RR3.0:+20  +yrs=5/7
+           per-year: 2020:+11 2021:+13 2022:-8 2023:+6 2024:-10 2025:+9 2026:+5
+  SOLUSDT  closed= 122 ptt=+0.033  RR1.5:+8  RR2.0:+4  RR2.5:-6  RR3.0:-1  +yrs=3/7
+           per-year: 2020:-1 2021:+3 2022:-5 2023:-1 2024:+6 2025:+3 2026:-1
+
+=== topOB-macOB-htfOB-deep-SW  
+  null_p(2000)=0.028  min_per_trade=-0.043  RR>0: 8/12
+  BTCUSDT  closed= 792 ptt=+0.095  RR1.5:+78  RR2.0:+75  RR2.5:+62  RR3.0:+62  +yrs=6/7
+           per-year: 2020:+5 2021:-1 2022:+20 2023:+21 2024:+9 2025:+11 2026:+10
+  ETHUSDT  closed= 667 ptt=+0.124  RR1.5:+90  RR2.0:+83  RR2.5:+100  RR3.0:+97  +yrs=5/7
+           per-year: 2020:+7 2021:+39 2022:-12 2023:-5 2024:+7 2025:+33 2026:+14
+  SOLUSDT  closed= 668 ptt=-0.043  RR1.5:-23  RR2.0:-29  RR2.5:-42  RR3.0:-16  +yrs=1/7
+           per-year: 2020:-8 2021:-16 2022:+0 2023:+4 2024:-5 2025:-2 2026:-2
+
+=== topOB-macFVG-htfOB-sametf  
+  null_p(2000)=0.103  min_per_trade=+0.162  RR>0: 12/12
+  BTCUSDT  closed= 123 ptt=+0.171  RR1.5:+30  RR2.0:+21  RR2.5:+20  RR3.0:+14  +yrs=6/7
+           per-year: 2020:+3 2021:-10 2022:+4 2023:+14 2024:+3 2025:+5 2026:+2
+  ETHUSDT  closed= 111 ptt=+0.162  RR1.5:+19  RR2.0:+18  RR2.5:+15  RR3.0:+17  +yrs=5/7
+           per-year: 2020:+7 2021:+5 2022:+6 2023:+8 2024:-4 2025:-7 2026:+3
+  SOLUSDT  closed=  96 ptt=+0.219  RR1.5:+14  RR2.0:+21  RR2.5:+9  RR3.0:+12  +yrs=6/7
+           per-year: 2020:+1 2021:+12 2022:+2 2023:-2 2024:+6 2025:+1 2026:+1
+
+=== topFVG-maciFVG-htfOB-deep  
+  null_p(2000)=0.050  min_per_trade=+0.032  RR>0: 10/12
+  BTCUSDT  closed= 264 ptt=+0.125  RR1.5:+38  RR2.0:+33  RR2.5:+30  RR3.0:+22  +yrs=6/7
+           per-year: 2020:-6 2021:+4 2022:+7 2023:+14 2024:+10 2025:+3 2026:+1
+  ETHUSDT  closed= 266 ptt=+0.207  RR1.5:+49  RR2.0:+55  RR2.5:+65  RR3.0:+68  +yrs=5/7
+           per-year: 2020:-4 2021:+27 2022:-4 2023:+18 2024:+1 2025:+10 2026:+7
+  SOLUSDT  closed= 218 ptt=+0.032  RR1.5:+26  RR2.0:+7  RR2.5:-10  RR3.0:-4  +yrs=2/7
+           per-year: 2020:-2 2021:+1 2022:+0 2023:-4 2024:+17 2025:-2 2026:-3
+
+=== ROBUST (min per-trade>0 & null<0.05 & RR>0 почти везде): 12 ===
+  topOB-macRDRB-htfOB-sametf     minPTT=+0.217 null=0.035 RR=12/12 yrs B/E/S=6/7/4
+  topFVG-macOB-htfOB-deep        minPTT=+0.203 null=0.000 RR=12/12 yrs B/E/S=5/7/5
+  topOB-macOB-htfOB-sametf       minPTT=+0.190 null=0.009 RR=12/12 yrs B/E/S=5/7/6
+  topFVG-macOB-htfOB-deep-SW     minPTT=+0.173 null=0.001 RR=12/12 yrs B/E/S=7/5/4
+  topFVG-macFVG-htfOB-deep-SW    minPTT=+0.169 null=0.002 RR=12/12 yrs B/E/S=6/6/6
+  topFVG-macFVG-htfRDRB-deep     minPTT=+0.148 null=0.003 RR=12/12 yrs B/E/S=6/7/7
+  topOB-macOB-htfRDRB-deep       minPTT=+0.148 null=0.001 RR=12/12 yrs B/E/S=6/7/7
+  topFVG-macFVG-htfOB-deep       minPTT=+0.141 null=0.000 RR=12/12 yrs B/E/S=6/7/6
+  topOB-macFVG-htfOB-deep        minPTT=+0.101 null=0.000 RR=12/12 yrs B/E/S=6/7/6
+  topOB-macOB-htfOB-deep         minPTT=+0.088 null=0.000 RR=12/12 yrs B/E/S=7/6/7
+  topOB-macRDRB-htfOB-deep       minPTT=+0.063 null=0.015 RR=12/12 yrs B/E/S=6/6/5
+  topFVG-maciFVG-htfOB-deep-SW   minPTT=+0.033 null=0.025 RR=10/12 yrs B/E/S=6/5/3

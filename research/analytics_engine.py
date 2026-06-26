@@ -84,6 +84,11 @@ class AnalyticsState:
     zones: list = field(default_factory=list)     # ZoneLite, near-price
     setups: list = field(default_factory=list)    # SetupRead
     summary: str = ""
+    magnet_long: float = 0.0      # драг зон-магнитов против LONG (снизу)
+    magnet_short: float = 0.0     # против SHORT (сверху)
+    clear_side: str = ""          # LONG | SHORT — где путь чище (меньше магнит)
+    tp_up: float = 0.0            # realistic-TP вверх (ближайший магнит ≤ extent)
+    tp_down: float = 0.0          # realistic-TP вниз
 
 
 # ───────────────────────── helpers ─────────────────────────
@@ -237,11 +242,18 @@ def analyze_at(pc: Precomp, ts: pd.Timestamp | None = None) -> AnalyticsState:
         rng = (price - lo) / (hi - lo) * 100 if hi > lo else 50
     else:
         a_pct, rng = 0.3, 50.0
+    atr_now = float(atr1[i]) if (df1 is not None and i >= 0 and atr1[i] > 0) else price * 0.003
     zraw = snapshot_from_events(pc.ev, pc.resampled, pc.df_1m, ts)
     zones = _zones_near(zraw, price)
     ctx = _context(pc, ts, price, a_pct, rng)
     setup = _recent_arc_setup(pc, ts, price, zraw, ctx)
     setups = [setup] if setup else []
+    # ФИЛЬТР (магнит/clear-path) + ЦЕЛЬ (realistic-TP) — всегда, даже без сетапа
+    mag_long = zone_confluence(zraw, price, "UP")["score"]
+    mag_short = zone_confluence(zraw, price, "DOWN")["score"]
+    clear_side = "LONG" if mag_long < mag_short else "SHORT"
+    tp_up = realistic_tp(zraw, price, "LONG", atr_now)
+    tp_down = realistic_tp(zraw, price, "SHORT", atr_now)
     # summary
     nb = sum(1 for z in zones if z.role == "block")
     summ = (f"Контекст {ctx['word']} ({ctx['mtf_up']}/3) · ATR {ctx['atr_pct']}% · "
@@ -250,7 +262,9 @@ def analyze_at(pc: Precomp, ts: pd.Timestamp | None = None) -> AnalyticsState:
         summ += setups[0].verdict
     else:
         summ += "Свежего arc-сетапа нет — ждать pullback в сторону тренда."
-    return AnalyticsState(pc.symbol, ts, round(price, 1), ctx, zones, setups, summ)
+    return AnalyticsState(pc.symbol, ts, round(price, 1), ctx, zones, setups, summ,
+                          round(mag_long, 1), round(mag_short, 1), clear_side,
+                          round(tp_up, 1), round(tp_down, 1))
 
 
 # ───────────────────────── live convenience ─────────────────────────

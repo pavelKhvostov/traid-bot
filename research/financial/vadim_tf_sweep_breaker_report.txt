@@ -1,0 +1,13 @@
+TF-SWEEP breaker-flip (C1) — bracket-independent инфо по всем ТФ
+signed@6 = forward 6 баров ТФ в ATR; null_p = vs shuffle-dir; P_fav = triple-barrier ±1ATR; сетка = нетто per-trade.
+
+    1h: filled 25600 | signed@6=+0.008ATR null_p=0.32 | P_fav=48% | сетка best -0.016@SL3.0/RR1.0 plus=N | пусто
+    2h: filled 13255 | signed@6=-0.019ATR null_p=0.86 | P_fav=48% | сетка best -0.032@SL2.0/RR1.0 plus=N | пусто
+    4h: filled  6391 | signed@6=+0.028ATR null_p=0.16 | P_fav=49% | сетка best -0.005@SL0.5/RR3.0 plus=N | пусто
+    6h: filled  4361 | signed@6=+0.068ATR null_p=0.01 | P_fav=50% | сетка best +0.081@SL0.5/RR3.0 plus=Y | ИНФА?
+    8h: filled  3145 | signed@6=+0.088ATR null_p=0.01 | P_fav=50% | сетка best +0.092@SL0.5/RR3.0 plus=Y | ИНФА?
+   12h: filled  2115 | signed@6=+0.020ATR null_p=0.33 | P_fav=49% | сетка best +0.084@SL1.0/RR3.0 plus=Y | пусто
+    1d: filled  1049 | signed@6=+0.129ATR null_p=0.03 | P_fav=52% | сетка best +0.100@SL0.5/RR3.0 plus=Y | ИНФА?
+
+=== ВЕРДИКТ ===
+  Хоть на одном ТФ есть инфа/плюс-зона? ДА — смотри выше

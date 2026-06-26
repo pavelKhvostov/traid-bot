@@ -476,6 +476,14 @@ def main():
         print("MARKET: ошибка", repr(e))
     # TOTAL/TOTALES из TV НЕ тянем здесь (это дёргало бы график каждый час) —
     # их генерит бот кнопок по нажатию (etap_228), свежими на момент запроса.
+    # Магнитуда (ADMIN-only reversal 8h/12h) — за флагом MAGNITUDE_ENABLED. Шлёт ТОЛЬКО админу,
+    # мимо recipients() (там Павел). Первый запуск = prefill silent. Изолировано в magnitude_hourly.py.
+    if os.getenv("MAGNITUDE_ENABLED", "").lower() in ("1", "true", "yes", "on"):
+        try:
+            from magnitude_hourly import magnitude_check
+            magnitude_check()
+        except Exception as e:
+            print("magnitude: ошибка", repr(e))
     LAST.write_text(json.dumps(last, ensure_ascii=False))
     print("done.")
 

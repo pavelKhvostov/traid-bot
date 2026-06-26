@@ -1,0 +1,34 @@
+=== (A) BREAKER cross-asset + год на HTF (6h/8h/1d) ===
+  [6h] по активам:
+    BTCUSDT: n=1527 signed@6=+0.109 null_p=0.02 сетка_best=+0.147@(0.5, 3.0)
+    ETHUSDT: n=1457 signed@6=+0.072 null_p=0.08 сетка_best=+0.040@(0.5, 3.0)
+    SOLUSDT: n=1375 signed@6=+0.021 null_p=0.36 сетка_best=+0.097@(0.5, 3.0)
+    по годам signed@6: 2020:-0.01 2021:+0.11 2022:+0.14 2023:+0.04 2024:-0.04 2025:+0.12 2026:+0.15
+  [8h] по активам:
+    BTCUSDT: n=1082 signed@6=+0.145 null_p=0.01 сетка_best=+0.120@(0.5, 3.0)
+    ETHUSDT: n=1045 signed@6=+0.104 null_p=0.05 сетка_best=+0.041@(1.5, 3.0)
+    SOLUSDT: n=1018 signed@6=+0.009 null_p=0.42 сетка_best=+0.072@(1.0, 3.0)
+    по годам signed@6: 2020:+0.14 2021:+0.11 2022:+0.06 2023:+0.09 2024:+0.10 2025:+0.06 2026:+0.05
+  [1d] по активам:
+    BTCUSDT: n= 389 signed@6=+0.077 null_p=0.20 сетка_best=+0.014@(0.5, 3.0)
+    ETHUSDT: n= 351 signed@6=+0.128 null_p=0.12 сетка_best=+0.172@(2.0, 3.0)
+    SOLUSDT: n= 309 signed@6=+0.196 null_p=0.03 сетка_best=+0.261@(1.0, 3.0)
+    по годам signed@6: 2020:+0.45 2021:+0.13 2022:-0.03 2023:+0.27 2024:+0.04 2025:+0.02 2026:+0.20
+
+=== (B) MITIGATION TF-sweep (pooled BTC+ETH+SOL) ===
+    1h: n=10338 signed@6=+0.054 null_p=0.00 best_grid(max-asset)=+0.095 ИНФА?
+    2h: n= 5420 signed@6=-0.051 null_p=0.97 best_grid(max-asset)=+0.115 пусто
+    4h: n= 2737 signed@6=-0.049 null_p=0.90 best_grid(max-asset)=+0.172 пусто
+    6h: n= 1881 signed@6=-0.233 null_p=1.00 best_grid(max-asset)=+0.180 пусто
+    8h: n= 1271 signed@6=-0.119 null_p=0.98 best_grid(max-asset)=+0.317 пусто
+   12h: n=  850 signed@6=-0.251 null_p=1.00 best_grid(max-asset)=+0.377 пусто
+    1d: n=  417 signed@6=-0.184 null_p=0.97 best_grid(max-asset)=+0.264 пусто
+
+=== (B) OB_LIQ TF-sweep (pooled BTC+ETH+SOL) ===
+    1h: n= 7527 signed@6=-0.025 null_p=0.79 best_grid(max-asset)=+0.018 пусто
+    2h: n= 4225 signed@6=-0.032 null_p=0.87 best_grid(max-asset)=+0.041 пусто
+    4h: n= 1836 signed@6=-0.001 null_p=0.55 best_grid(max-asset)=+0.166 пусто
+    6h: n= 1419 signed@6=-0.074 null_p=0.90 best_grid(max-asset)=+0.058 пусто
+    8h: n=  982 signed@6=-0.113 null_p=0.96 best_grid(max-asset)=+0.067 пусто
+   12h: n=  647 signed@6=-0.005 null_p=0.56 best_grid(max-asset)=+0.141 пусто
+    1d: n=  318 signed@6=-0.344 null_p=1.00 best_grid(max-asset)=+0.269 пусто
